@@ -22,7 +22,7 @@ void main()
 	mat4 transition = mat4(1, 0, 0, 0,
 							0, 1, 0, 0,
 								0, 0, 1, 0,
-									u_pos.x, u_pos.y, u_pos.z, 1);
+									-u_pos.x, -u_pos.y, -u_pos.z+1, 1);
 
 	mat4 projection = mat4(1, 0, 0, 0,   0, 1, 0, 0,   0, 0, -1, -1,   0, 0, 0, 1);
 
