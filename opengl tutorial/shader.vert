@@ -17,6 +17,9 @@ void main()
 	float a1 = u_cr.y;
 	float a2 = u_cr.z;
 	float a3 = u_cr.w;
+
+	mat4 coord_change = mat4(1, 0, 0, 0, 0, 0, -1, 0, 0, 1, 0, 0, 0, 0, 0, 1);
+
 	mat4 rotation = mat4(a1*a1 + a0*a0 - a2*a2 - a3*a3, 2*a2*a1 + 2*a0*a3, 2*a3*a1 - 2*a0*a2, 0, 2*a2*a1 - 2*a3*a0, a2*a2 + a0*a0 - a3*a3 - a1*a1, 2*a3*a2 + 2*a1*a0, 0, 2*a3*a1 + 2*a2*a0, 2*a3*a2 - 2*a1*a0, a3*a3 + a0*a0 - a2*a2 - a1*a1, 0, 0, 0, 0, 1);
 
 	mat4 transition = mat4(1, 0, 0, 0,
@@ -28,7 +31,7 @@ void main()
 
 
 
-	gl_Position = (projection * transition * rotation) * pos;
+	gl_Position = (projection * transition * rotation * coord_change) * pos;
 	//gl_Position = vec4(v_pos.x, v_pos.y , 0, 2);
 
 	v_text_coord = text_coord;

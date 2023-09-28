@@ -151,7 +151,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="ComposedObject.cpp" />
     <ClCompile Include="glad.c" />
+    <ClCompile Include="linear_algebra.cpp" />
+    <ClCompile Include="primitives.cpp" />
+    <ClCompile Include="Scene.cpp" />
     <ClCompile Include="Source.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -159,7 +163,11 @@
     <None Include="shader.vert" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="ComposedObject.h" />
     <ClInclude Include="intersection.h" />
+    <ClInclude Include="linear_algebra.h" />
+    <ClInclude Include="primitives.h" />
+    <ClInclude Include="Scene.h" />
     <ClInclude Include="stb_image.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

@@ -1,0 +1,106 @@
+#pragma once
+#include "linear_algebra.h"
+#include <vector>
+
+class Object
+{
+protected:
+	Vector<3> position;
+	Quat rotation;
+
+
+	virtual std::pair<double, double> _intersectLine(const Vector<3>& start, const Vector<3>& dir, bool& has_intersect) = 0;
+public:
+	Object(const Vector<3>& pos, const Quat& rot);
+
+	std::pair<bool, Vector<3>> intersectWithRay(const Vector<3>& start, const Vector<3>& direction);
+	std::pair<bool, std::pair<double, double>> intersectWithRayOnBothSides(const Vector<3>& start, const Vector<3>& direction);
+
+	virtual bool isPointInside(const Vector<3>& p) = 0;
+};
+
+class Prizm : public Object
+{
+
+	double height;
+	virtual std::pair<double, double> _intersectLine(const Vector<3>& start, const Vector<3>& dir, bool& has_intersect) override;
+	std::vector<Vector<2>> base;
+public:
+	Prizm(const std::vector<Vector<2>>& polygon, const Vector<3>& pos, double height, const Quat& rot);
+
+	virtual bool isPointInside(const Vector<3>& p) override;
+};
+
+class Cone : public Object
+{
+	double height, rad;
+	virtual std::pair<double, double> _intersectLine(const Vector<3>& start, const Vector<3>& dir, bool& has_intersect) override;
+public:
+	virtual bool isPointInside(const Vector<3>& p) override;
+	Cone(double height, double rad, const Vector<3>& apex_position, const Quat& rot);
+};
+
+class Piramid : public Object
+{
+	double height;
+	virtual std::pair<double, double> _intersectLine(const Vector<3>& start, const Vector<3>& dir, bool& has_intersect) override;
+	std::vector<Vector<2>> base;
+public:
+	virtual bool isPointInside(const Vector<3>& p) override;
+	Piramid(const std::vector<Vector<2>>& polygon, const Vector<3>& pos, double height, const Quat& rot);
+};
+
+class Cylinder : public Object
+{
+	double height, rad;
+	virtual std::pair<double, double> _intersectLine(const Vector<3>& start, const Vector<3>& dir, bool& has_intersect) override;
+public:
+	virtual bool isPointInside(const Vector<3>& p) override;
+	Cylinder(const Vector<3>& pos, double height, double rad, const Quat& rotation);
+};
+
+class Sphere : public Object
+{
+	double rad;
+	virtual std::pair<double, double> _intersectLine(const Vector<3>& start, const Vector<3>& dir, bool& has_intersect) override;
+public:
+	virtual bool isPointInside(const Vector<3>& p) override;
+	Sphere(const Vector<3>& pos, double rad);
+};
+
+
+
+inline bool equal(double a, double b)
+{
+	return abs(a - b) < 1e-6;
+}
+
+template<int dim>
+bool isNull(const Vector<dim>& v)
+{
+	for (int i = 0; i < dim; ++i)
+		if (!equal(v.nums[i], 0))
+			return false;
+	return true;
+}
+
+std::pair<bool, double> rayIntersectsSegment(const Vector<2>& p, const Vector<2>& dir, const Vector<2>& a, const Vector<2>& b);
+
+std::pair<int, std::pair<double, double>> rayIntersectsPolygon(const Vector<2>& p, const Vector<2>& n, const std::vector<Vector<2>>& polygon);
+
+bool isPointInsidePolygon(const Vector<2>& p, const std::vector<Vector<2>>& polygon);
+
+double getParamOnShade(const Vector<3>& st, const Vector<3>& dir, const Vector<2>& p);
+
+
+
+
+
+
+std::pair<bool, double> intersectLineWithTriangle(const Vector<3>& p, const Vector<3>& dir, const Vector<3>& A, const Vector<3>& B, const Vector<3>& C);
+
+
+std::pair<int, std::pair<double, double>> intersectLineWithCircle(const Vector<2>& p, const Vector<2> dir, double rad);
+
+
+
