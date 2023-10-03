@@ -2,10 +2,10 @@
 #include <math.h>
 
 
-Vector<4>::Vector(float x, float y, float z, float t) : nums{ x, y, z, t } {}
+Vector<4>::Vector(double x, double y, double z, double t) : nums{ x, y, z, t } {}
 Vector<4>::Vector() : nums{ 0,0,0,0 } {}
 
-Vector<3>::Vector(float x, float y, float z) : nums{ x, y, z } {}
+Vector<3>::Vector(double x, double y, double z) : nums{ x, y, z } {}
 
 Vector<3>::Vector(const Vector<4>& v) : nums{ v.nums[0], v.nums[1], v.nums[2] } {}
 
@@ -17,9 +17,9 @@ Vector<2>::Vector() : nums{ 0,0 } {}
 
 Vector<2>::Vector(const Vector<3>& b) : nums{ b.nums[0], b.nums[1] } {}
 
-Vector<2>::Vector(float x, float y) : nums{ x, y } {}
+Vector<2>::Vector(double x, double y) : nums{ x, y } {}
 
-Vector<3>::Vector(const Vector<2>& v, float z) : nums{ v.nums[0], v.nums[1], z } {}
+Vector<3>::Vector(const Vector<2>& v, double z) : nums{ v.nums[0], v.nums[1], z } {}
 
 
 Vector<3> cross(const Vector<3>& a, const Vector<3>& b)
@@ -49,8 +49,8 @@ void Quat::rotate(double angle, const Vector<3>& n) {
 	*this = *this * Quat(cos(angle / 2), sin(angle / 2) * normalize(n));
 }
 
-Quat::Quat(float a0, const Vector<3>& a) : _a0(a0), a(a) {}
+Quat::Quat(double a0, const Vector<3>& a) : _a0(a0), a(a) {}
 
-Quat::Quat(float a0, float a1, float a2, float a3) : _a0(a0), a(a1, a2, a3) {}
+Quat::Quat(double a0, double a1, double a2, double a3) : _a0(a0), a(a1, a2, a3) {}
 
 

@@ -9,41 +9,41 @@ struct Vector
 template<>
 struct Vector<4>
 {
-	float nums[4];
+	double nums[4];
 	Vector();
-	Vector(float x, float y, float z, float t);
+	Vector(double x, double y, double z, double t);
 	Vector(const Vector<3>& v);
 
-	inline float x() const { return nums[0]; }
-	inline float y() const { return nums[1]; }
-	inline float z() const { return nums[2]; }
-	inline float t() const { return nums[3]; }
+	inline double x() const { return nums[0]; }
+	inline double y() const { return nums[1]; }
+	inline double z() const { return nums[2]; }
+	inline double t() const { return nums[3]; }
 };
 
 template<>
 struct Vector<3>
 {
-	float nums[3];
+	double nums[3];
 	Vector();
-	Vector(float x, float y, float z);
+	Vector(double x, double y, double z);
 	Vector(const Vector<4>& v);
-	Vector(const Vector<2>& v, float z);
+	Vector(const Vector<2>& v, double z);
 
-	inline float x() const { return nums[0]; }
-	inline float y() const { return nums[1]; }
-	inline float z() const { return nums[2]; }
+	inline double x() const { return nums[0]; }
+	inline double y() const { return nums[1]; }
+	inline double z() const { return nums[2]; }
 };
 
 
 template<>
 struct Vector<2>
 {
-	float nums[2];
+	double nums[2];
 	Vector();
 	Vector(const Vector<3>& b);
-	Vector(float x, float y);
-	inline float x() const { return nums[0]; }
-	inline float y() const { return nums[1]; }
+	Vector(double x, double y);
+	inline double x() const { return nums[0]; }
+	inline double y() const { return nums[1]; }
 
 };
 
@@ -66,9 +66,9 @@ Vector<dim> operator-(const Vector<dim>& a, const Vector<dim>& b)
 }
 
 template<int dim>
-float dot(const Vector<dim>& a, const Vector<dim>& b)
+double dot(const Vector<dim>& a, const Vector<dim>& b)
 {
-	float res = 0;
+	double res = 0;
 	for (int i = 0; i < dim; ++i)
 		res += a.nums[i] * b.nums[i];
 	return res;
@@ -79,7 +79,7 @@ float dot(const Vector<dim>& a, const Vector<dim>& b)
 Vector<3> cross(const Vector<3>& a, const Vector<3>& b);
 
 template<int dim>
-Vector<dim> operator*(const Vector<dim>& a, float b)
+Vector<dim> operator*(const Vector<dim>& a, double b)
 {
 	Vector<dim> res;
 	for (int i = 0; i < dim; ++i)
@@ -88,7 +88,7 @@ Vector<dim> operator*(const Vector<dim>& a, float b)
 }
 
 template<int dim>
-Vector<dim> operator*(float a, const Vector<dim>& b)
+Vector<dim> operator*(double a, const Vector<dim>& b)
 {
 	return b * a;
 }
@@ -158,23 +158,23 @@ Quat operator*(const Quat& a, const Quat& b);
 class Quat
 {
 private:
-	float _a0;
+	double _a0;
 	Vector<3> a;
 	friend Quat operator*(const Quat& a, const Quat& b);
 	friend Quat inverseRot(const Quat& q);
 public:
 
-	Quat(float a0, float a1, float a2, float a3);
-	Quat(float a0, const Vector<3>& a);
+	Quat(double a0, double a1, double a2, double a3);
+	Quat(double a0, const Vector<3>& a);
 	void rotate(double angle, const Vector<3>& n);
 
-	inline float a0() const
+	inline double a0() const
 	{
 		return _a0;
 	}
-	inline float a1() const { return a.x(); }
-	inline float a2() const { return a.y(); }
-	inline float a3() const { return a.z(); }
+	inline double a1() const { return a.x(); }
+	inline double a2() const { return a.y(); }
+	inline double a3() const { return a.z(); }
 
 
 	Matrix<4> rotation() const;

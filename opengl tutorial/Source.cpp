@@ -1,4 +1,4 @@
-#include <glad/glad.h> // GLAD: https://github.com/Dav1dde/glad ... GLAD 2 also works via the web-service: https://gen.glad.sh/ (leaving all checkbox options unchecked)
+п»ї#include <glad/glad.h> // GLAD: https://github.com/Dav1dde/glad ... GLAD 2 also works via the web-service: https://gen.glad.sh/ (leaving all checkbox options unchecked)
 
 #include <GLFW/glfw3.h>
 #include <stdlib.h>
@@ -51,16 +51,16 @@ void loadTexture(int width, int height, const unsigned char* buffer, bool first_
 {
 	if (first_time)
 	{
-		// Создаем одну OpenGL текстуру
+		// РЎРѕР·РґР°РµРј РѕРґРЅСѓ OpenGL С‚РµРєСЃС‚СѓСЂСѓ
 		GLuint textureID;
 		glGenTextures(1, &textureID);
 
-		// "Привязываем" только что созданную текстуру и таким образом все последующие операции будут производиться с ней
+		// "РџСЂРёРІСЏР·С‹РІР°РµРј" С‚РѕР»СЊРєРѕ С‡С‚Рѕ СЃРѕР·РґР°РЅРЅСѓСЋ С‚РµРєСЃС‚СѓСЂСѓ Рё С‚Р°РєРёРј РѕР±СЂР°Р·РѕРј РІСЃРµ РїРѕСЃР»РµРґСѓСЋС‰РёРµ РѕРїРµСЂР°С†РёРё Р±СѓРґСѓС‚ РїСЂРѕРёР·РІРѕРґРёС‚СЊСЃСЏ СЃ РЅРµР№
 		glBindTexture(GL_TEXTURE_2D, textureID);
 	}
 	
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
-	// Трилинейная фильтрация.
+	// РўСЂРёР»РёРЅРµР№РЅР°СЏ С„РёР»СЊС‚СЂР°С†РёСЏ.
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -70,21 +70,21 @@ void loadTexture(int width, int height, const unsigned char* buffer, bool first_
 	glActiveTexture(GL_TEXTURE0);
 	//glBindTexture(GL_TEXTURE_2D, 0);
 
-	// Возвращаем идентификатор текстуры который мы создали
+	// Р’РѕР·РІСЂР°С‰Р°РµРј РёРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ С‚РµРєСЃС‚СѓСЂС‹ РєРѕС‚РѕСЂС‹Р№ РјС‹ СЃРѕР·РґР°Р»Рё
 
 
 }
 
 GLuint loadTGA_glfw(const char* imagepath) {
 
-	// Создаем одну OpenGL текстуру
+	// РЎРѕР·РґР°РµРј РѕРґРЅСѓ OpenGL С‚РµРєСЃС‚СѓСЂСѓ
 	GLuint textureID;
 	glGenTextures(1, &textureID);
 
-	// "Привязываем" только что созданную текстуру и таким образом все последующие операции будут производиться с ней
+	// "РџСЂРёРІСЏР·С‹РІР°РµРј" С‚РѕР»СЊРєРѕ С‡С‚Рѕ СЃРѕР·РґР°РЅРЅСѓСЋ С‚РµРєСЃС‚СѓСЂСѓ Рё С‚Р°РєРёРј РѕР±СЂР°Р·РѕРј РІСЃРµ РїРѕСЃР»РµРґСѓСЋС‰РёРµ РѕРїРµСЂР°С†РёРё Р±СѓРґСѓС‚ РїСЂРѕРёР·РІРѕРґРёС‚СЊСЃСЏ СЃ РЅРµР№
 	glBindTexture(GL_TEXTURE_2D, textureID);
 
-	// Читаем файл и вызываем glTexImage2D с необходимыми параметрами
+	// Р§РёС‚Р°РµРј С„Р°Р№Р» Рё РІС‹Р·С‹РІР°РµРј glTexImage2D СЃ РЅРµРѕР±С…РѕРґРёРјС‹РјРё РїР°СЂР°РјРµС‚СЂР°РјРё
 	//stbi_set_flip_vertically_on_load(1);
 	int width, height, bpp;
 	unsigned char* texture = stbi_load(imagepath, &width, &height, &bpp, 4);
@@ -92,7 +92,7 @@ GLuint loadTGA_glfw(const char* imagepath) {
 	stbi_image_free(texture);
 
 
-	// Трилинейная фильтрация.
+	// РўСЂРёР»РёРЅРµР№РЅР°СЏ С„РёР»СЊС‚СЂР°С†РёСЏ.
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -102,7 +102,7 @@ GLuint loadTGA_glfw(const char* imagepath) {
 	glActiveTexture(GL_TEXTURE0);
 	//glBindTexture(GL_TEXTURE_2D, 0);
 
-	// Возвращаем идентификатор текстуры который мы создали
+	// Р’РѕР·РІСЂР°С‰Р°РµРј РёРґРµРЅС‚РёС„РёРєР°С‚РѕСЂ С‚РµРєСЃС‚СѓСЂС‹ РєРѕС‚РѕСЂС‹Р№ РјС‹ СЃРѕР·РґР°Р»Рё
 
 	
 	return textureID;
@@ -184,7 +184,7 @@ void setCube(Vertex* buff, int& size, unsigned int* indicies, int& ind_size, con
 	ind_size += sizeof(elements) / sizeof(unsigned int);
 }
 
-//ужасный костыль чисто нужен на время сейчас т к лень менять сеткуб
+//СѓР¶Р°СЃРЅС‹Р№ РєРѕСЃС‚С‹Р»СЊ С‡РёСЃС‚Рѕ РЅСѓР¶РµРЅ РЅР° РІСЂРµРјСЏ СЃРµР№С‡Р°СЃ С‚ Рє Р»РµРЅСЊ РјРµРЅСЏС‚СЊ СЃРµС‚РєСѓР±
 void setGreenCube(Vertex* buff, int& size, unsigned int* indicies, int& ind_size, const Vector<3>& cube_pos)
 {
 	Vertex data[] = {
@@ -347,6 +347,12 @@ void setColor(int i, int j, int width, Color col, std::vector<unsigned char>& ca
 	int ind = at(i, j, width);
 	memcpy(&canvas[ind], &col, 4);
 }
+
+static double sq(double x)
+{
+	return x * x;
+}
+
 void castRays(int window_width, int window_height, std::vector<unsigned char>& canvas, const Vector<3>& camera_pos, const Scene& scene)
 {
 	double horizontal_step = 2.0 / window_width;
@@ -361,10 +367,11 @@ void castRays(int window_width, int window_height, std::vector<unsigned char>& c
 
 			if (i == 300 && j == 300)
 				std::cout << "A";
-			auto cast = scene.intersection(camera_pos, Vector<3>(-1 + i * horizontal_step, 1,  -1 + j * vertical_step));
-			unsigned char r = unsigned char(int(255 - 100 * (cast.second.y() - 4)));
+			Vector<3> ray_dir(-1 + i * horizontal_step, 1, -1 + j * vertical_step);
+			auto cast = scene.intersection(camera_pos, ray_dir);
+			unsigned char r = 254 * sqrt((sq(dot(ray_dir, cast.second.n)) / dot(ray_dir, ray_dir)));
 			if (cast.first)
-				setColor(i, j, window_width, { r, 0,0,255 }, canvas);
+				setColor(i, j, window_width, { r, r,r,255 }, canvas);
 			else
 				setColor(i, j, window_width, { 0,0,0,255 }, canvas);
 		}
@@ -392,7 +399,7 @@ int main()
 	int window_width = 600;
 	int window_height = 600;
 
-	GLFWwindow* window = glfwCreateWindow(window_width, window_height, "GLFW Test Window – Changing Colours", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(window_width, window_height, "GLFW Test Window вЂ“ Changing Colours", NULL, NULL);
 	// GLFWwindow* window = glfwCreateWindow(window_width, window_height, "Drawing Basic Shapes - Buffer Objects & Shaders", glfwGetPrimaryMonitor(), NULL); // Full Screen Mode ("Alt" + "F4" to Exit!)
 
 	if (!window)
@@ -420,7 +427,7 @@ int main()
 
 	
 	
-	Vertex data[1000];
+	Vertex data[10];
 	unsigned int elements[] = { 0, 1, 2, 0, 2, 3};
 	//unsigned int elements[1000];
 	int data_size = 0;
@@ -456,7 +463,7 @@ int main()
 	setGreenCube(data, data_size, elements, elements_size, intersect.second);
 
 
-	//ЭТО ЧИСТО ДЛЯ ЛИНИИ КОСТЫЛЬ
+	//Р­РўРћ Р§РРЎРўРћ Р”Р›РЇ Р›РРќРР РљРћРЎРўР«Р›Р¬
 	data[data_size++] = Vertex(line_base, Vector<2>(48.0 / 512, 48.0 / 256));
 	data[data_size++] = Vertex(line_base + 10 * line_dir, Vector<2>(48.0 / 512, 48.0 / 256));
 
@@ -468,12 +475,12 @@ int main()
 	glBufferData(GL_ARRAY_BUFFER, data_size*sizeof(Vertex), data, GL_STATIC_DRAW);
 
 
-	int vertex_dim = sizeof(Vector<3>) / sizeof(float);
-	int color_dim = sizeof(Vector<2>) / sizeof(float);
+	int vertex_dim = sizeof(Vector<3>) / sizeof(double);
+	int color_dim = sizeof(Vector<2>) / sizeof(double);
 	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(0, vertex_dim, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const void*)offsetof(Vertex, position));
+	glVertexAttribPointer(0, vertex_dim, GL_DOUBLE, GL_FALSE, sizeof(Vertex), (const void*)offsetof(Vertex, position));
 	glEnableVertexAttribArray(1);
-	glVertexAttribPointer(1, color_dim, GL_FLOAT, GL_FALSE, (vertex_dim + color_dim) * sizeof(float),(const void*)offsetof(Vertex, texture_coords));
+	glVertexAttribPointer(1, color_dim, GL_DOUBLE, GL_FALSE, (vertex_dim + color_dim) * sizeof(double),(const void*)offsetof(Vertex, texture_coords));
 
 	unsigned int ibo;
 	glGenBuffers(1, &ibo);
@@ -511,10 +518,14 @@ int main()
 	std::vector<unsigned char> texture(window_width * window_height * 4, 255);
 
 	Scene scene;
-	//int cube = scene.addObject(std::make_shared<Prizm>(Prizm({ {-1, -1}, {-1, 1}, {1, 1}, {1, -1} }, { 0, 5, 0 }, 2, Quat(1, 0, 0, 0))));
+	int cube = scene.addObject(std::make_shared<Prizm>(Prizm({ {-1, -1}, {-1, 1}, {1, 1}, {1, -1} }, { 0, 5, 0 }, 2, Quat(1, 0, 0, 0))));
 	//scene.subtractObject(std::make_shared<Prizm>(Prizm({ {-0.5, -1.1}, {-0.5, 1.1}, {0.5, 1.1}, {0.5, -1.1} }, { 0,5, 0 }, 1, Quat(1, 0, 0, 0))), cube);
-	int sphere = scene.addObject(std::make_shared<Sphere>(Vector<3>{0, 5, 0}, 1));
-	scene.subtractObject(std::make_shared<Cylinder>(Vector<3>{ 0, 5, 0 }, 2.1, 0.3, Quat(1./1.41, 1./1.41, 0, 0)), sphere);
+	//int sphere = scene.addObject(std::make_shared<Sphere>(Vector<3>{0, 5, 0}, 1));
+	scene.subtractObject(std::make_shared<Cylinder>(Vector<3>{0, 5, 0}, 2.1, 0.5, Quat(1. / 1.41, 0, 1./1.41, 0)), cube);
+	scene.subtractObject(std::make_shared<Cylinder>(Vector<3>{ 0, 5, 0 }, 2.1, 0.5, Quat(1./1.41, 1./1.41, 0, 0)), cube);
+	scene.subtractObject(std::make_shared<Cylinder>(Vector<3>{ 0, 5, 0 }, 2.1, 0.5, Quat(1, 0, 0, 0)), cube);
+	//scene.addObject(std::make_shared<Piramid>(Piramid({ { -1, -1 }, { -1, 1 }, { 1, 1 }, { 1, -1 } }, { 0, 5, 0 }, 2, Quat(1, 0, 0, 0))));
+	
 	while (!glfwWindowShouldClose(window)) // Main-Loop
 	{
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear the screen with... red, green, blue.
