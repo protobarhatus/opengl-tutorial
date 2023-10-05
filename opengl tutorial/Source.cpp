@@ -57,17 +57,24 @@ void loadTexture(int width, int height, const unsigned char* buffer, bool first_
 
 		// "Привязываем" только что созданную текстуру и таким образом все последующие операции будут производиться с ней
 		glBindTexture(GL_TEXTURE_2D, textureID);
+
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+	// Трилинейная фильтрация.
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+		glGenerateMipmap(GL_TEXTURE_2D);
+
+		glActiveTexture(GL_TEXTURE0);
+	}
+	else
+	{
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+		glGenerateMipmap(GL_TEXTURE_2D);
+
 	}
 	
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
-	// Трилинейная фильтрация.
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-	glGenerateMipmap(GL_TEXTURE_2D);
-
-	glActiveTexture(GL_TEXTURE0);
 	//glBindTexture(GL_TEXTURE_2D, 0);
 
 	// Возвращаем идентификатор текстуры который мы создали
@@ -106,6 +113,38 @@ GLuint loadTGA_glfw(const char* imagepath) {
 
 	
 	return textureID;
+}
+
+GLuint createTexImage(int width, int height) {
+
+	// Создаем одну OpenGL текстуру
+	GLuint textureID;
+	glGenTextures(1, &textureID);
+
+	// "Привязываем" только что созданную текстуру и таким образом все последующие операции будут производиться с ней
+	glBindTexture(GL_TEXTURE_2D, textureID);
+
+	// Читаем файл и вызываем glTexImage2D с необходимыми параметрами
+	//stbi_set_flip_vertically_on_load(1);
+
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+
+	// Трилинейная фильтрация.
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glGenerateMipmap(GL_TEXTURE_2D);
+
+	glActiveTexture(GL_TEXTURE0);
+	//glBindTexture(GL_TEXTURE_2D, 0);
+
+	// Возвращаем идентификатор текстуры который мы создали
+
+	glBindImageTexture(0, textureID, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+	return textureID;
+	
 }
 
 struct Vertex
@@ -381,6 +420,7 @@ void castRays(int window_width, int window_height, std::vector<unsigned char>& c
 
 int main()
 {
+
 	// (1) GLFW: Initialise & Configure
 	// -----------------------------------------
 	if (!glfwInit())
@@ -493,11 +533,17 @@ int main()
 	
 	loadShader(prog, "shader.vert", GL_VERTEX_SHADER);
 	loadShader(prog, "shader.frag", GL_FRAGMENT_SHADER);
+
+	int ray_trace_programm = glCreateProgram();
+	loadShader(ray_trace_programm, "raytrace.comp", GL_COMPUTE_SHADER);
 	
 	glEnable(GL_DEPTH_TEST);
 	glLinkProgram(prog);
 	glValidateProgram(prog);
 	glUseProgram(prog);
+
+	glLinkProgram(ray_trace_programm);
+	glValidateProgram(ray_trace_programm);
 
 	int rotation_location = glGetUniformLocation(prog, "u_cr");
 	int position_location = glGetUniformLocation(prog, "u_pos");
@@ -526,13 +572,22 @@ int main()
 	scene.subtractObject(std::make_shared<Cylinder>(Vector<3>{ 0, 5, 0 }, 2.1, 0.5, Quat(1, 0, 0, 0)), cube);
 	//scene.addObject(std::make_shared<Piramid>(Piramid({ { -1, -1 }, { -1, 1 }, { 1, 1 }, { 1, -1 } }, { 0, 5, 0 }, 2, Quat(1, 0, 0, 0))));
 	
+	createTexImage(window_width, window_height);
 	while (!glfwWindowShouldClose(window)) // Main-Loop
 	{
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear the screen with... red, green, blue.
 
-		castRays(window_width, window_height, texture, camera_pos, scene);
-		loadTexture(window_width, window_height, &texture[0], false);
-
+		//castRays(window_width, window_height, texture, camera_pos, scene);
+		//loadTexture(window_width, window_height, &texture[0], false);
+		{ // launch compute shaders!
+			glUseProgram(ray_trace_programm);
+			glUniform4f(glGetUniformLocation(ray_trace_programm, "color"), 0.5, 1, 0.5, 1);
+			glDispatchCompute((GLuint)window_width, (GLuint)window_width, 1);
+			std::cout << glGetError();
+		}
+		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
+		
+		glUseProgram(prog);
 
 		glUniform4f(rotation_location, rot.a0(), rot.a1(), rot.a2(), rot.a3());
 		//glUniform3f(position_location, camera_pos.x(), camera_pos.y(), camera_pos.z());

@@ -159,6 +159,7 @@
     <ClCompile Include="Source.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="raytrace.comp" />
     <None Include="shader.frag" />
     <None Include="shader.vert" />
   </ItemGroup>

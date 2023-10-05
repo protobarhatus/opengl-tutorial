@@ -1,0 +1,168 @@
+#version 430
+layout(local_size_x = 1, local_size_y = 1) in;
+layout(rgba32f, binding = 0) uniform image2D img_output;
+
+
+
+const uint PRIZM = 0;
+const uint PIRAMID = 1;
+const uint SPHERE = 2;
+const uint CYLINDR = 3;
+
+struct Quat
+{
+	float a0;
+	vec3 a;
+};
+
+Quat mult(in Quat a, in Quat b)
+{
+	return Quat(a.a0 * b.a0 - dot(a.a, b.a), a.a0 * b.a + b.a0 * a.a + cross(a.a, b.a));
+}
+
+Quat inverseRot(in Quat q)
+{
+	return Quat(q.a0, -1 * q.a);
+}
+
+
+mat4 rotation(in Quat q)
+{
+	float a0 = q.a0;
+	float a1 = q.a.x;
+	float a2 = q.a.y;
+	float a3 = q.a.z;
+
+	return mat4(a1*a1 + a0*a0 - a2*a2 - a3*a3, 2*a2*a1 + 2*a0*a3, 2*a3*a1 - 2*a0*a2, 0, 2*a2*a1 - 2*a3*a0, a2*a2 + a0*a0 - a3*a3 - a1*a1, 2*a3*a2 + 2*a1*a0, 0, 2*a3*a1 + 2*a2*a0, 2*a3*a2 - 2*a1*a0, a3*a3 + a0*a0 - a2*a2 - a1*a1, 0, 0, 0, 0, 1);
+}
+
+
+void rotate(inout Quat q, float angle, vec3 n) {
+	q = mult(q, Quat(cos(angle / 2), sin(angle / 2) * normalize(n)));
+}
+
+
+struct Primitive
+{
+	uint type;
+	uint data_index;
+	//размер структуры в ceil(байтах/12), то есть в количестве vec3 которыми она описывается
+	uint data_count;
+	vec3 position;
+	vec4 rotation;
+	//половина высоты для призмы и цилиндра, высота для пирамиды, радиус для сферы
+	float sc1;
+	//радиус для цилиндра
+	float sc2;
+};
+
+uniform int primitives_count;
+uniform int data_count;
+
+layout(binding = 1) buffer primitives_array
+{
+	Primitive primitives[];
+};
+layout(binding = 2) buffer data_array
+{
+	vec2 base_points[];
+};
+
+struct Intersection
+{
+	float t;
+	vec3 n;
+};
+
+struct IRO
+{
+	int interss;
+	Intersection f, s;
+};
+
+
+
+
+
+IRO intersectSphereWithLine(in Primitive sphere, in vec3 start, in vec3 dir)
+{
+
+	float rad = sphere.sc1;
+	float A = dot(dir, dir);
+	float B_half = dot(start, dir);
+	float C = dot(start, start) - rad * rad;
+
+	float D_4 = B_half * B_half - A * C;
+	if (D_4 < 0)
+	{
+		return IRO(0, Intersection(0, vec3(0,0,0)), Intersection(0, vec3(0,0,0)));
+	}
+	float D_sq = sqrt(D_4);
+	float t1 = (-B_half - D_sq) / A;
+	float t2 = (-B_half + D_sq) / A;
+
+	IRO res = {2, {t1, (start + dir * t1)*(1.0/rad)}, {t2, (start + dir * t2)*(1.0/rad)}};
+	return res;
+}
+
+void swap(inout IRO a, inout IRO b)
+{
+	IRO c = a;
+	a = b;
+	b = c;
+}
+
+IRO intersectWithRay(in Primitive object, in vec3 ray_start, in vec3 direction)
+{
+	//Matrix<4> transposition(Vector<4>(1, 0, 0, -position.x()), Vector<4>(0, 1, 0, -position.y()), Vector<4>(0, 0, 1, -position.z()), Vector<4>(0, 0, 0, 1));
+
+
+
+	mat4 transposition = mat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -object.position.x, -object.position.y, -object.position.z, 1);
+	Matrix<4> rotation = inverseRot(this->rotation).rotation();
+	Matrix<4> transformation = rotation * transposition;
+
+	Vector<3> start = transformation * Vector<4>(ray_start);
+	Vector<3> dir = rotation * Vector<4>(direction);
+
+	bool has_intersections;
+	auto intersect = _intersectLine(start, dir, has_intersections);
+
+	if (!has_intersections)
+	{
+		IRO res = {0, {0, {0,0,0}}, {0, {0,0,0}}};
+		return res;
+	}
+	if (intersect.second.t < intersect.first.t)
+		swap(intersect.first, intersect.second);
+	if (intersect.second.t < 0)
+	{
+		IRO res = {0, {0, {0,0,0}}, {0, {0,0,0}}};
+		return res;
+	}
+	//.first может быть < 0
+	Matrix<4> back_rotation = this->rotation.rotation();
+	intersect.first.n = back_rotation * Vector<4>(intersect.first.n);
+	intersect.second.n = back_rotation * Vector<4>(intersect.second.n);
+
+	IRO res = {0, {0, {0,0,0}}, {0, {0,0,0}}};
+	return res;
+}
+
+
+void main() {
+  // base pixel colour for image
+  vec4 pixel = vec4(0.0, 0.0, 0.0, 1.0);
+  // get index in global work group i.e x,y position
+  ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+  
+  IRO f = {false, {0, {0,0,0}}, {0, {0,0,0}}};
+  f.has_intersection;
+  //
+  // interesting stuff happens here later
+  //
+  
+  // output to a specific pixel in the image
+  //imageStore(img_output, pixel_coords, vec4(vec2(pixel_coords)/600, 1, 1));
+  imageStore(img_output, pixel_coords, color);
+}

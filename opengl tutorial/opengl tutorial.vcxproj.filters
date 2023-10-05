@@ -41,6 +41,9 @@
     <None Include="shader.frag">
       <Filter>Исходные файлы</Filter>
     </None>
+    <None Include="raytrace.comp">
+      <Filter>Исходные файлы</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="intersection.h">
