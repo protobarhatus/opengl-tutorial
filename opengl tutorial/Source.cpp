@@ -417,6 +417,30 @@ void castRays(int window_width, int window_height, std::vector<unsigned char>& c
 		}
 	}
 }
+void castRays(int window_width, int window_height, std::vector<unsigned char>& canvas, const Vector<3>& camera_pos, const Object* object)
+{
+	double horizontal_step = 2.0 / window_width;
+	double vertical_step = 2.0 / window_height;
+	for (int i = 0; i < window_width; ++i)
+	{
+		for (int j = 0; j < window_height; ++j)
+		{
+
+			//setColor(i, j, window_width, { 255, (unsigned char)(255 * double(i) / window_width), (unsigned char)(255 * double(j) / window_height), 255 }, canvas);
+			//continue;
+
+			if (i == 300 && j == 300)
+				std::cout << "A";
+			Vector<3> ray_dir(-1 + i * horizontal_step, 1, -1 + j * vertical_step);
+			auto cast = object->intersectWithRay(camera_pos, ray_dir);
+			unsigned char r = 254 * sqrt((sq(dot(ray_dir, cast.second.n)) / dot(ray_dir, ray_dir)));
+			if (cast.first)
+				setColor(i, j, window_width, { r, r,r,255 }, canvas);
+			else
+				setColor(i, j, window_width, { 0,0,0,255 }, canvas);
+		}
+	}
+}
 
 
 GLuint createSharedBufferObject(void* data, int data_size, int binding)
@@ -576,13 +600,13 @@ int main()
 
 	std::vector<unsigned char> texture(window_width * window_height * 4, 255);
 
-	Scene scene;
-	int cube = scene.addObject(std::make_shared<Prizm>(Prizm({ {-1, -1}, {-1, 1}, {1, 1}, {1, -1} }, { 0, 5, 0 }, 2, Quat(1, 0, 0, 0))));
+	//Scene scene;
+	//int cube = scene.addObject(std::make_shared<Prizm>(Prizm({ {-1, -1}, {-1, 1}, {1, 1}, {1, -1} }, { 0, 5, 0 }, 2, Quat(1, 0, 0, 0))));
 	//scene.subtractObject(std::make_shared<Prizm>(Prizm({ {-0.5, -1.1}, {-0.5, 1.1}, {0.5, 1.1}, {0.5, -1.1} }, { 0,5, 0 }, 1, Quat(1, 0, 0, 0))), cube);
 	//int sphere = scene.addObject(std::make_shared<Sphere>(Vector<3>{0, 5, 0}, 1));
-	scene.subtractObject(std::make_shared<Cylinder>(Vector<3>{0, 5, 0}, 2.1, 0.5, Quat(1. / 1.41, 0, 1./1.41, 0)), cube);
-	scene.subtractObject(std::make_shared<Cylinder>(Vector<3>{ 0, 5, 0 }, 2.1, 0.5, Quat(1./1.41, 1./1.41, 0, 0)), cube);
-	scene.subtractObject(std::make_shared<Cylinder>(Vector<3>{ 0, 5, 0 }, 2.1, 0.5, Quat(1, 0, 0, 0)), cube);
+	//scene.subtractObject(std::make_shared<Cylinder>(Vector<3>{0, 5, 0}, 2.1, 0.5, Quat(1. / 1.41, 0, 1./1.41, 0)), cube);
+	//scene.subtractObject(std::make_shared<Cylinder>(Vector<3>{ 0, 5, 0 }, 2.1, 0.5, Quat(1./1.41, 1./1.41, 0, 0)), cube);
+	//scene.subtractObject(std::make_shared<Cylinder>(Vector<3>{ 0, 5, 0 }, 2.1, 0.5, Quat(1, 0, 0, 0)), cube);
 	//scene.addObject(std::make_shared<Piramid>(Piramid({ { -1, -1 }, { -1, 1 }, { 1, 1 }, { 1, -1 } }, { 0, 5, 0 }, 2, Quat(1, 0, 0, 0))));
 	
 	createTexImage(window_width, window_height);
@@ -593,16 +617,19 @@ int main()
 	int data_count_location = glGetUniformLocation(ray_trace_programm, "data_count");
 
 	//GLSL_Primitive sphere = buildSphere(1, { 0, 5, 0 }, { 1, 0, 0, 0 });
-	GLSL_Primitive obj = buildCylinder(2, 1, { 0, 5, 0 }, { 1, 0, 0, 0 });
-	auto prim_buf = createSharedBufferObject(&obj, sizeof(obj), 1);
+	//GLSL_Primitive obj = buildCylinder(2, 1, { 0, 5, 0 }, { 1, 0, 0, 0 });
+	//auto prim_buf = createSharedBufferObject(&obj, sizeof(obj), 1);
 	//auto data_buf = createSharedBufferObject(NULL, 0, 2);
+
+	Prizm prizm({ {-1, -1}, {-1, 1}, {1, 1}, {1, -1} }, { 0, 5, 0 }, 2, Quat(1, 0, 0, 0));
+
 	while (!glfwWindowShouldClose(window)) // Main-Loop
 	{
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear the screen with... red, green, blue.
 
-		//castRays(window_width, window_height, texture, camera_pos, scene);
-		//loadTexture(window_width, window_height, &texture[0], false);
-		{ // launch compute shaders!
+		castRays(window_width, window_height, texture, camera_pos, &prizm);
+		loadTexture(window_width, window_height, &texture[0], false);
+		/* { // launch compute shaders!
 			glUseProgram(ray_trace_programm);
 			glUniform3f(camera_pos_location, camera_pos.x(), camera_pos.y(), camera_pos.z());
 			glUniform2i(screen_size_location, window_width, window_height);
@@ -611,10 +638,11 @@ int main()
 			
 			glDispatchCompute((GLuint)window_width, (GLuint)window_width, 1);
 			std::cout << glGetError();
+			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 		}
-		glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 		
-		glUseProgram(prog);
+		
+		glUseProgram(prog);*/
 
 		glUniform4f(rotation_location, rot.a0(), rot.a1(), rot.a2(), rot.a3());
 		//glUniform3f(position_location, camera_pos.x(), camera_pos.y(), camera_pos.z());

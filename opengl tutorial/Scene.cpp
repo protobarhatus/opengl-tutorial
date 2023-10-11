@@ -13,20 +13,18 @@ void Scene::subtractObject(const std::shared_ptr<Object>& obj, int ind)
 
 std::pair<bool, ISR> Scene::intersection(const Vector<3>& start, const Vector<3>& dir) const
 {
-    ISR nearest = { 1e20, {0,0,0} };
+    ISR nearest = { 1e20, {0,0,0}, false };
     for (auto& it : objs)
     {
         //вообще summ должно работать как пересечение но сейчас это не так так что мда
         for (auto& pr : it.summ)
         {
             auto inter = pr->intersectWithRayOnBothSides(start, dir);
-            if (!inter.first)
+            if (inter.size() == 0)
                 continue;
-            //если мы внутри то выход€щую точку нужно рисовать, но тогда нужно отдельно раздел€ть проверку на внутренность на включение границы или нет
-            if (inter.second.first.t < 0)
-                assert(false);
+            
 
-            double d_point = inter.second.first.t;
+            double d_point = inter.begin()->t;
             if (d_point >= nearest.t)
                 continue;
             Vector<3> point = start + dir * d_point;
@@ -40,16 +38,16 @@ std::pair<bool, ISR> Scene::intersection(const Vector<3>& start, const Vector<3>
                 }
             }
             if (!is_subbed)
-                nearest = inter.second.first;
+                nearest = inter.front();
         }
         for (int i = 0; i < it.sub.size(); ++i)
         {
             const std::shared_ptr<Object>& sb = it.sub[i];
             auto inter = sb->intersectWithRayOnBothSides(start, dir);
-            if (!inter.first)
+            if (inter.size()==0)
                 continue;
 
-            double d_point = inter.second.second.t;
+            double d_point = std::next(inter.begin())->t;
             if (d_point >= nearest.t)
                 continue;
             Vector<3> point = start + dir * d_point;
@@ -77,10 +75,10 @@ std::pair<bool, ISR> Scene::intersection(const Vector<3>& start, const Vector<3>
             }
 
             if (is_in && !is_subbed)
-                nearest = inter.second.second;
+                nearest = *std::next(inter.begin());
         }
     }
     if (nearest.t == 1e20)
-        return { false, {0,0,0,0} };
+        return { false, {0,0,0,0,0} };
     return { true, nearest };
 }

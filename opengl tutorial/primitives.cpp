@@ -1,13 +1,18 @@
 #include "primitives.h"
 
 
-Object::Object(const Vector<3>& pos, const Quat& rot) : position(pos), rotation(rot) {}
+Object::Object(const Vector<3>& pos, const Quat& rot) : position(pos), rotation(rot) {
+	Matrix<4> transposition(Vector<4>(1, 0, 0, -position.x()), Vector<4>(0, 1, 0, -position.y()), Vector<4>(0, 0, 1, -position.z()), Vector<4>(0, 0, 0, 1));
+	rotation_mat = inverseRot(this->rotation).rotation();
+	transformation_mat = rotation_mat * transposition;
+	back_rotation_mat = this->rotation.rotation();
+}
 
 static int sign(double d)
 {
 	return d > 0 ? 1 : -1;
 }
-Prizm::Prizm(const std::vector<Vector<2>>& polygon, const Vector<3>& pos, double height, const Quat& rot) : Object(pos, rot), height(height), base(polygon) {
+Prizm::Prizm(const std::vector<Vector<2>>& polygon, const Vector<3>& pos, double height, const Quat& rot) : Object(pos, rot), half_height(height/2), base(polygon) {
 	normals.resize(base.size());
 	for (int i = 0; i < base.size(); ++i)
 	{
@@ -17,7 +22,9 @@ Prizm::Prizm(const std::vector<Vector<2>>& polygon, const Vector<3>& pos, double
 }
 
 
-std::pair<ISR, ISR> Sphere::_intersectLine(const Vector<3>& start, const Vector<3>& dir, bool& has_intersect)
+
+
+std::list<ISR> Sphere::_intersectLine(const Vector<3>& start, const Vector<3>& dir) const
 {
 	double A = dot(dir, dir);
 	double B_half = dot(start, dir);
@@ -26,17 +33,16 @@ std::pair<ISR, ISR> Sphere::_intersectLine(const Vector<3>& start, const Vector<
 	double D_4 = B_half * B_half - A * C;
 	if (D_4 < 0)
 	{
-		has_intersect = false;
-		return { ISR{0,0,0,0},ISR{0,0,0,0} };
+		return {};
 	}
 	double D_sq = sqrt(D_4);
 	double t1 = (-B_half - D_sq) / A;
 	double t2 = (-B_half + D_sq) / A;
 
-	return { ISR{t1, (start + dir * t1)*(1.0/rad)},  ISR{t2, (start + dir * t2)*(1.0/rad) } };
+	return { ISR{t1, (start + dir * t1) * (1.0 / rad), true},  ISR{t2, (start + dir * t2) * (1.0 / rad), false } };
 }
 
-bool Sphere::isPointInside(const Vector<3>& p)
+bool Sphere::isPointInside(const Vector<3>& p) const
 {
 	Matrix<4> transposition(Vector<4>(1, 0, 0, -position.x()), Vector<4>(0, 1, 0, -position.y()), Vector<4>(0, 0, 1, -position.z()), Vector<4>(0, 0, 0, 1));
 	Matrix<4> rotation = inverseRot(this->rotation).rotation();
@@ -49,17 +55,17 @@ Sphere::Sphere(const Vector<3>& pos, double rad) : Object(pos, Quat(1,0,0,0)), r
 }
 
 
-bool Prizm::isPointInside(const Vector<3>& p)
+bool Prizm::isPointInside(const Vector<3>& p) const
 {
 
 	Matrix<4> transposition(Vector<4>(1, 0, 0, -position.x()), Vector<4>(0, 1, 0, -position.y()), Vector<4>(0, 0, 1, -position.z()), Vector<4>(0, 0, 0, 1));
 	Matrix<4> rotation = inverseRot(this->rotation).rotation();
 	Vector<3> point = (rotation * transposition) * Vector<4>(p);
-	return isPointInsidePolygon(point, base) && point.z() >= -height / 2 && point.z() <= height / 2;
+	return isPointInsidePolygon(point, base) && point.z() >= -half_height && point.z() <= half_height;
 }
 
 #include <assert.h>
-bool Cone::isPointInside(const Vector<3>& p)
+bool Cone::isPointInside(const Vector<3>& p) const
 {
 	assert(false);
 	return false;
@@ -67,7 +73,7 @@ bool Cone::isPointInside(const Vector<3>& p)
 
 Cone::Cone(double height, double rad, const Vector<3>& apex_position, const Quat& rot) : Object(apex_position, rot), height(height), rad(rad) {}
 
-bool Piramid::isPointInside(const Vector<3>& p)
+bool Piramid::isPointInside(const Vector<3>& p) const
 {
 	assert(false);
 	return false;
@@ -82,54 +88,48 @@ Piramid::Piramid(const std::vector<Vector<2>>& polygon, const Vector<3>& pos, do
 	}
 }
 
-bool Cylinder::isPointInside(const Vector<3>& p)
+bool Cylinder::isPointInside(const Vector<3>& p) const
 {
 	Matrix<4> transposition(Vector<4>(1, 0, 0, -position.x()), Vector<4>(0, 1, 0, -position.y()), Vector<4>(0, 0, 1, -position.z()), Vector<4>(0, 0, 0, 1));
 	Matrix<4> rotation = inverseRot(this->rotation).rotation();
 	Vector<3> point = (rotation * transposition ) * Vector<4>(p);
-	return dot(Vector<2>(point), Vector<2>(point)) <= rad * rad && point.z() >= -height / 2 && point.z() <= height / 2;
+	return dot(Vector<2>(point), Vector<2>(point)) <= rad * rad && point.z() >= -half_height && point.z() <= half_height;
 }
 
-Cylinder::Cylinder(const Vector<3>& pos, double height, double rad, const Quat& rotation) : Object(pos, rotation), height(height), rad(rad) {}
+Cylinder::Cylinder(const Vector<3>& pos, double height, double rad, const Quat& rotation) : Object(pos, rotation), half_height(height/2), rad(rad) {}
 
 
-std::pair<bool, std::pair<ISR, ISR>> Object::intersectWithRayOnBothSides(const Vector<3>& ray_start, const Vector<3>& direction)
+std::list<ISR> Object::intersectWithRayOnBothSides(const Vector<3>& ray_start, const Vector<3>& direction) const
 {
-	Matrix<4> transposition(Vector<4>(1, 0, 0, -position.x()), Vector<4>(0, 1, 0, -position.y()), Vector<4>(0, 0, 1, -position.z()), Vector<4>(0, 0, 0, 1));
-	Matrix<4> rotation = inverseRot(this->rotation).rotation();
-	Matrix<4> transformation = rotation * transposition;
 
-	Vector<3> start = transformation * Vector<4>(ray_start);
-	Vector<3> dir = rotation * Vector<4>(direction);
+	Vector<3> start = transformation_mat * Vector<4>(ray_start);
+	Vector<3> dir = rotation_mat * Vector<4>(direction);
+	
 
-	bool has_intersections;
-	auto intersect = _intersectLine(start, dir, has_intersections);
+	auto intersect = _intersectLine(start, dir);
 
-	if (!has_intersections)
-		return { false, {{0,0,0,0},{0,0,0,0} } };
-	if (intersect.second.t < intersect.first.t)
-		std::swap(intersect.first, intersect.second);
-	if (intersect.second.t < 0)
-		return { false, {{0,0,0,0},{0,0,0,0} } };
-	//.first может быть < 0
-	Matrix<4> back_rotation = this->rotation.rotation();
-	intersect.first.n = back_rotation * Vector<4>(intersect.first.n);
-	intersect.second.n = back_rotation * Vector<4>(intersect.second.n);
-	return { true, intersect };
+
+	
+	for (auto it = intersect.begin(); it != intersect.end(); ++it)
+	{
+		if (it->t < 0)
+		{
+			it = intersect.erase(it);
+			continue;
+		}
+		it->n = back_rotation_mat * Vector<4>(it->n);
+	}
+	return intersect;
 }
 
 
-std::pair<bool, ISR> Object::intersectWithRay(const Vector<3>& ray_start, const Vector<3>& direction)
+std::pair<bool, ISR> Object::intersectWithRay(const Vector<3>& ray_start, const Vector<3>& direction) const
 {
 	
 	auto inter = intersectWithRayOnBothSides(ray_start, direction);
-	if (inter.first)
-	{
-		if (inter.second.first.t < 0)
-			return { true, inter.second.second };
-		return { true, inter.second.first };
-	}
-	return { false, {0,0,0,0} };
+	if (inter.size() > 0)
+		return { true, *inter.begin() };
+	return { false, {0,0,0,0,0} };
 	//Matrix<4> back_transposition(Vector<4>(1, 0, 0, position.x()), Vector<4>(0, 1, 0, position.y()), Vector<4>(0, 0, 1, position.z()), Vector<4>(0, 0, 0, 1));
 	//Matrix<4> back_rotation = this->rotation.rotation();
 
@@ -203,10 +203,16 @@ std::pair<int, std::pair<ISR, ISR>> rayIntersectsPolygon(const Vector<2>& p, con
 		if (i > 0 && equal(point, polygon[i]))
 			continue;
 		
-		res[c++] = { int_res.second, normals[i] };
+		res[c++] = { int_res.second, normals[i], false };
 		if (c == 2)
 			return { 2, {res[0], res[1]} };
 	}
+	if (c == 1)
+		return { 0, {res[0], res[1]} };
+	if (res[0].t < res[1].t)
+		res[0].in = true;
+	else
+		res[1].in = true;
 	return { c, {res[0], res[1]} };
 
 }
@@ -238,7 +244,7 @@ bool isPointInsidePolygon(const Vector<2>& p, const std::vector<Vector<2>>& poly
 
 std::pair<bool, double> intersectLineWithTriangle(const Vector<3>& p, const Vector<3>& dir, const Vector<3>& A, const Vector<3>& B, const Vector<3>& C);
 
-std::pair<ISR, ISR> Prizm::_intersectLine(const Vector<3>& start, const Vector<3>& dir, bool& has_intersect)
+std::list<ISR> Prizm::_intersectLine(const Vector<3>& start, const Vector<3>& dir) const
 {
 
 	/*ISR res[2];
@@ -280,7 +286,8 @@ std::pair<ISR, ISR> Prizm::_intersectLine(const Vector<3>& start, const Vector<3
 	if (c == 1)
 		res[1] = res[0];
 	return { res[0], res[1] };*/
-
+	if (!is_convex)
+		assert(false);
 
 	double EPSILON = 1e-6;
 	if (equal(dir.x(), 0) && equal(dir.y(), 0))
@@ -288,91 +295,119 @@ std::pair<ISR, ISR> Prizm::_intersectLine(const Vector<3>& start, const Vector<3
 		auto in_res = isPointInsidePolygon(start, this->base);
 		if (in_res)
 		{
-			has_intersect = true;
-			return { {(height / 2 - start.z()) / dir.z(), {0,0,1}}, {(-height / 2 - start.z()) / dir.z(), {0,0,-1}} };
+			double t_up = (half_height - start.z()) / dir.z();
+			double t_down = (-half_height - start.z()) / dir.z();
+			if (t_up < t_down)
+				return { {t_up, {0,0,1}, true}, {t_down, {0,0,-1}, false} };
+			else
+				return { {t_down, {0,0,-1}, true} , {t_up, {0,0,1}, false} };
 		}
-		has_intersect = false;
-		return { {0,0,0,0},{0,0,0,0} };
+		return {};
 	}
 	auto shade_intersect = rayIntersectsPolygon(start, dir, base, normals);
 
 	if (shade_intersect.first == 0)
 	{
-		has_intersect = false;
-		return { {0,0,0,0}, {0,0,0,0} };
+		return {};
 	}
 
 	ISR t1 = shade_intersect.second.first;
 	double point_z = start.z() + dir.z() * t1.t;
 	if (shade_intersect.first == 1)
 	{
-		if (point_z >= -height / 2 - EPSILON && point_z <= height / 2 + EPSILON)
+		//если токо одно пересечение то не рисуем и оно не должно так вернуться
+		assert(false);
+		if (point_z >= -half_height - EPSILON && point_z <= half_height + EPSILON)
 		{
-			has_intersect = true;
+			//если все же вернусь сюда то надо не забыть проставить нормально in и out
 			return { t1, t1 };
 		}
-		has_intersect = false;
-		return { {0,0,0,0},{0,0,0,0} };
+		return {};
 	}
 	ISR t2 = shade_intersect.second.second;
 	double point_z2 = start.z() + dir.z() * t2.t;
-	if (!(point_z >= -height / 2 - EPSILON && point_z <= height / 2 + EPSILON) && (point_z2 >= -height / 2 - EPSILON && point_z2 <= height / 2 + EPSILON))
+	if (!(point_z >= -half_height - EPSILON && point_z <= half_height + EPSILON) && (point_z2 >= -half_height - EPSILON && point_z2 <= half_height + EPSILON))
 	{
 		std::swap(t1, t2);
 		std::swap(point_z, point_z2);
 		std::swap(shade_intersect.second.first, shade_intersect.second.second);
 	}
-	if (point_z >= -height / 2 - EPSILON && point_z <= height / 2 + EPSILON)
+	if (point_z >= -half_height - EPSILON && point_z <= half_height + EPSILON)
 	{
-		has_intersect = true;
 
-		if (point_z2 >= -height / 2 - EPSILON && point_z2 <= height / 2 + EPSILON)
-			return { t1, t2 };
+		if (point_z2 >= -half_height - EPSILON && point_z2 <= half_height + EPSILON)
+		{
+			if (t1.in)
+				return { t1, t2 };
+			else
+				return { t2, t1 };
+		}
 		//z != 0 т к произошел подьем
 
-		if (point_z2 > height / 2 + EPSILON)
+		if (point_z2 > half_height + EPSILON)
 		{
-			double t_out = (height / 2 - start.z()) / dir.z();
+			double t_out = (half_height - start.z()) / dir.z();
 			Vector<2> upper_point = start + dir * t_out;
 			//наверно эту проверку можно убрать
-			if (isPointInsidePolygon(upper_point, base))
-				return { t1, {t_out, {0, 0, 1} } };
+			//if (isPointInsidePolygon(upper_point, base))
+			if (t1.t < t_out)
+			{
+				t1.in = true;
+				return { t1, {t_out, {0, 0, 1}, false } };
+			}
+			else
+			{
+				t1.in = false;
+				return {  {t_out, {0, 0, 1}, true }, t1 };
+			}
 			//невозможная ситуация, т к если он не выходит в стене то должен выходить наверху но мало ли
 			return { t1, t1 };
 		}
-		if (point_z2 < -height / 2 - EPSILON)
+		if (point_z2 < -half_height - EPSILON)
 		{
-			double t_out = (-height / 2 - start.z()) / dir.z();
+			double t_out = (-half_height - start.z()) / dir.z();
 			Vector<2> lower_point = start + dir * t_out;
 			//эту проверку также думаю можно убрать
-			if (isPointInsidePolygon(lower_point, base))
-				return { t1, {t_out, 0, 0, -1} };
+			//if (isPointInsidePolygon(lower_point, base))
+			if (t1.t < t_out)
+			{
+				t1.in = true;
+				return { t1, {t_out, {0, 0, -1}, false } };
+			}
+			else
+			{
+				t1.in = false;
+				return { {t_out, {0, 0, -1}, true }, t1 };
+			}
 			return { t1, t1 };
 		}
 	}
 	//осталось возможна только ситуация когда линия проходит через оба основания, через верхнее/нижнее ребро, либо вообще не проходит
 	if (equal(dir.z(), 0))
 	{
-		has_intersect = false;
-		return { {0,0,0,0}, {0,0,0,0} };
+		return {};
 	}
-	double t_out = (height / 2 - start.z()) / dir.z();
+	double t_out = (half_height - start.z()) / dir.z();
 	Vector<2> up_point = start + dir * t_out;
 	if (isPointInsidePolygon(up_point, base))
 	{
-		has_intersect = true;
-
-		return { {t_out, {0,0,1}},  {(-height / 2 - start.z()) / dir.z(), {0,0,-1}} };
+		double t_bot = (-half_height - start.z()) / dir.z();
+		if (t_out < t_bot)
+			return { {t_out, {0,0,1}, true},  {t_bot, {0,0,-1}, false} };
+		else
+			return { {t_bot, {0,0,-1}, true},  {t_out, {0,0,1}, false} };
 	}
-	has_intersect = false;
-	return{ {0,0,0,0},{0,0,0,0} };
+
+	return {};
 }
 
 
 
-std::pair<ISR, ISR> Cone::_intersectLine(const Vector<3>& start, const Vector<3>& dir, bool& has_intersect)
+
+
+std::list<ISR> Cone::_intersectLine(const Vector<3>& start, const Vector<3>& dir) const
 {
-	return std::pair<ISR, ISR>();
+	return std::list<ISR>();
 }
 
 
@@ -411,8 +446,10 @@ std::pair<bool, double> intersectLineWithTriangle(const Vector<3>& p, const Vect
 
 
 
-std::pair<ISR, ISR> Piramid::_intersectLine(const Vector<3>& start, const Vector<3>& dir, bool& has_intersect)
+std::list<ISR> Piramid::_intersectLine(const Vector<3>& start, const Vector<3>& dir) const
 {
+	if (!is_convex)
+		assert(false);
 	int count = 0;
 	ISR t[2];
 	if (!equal(dir.z(), 0))
@@ -420,19 +457,25 @@ std::pair<ISR, ISR> Piramid::_intersectLine(const Vector<3>& start, const Vector
 		double t_lev = (-height - start.z()) / dir.z();
 		Vector<2> base_inter = start + dir * t_lev;
 		if (isPointInsidePolygon(base_inter, base))
-			t[count++] = { t_lev, {0,0,-1} };
+			t[count++] = { t_lev, {0,0,-1}, false };
 	}
 	for (int i = 0; i < base.size(); ++i)
 	{
 		auto inter = intersectLineWithTriangle(start, dir, Vector<3>(base[i], -height), Vector<3>(base[i < base.size() - 1 ? i + 1 : 0], -height), { 0,0,0 });
 		if (inter.first)
-			t[count++] = { inter.second, normals[i] };
+			t[count++] = { inter.second, normals[i], false };
 		if (count == 2)
 			break;
 	}
-	has_intersect = count > 0;
-	return { t[0], t[1] };
+	if (t[0].t < t[1].t)
+	{
+		t[0].in = true;
+		return { t[0], t[1] };
+	}
+	t[1].in = true;
+	return { t[1], t[0] };
 }
+
 
 
 
@@ -443,48 +486,49 @@ std::pair<int, std::pair<ISR, ISR>> intersectLineWithCircle(const Vector<2>& p, 
 	double C = p.x() * p.x() + p.y() * p.y() - rad * rad;
 	double D = B_half * B_half - A * C;
 	if (D < 0)
-		return { false, {{0,0,0,0}, {0,0,0,0} } };
+		return { false, {{0,0,0,0, 0}, {0,0,0,0, 0} } };
 	double D_sq = sqrt(D);
 	
-	if (equal(D_sq, 0))
-	{
-		double t = -B_half / A;
-		Vector<2> point = p + t * dir;
-		return { 1, {{t, {p,0}}, {t, {p,0}}} };
-	}
+	//if (equal(D_sq, 0))
+	//{
+	//	double t = -B_half / A;
+	//	Vector<2> point = p + t * dir;
+	//	return { 1, {{t, {p,0}}, {t, {p,0}}} };
+	//}
 	double t1 = (-B_half + D_sq) / A;
 	double t2 = (-B_half - D_sq) / A;
 	Vector<2> p1 = (p + dir * t1) * (1.0/rad);
 	Vector<2> p2 = (p + dir * t2) * (1.0/rad);
-	return { 2, {{t1, {p1,0}}, {t2, {p2, 0}}} };
+	return { 2, {{t1, {p1,0}, true}, {t2, {p2, 0}, false}} };
 }
 
 
 
-std::pair<ISR, ISR> Cylinder::_intersectLine(const Vector<3>& start, const Vector<3>& dir, bool& has_intersect)
+std::list<ISR> Cylinder::_intersectLine(const Vector<3>& start, const Vector<3>& dir) const
 {
 	if (equal(dir.x(), 0) && equal(dir.y(), 0))
 	{
 		auto in_res = dot(start, start) < rad * rad;
 		if (in_res)
 		{
-			has_intersect = true;
-			return { {(height / 2 - start.z()) / dir.z(), {0,0,1}}, {(-height / 2 - start.z()) / dir.z(),{0,0,-1}} };
+			double t_up = (half_height - start.z()) / dir.z();
+			double t_down = (-half_height - start.z()) / dir.z();
+			if (t_up < t_down)
+				return { {t_up, {0,0,1}, true}, {t_down,{0,0,-1}, false} };
+			return { {t_down,{0,0,-1}, true}, {t_up, {0,0,1}, false} };
 		}
-		has_intersect = false;
-		return { {0,0,0,0},{0,0,0,0} };
+		return {};
 	}
 	auto shade_intersect = intersectLineWithCircle(start, dir, rad);
 
 	if (shade_intersect.first == 0)
 	{
-		has_intersect = false;
-		return { {0,0,0,0}, {0,0,0,0} };
+		return {};
 	}
 
 	ISR t1 = shade_intersect.second.first;
 	double point_z = start.z() + dir.z() * t1.t;
-	if (shade_intersect.first == 1)
+	/*if (shade_intersect.first == 1)
 	{
 		if (point_z >= -height / 2 && point_z <= height / 2)
 		{
@@ -493,59 +537,61 @@ std::pair<ISR, ISR> Cylinder::_intersectLine(const Vector<3>& start, const Vecto
 		}
 		has_intersect = false;
 		return { {0,0,0,0},{0,0,0,0} };
-	}
+	}*/
 	ISR t2 = shade_intersect.second.second;
 	double point_z2 = start.z() + dir.z() * t2.t;
-	if (!(point_z >= -height / 2 && point_z <= height / 2) && (point_z2 >= -height / 2 && point_z2 <= height / 2))
+	if (!(point_z >= -half_height && point_z <= half_height) && (point_z2 >= -half_height && point_z2 <= half_height))
 	{
 		std::swap(t1, t2);
 		std::swap(point_z, point_z2);
 		std::swap(shade_intersect.second.first, shade_intersect.second.second);
 	}
-	if (point_z >= -height / 2 && point_z <= height / 2)
+	if (point_z >= -half_height && point_z <= half_height)
 	{
-		has_intersect = true;
-
-		if (point_z2 >= -height / 2 && point_z2 <= height / 2)
+		//здесь гарантируется что t1.t < t2.t и соответственно in и out правильные
+		if (point_z2 >= -half_height && point_z2 <= half_height)
 			return { t1, t2 };
 		//z != 0 т к произошел подьем
 
-		if (point_z2 > height / 2)
+		if (point_z2 > half_height)
 		{
-			double t_out = (height / 2 - start.z()) / dir.z();
-			return { t1, {t_out, {0,0,1}} };
+			double t_out = (half_height - start.z()) / dir.z();
+			return { t1, {t_out, {0,0,1}, false} };
 
 		}
-		if (point_z2 < -height / 2)
+		if (point_z2 < -half_height)
 		{
-			double t_out = (-height / 2 - start.z()) / dir.z();
-			return { t1, {t_out, {0,0,-1}} };
+			double t_out = (-half_height - start.z()) / dir.z();
+			return { t1, {t_out, {0,0,-1}, false} };
 
 		}
 	}
 	//осталось возможна только ситуация когда линия проходит через оба основания либо вообще не проходит
 	if (equal(dir.z(), 0))
 	{
-		has_intersect = false;
-		return { {0,0,0,0}, {0,0,0,0} };
+		return {};
 	}
-	double t_out = (height / 2 - start.z()) / dir.z();
+	double t_out = (half_height - start.z()) / dir.z();
 	Vector<2> up_point = start + dir * t_out;
 	if (dot(up_point, up_point) < rad * rad)
 	{
-		has_intersect = true;
-		return { {t_out, 0, 0, 1}, {(-height / 2 - start.z()) / dir.z(), 0, 0, -1} };
+		double t_bot = (-half_height - start.z()) / dir.z();
+		if (t_out < t_bot)
+			return { {t_out, {0, 0, 1}, true}, {t_bot, {0, 0, -1}, false} };
+		else
+			return {{t_bot, {0, 0, -1}, true},  {t_out, {0, 0, 1}, false} };
 	}
-	has_intersect = false;
-	return{ {0,0,0,0},{0,0,0,0} };
+	return {};
 }
 
-IntersectionResult::IntersectionResult(double t, double x, double y, double z) : t(t), n(x, y, z)
+
+
+IntersectionResult::IntersectionResult(double t, double x, double y, double z, bool in) : t(t), n(x, y, z), in(in)
 {
 	
 }
 
-IntersectionResult::IntersectionResult(double t, const Vector<3>& n) : t(t),n(n)
+IntersectionResult::IntersectionResult(double t, const Vector<3>& n, bool in) : t(t),n(n), in(in)
 {
 }
 
