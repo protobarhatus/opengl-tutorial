@@ -82,8 +82,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>C:\Users\super\source\repos\opengl tutorial sol\Includes;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\Users\super\source\repos\opengl tutorial sol\Libraries;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(SolutionDir)Includes;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)Libraries;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -153,6 +153,7 @@
   <ItemGroup>
     <ClCompile Include="ComposedObject.cpp" />
     <ClCompile Include="glad.c" />
+    <ClCompile Include="GLSL_structures.cpp" />
     <ClCompile Include="linear_algebra.cpp" />
     <ClCompile Include="primitives.cpp" />
     <ClCompile Include="Scene.cpp" />
@@ -165,6 +166,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ComposedObject.h" />
+    <ClInclude Include="GLSL_structures.h" />
     <ClInclude Include="intersection.h" />
     <ClInclude Include="linear_algebra.h" />
     <ClInclude Include="primitives.h" />

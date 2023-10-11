@@ -16,6 +16,7 @@
 #include "linear_algebra.h"
 #include "primitives.h"
 #include "Scene.h"
+#include "GLSL_structures.h"
 
 std::string readFile(const std::string& name)
 {
@@ -418,6 +419,18 @@ void castRays(int window_width, int window_height, std::vector<unsigned char>& c
 }
 
 
+GLuint createSharedBufferObject(void* data, int data_size, int binding)
+{
+	GLuint ssbo;
+	glGenBuffers(1, &ssbo);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
+	glBufferData(GL_SHADER_STORAGE_BUFFER, data_size, data,GL_STATIC_READ ); //sizeof(data) only works for statically sized C/C++ arrays.
+	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding, ssbo);
+	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+	return ssbo;
+}
+
+
 int main()
 {
 
@@ -573,6 +586,16 @@ int main()
 	//scene.addObject(std::make_shared<Piramid>(Piramid({ { -1, -1 }, { -1, 1 }, { 1, 1 }, { 1, -1 } }, { 0, 5, 0 }, 2, Quat(1, 0, 0, 0))));
 	
 	createTexImage(window_width, window_height);
+
+	int camera_pos_location = glGetUniformLocation(ray_trace_programm, "camera_pos");
+	int screen_size_location = glGetUniformLocation(ray_trace_programm, "screen_size");
+	int primitive_count_location = glGetUniformLocation(ray_trace_programm, "primitives_count");
+	int data_count_location = glGetUniformLocation(ray_trace_programm, "data_count");
+
+	//GLSL_Primitive sphere = buildSphere(1, { 0, 5, 0 }, { 1, 0, 0, 0 });
+	GLSL_Primitive obj = buildCylinder(2, 1, { 0, 5, 0 }, { 1, 0, 0, 0 });
+	auto prim_buf = createSharedBufferObject(&obj, sizeof(obj), 1);
+	//auto data_buf = createSharedBufferObject(NULL, 0, 2);
 	while (!glfwWindowShouldClose(window)) // Main-Loop
 	{
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear the screen with... red, green, blue.
@@ -581,7 +604,11 @@ int main()
 		//loadTexture(window_width, window_height, &texture[0], false);
 		{ // launch compute shaders!
 			glUseProgram(ray_trace_programm);
-			glUniform4f(glGetUniformLocation(ray_trace_programm, "color"), 0.5, 1, 0.5, 1);
+			glUniform3f(camera_pos_location, camera_pos.x(), camera_pos.y(), camera_pos.z());
+			glUniform2i(screen_size_location, window_width, window_height);
+			glUniform1i(primitive_count_location, 1);
+			glUniform1i(data_count_location, 0);
+			
 			glDispatchCompute((GLuint)window_width, (GLuint)window_width, 1);
 			std::cout << glGetError();
 		}

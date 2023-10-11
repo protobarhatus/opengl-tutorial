@@ -2,54 +2,24 @@
 layout(local_size_x = 1, local_size_y = 1) in;
 layout(rgba32f, binding = 0) uniform image2D img_output;
 
+uniform vec3 camera_pos;
+uniform ivec2 screen_size;
 
-
-const uint PRIZM = 0;
-const uint PIRAMID = 1;
-const uint SPHERE = 2;
-const uint CYLINDR = 3;
 
 struct Quat
 {
-	float a0;
-	vec3 a;
+//a.x - a0, a - a.yzw
+//к сожалению придется так из за padding
+	vec4 a;
 };
-
-Quat mult(in Quat a, in Quat b)
-{
-	return Quat(a.a0 * b.a0 - dot(a.a, b.a), a.a0 * b.a + b.a0 * a.a + cross(a.a, b.a));
-}
-
-Quat inverseRot(in Quat q)
-{
-	return Quat(q.a0, -1 * q.a);
-}
-
-
-mat4 rotation(in Quat q)
-{
-	float a0 = q.a0;
-	float a1 = q.a.x;
-	float a2 = q.a.y;
-	float a3 = q.a.z;
-
-	return mat4(a1*a1 + a0*a0 - a2*a2 - a3*a3, 2*a2*a1 + 2*a0*a3, 2*a3*a1 - 2*a0*a2, 0, 2*a2*a1 - 2*a3*a0, a2*a2 + a0*a0 - a3*a3 - a1*a1, 2*a3*a2 + 2*a1*a0, 0, 2*a3*a1 + 2*a2*a0, 2*a3*a2 - 2*a1*a0, a3*a3 + a0*a0 - a2*a2 - a1*a1, 0, 0, 0, 0, 1);
-}
-
-
-void rotate(inout Quat q, float angle, vec3 n) {
-	q = mult(q, Quat(cos(angle / 2), sin(angle / 2) * normalize(n)));
-}
-
-
 struct Primitive
 {
 	uint type;
 	uint data_index;
-	//размер структуры в ceil(байтах/12), то есть в количестве vec3 которыми она описывается
+	//сколько элементов в data_array она занимает
 	uint data_count;
 	vec3 position;
-	vec4 rotation;
+	Quat rotation;
 	//половина высоты для призмы и цилиндра, высота для пирамиды, радиус для сферы
 	float sc1;
 	//радиус для цилиндра
@@ -63,9 +33,13 @@ layout(binding = 1) buffer primitives_array
 {
 	Primitive primitives[];
 };
-layout(binding = 2) buffer data_array
+layout(binding = 2, std430) buffer data_array
 {
 	vec2 base_points[];
+};
+layout(binding = 3, packed) buffer normals_array
+{
+	vec3 normals[];
 };
 
 struct Intersection
@@ -76,11 +50,50 @@ struct Intersection
 
 struct IRO
 {
-	int interss;
-	Intersection f, s;
+	int inters;
+	Intersection first, second;
 };
 
 
+//они дублируются в glsl_structures.h, лучше не менять
+const uint PRIZM = 0;
+const uint PIRAMID = 1;
+const uint SPHERE = 2;
+const uint CYLINDR = 3;
+
+
+
+
+Quat mult(in Quat a, in Quat b)
+{
+	return Quat(vec4(a.a.x * b.a.x - dot(a.a.yzw, b.a.yzw), a.a.x * b.a.yzw + b.a.x * a.a.yzw + cross(a.a.yzw, b.a.yzw)));
+}
+
+Quat inverseRot(in Quat q)
+{
+	return Quat(vec4(q.a.x, -1 * q.a.yzw));
+}
+
+
+mat4 rotation(in Quat q)
+{
+	float a0 = q.a.x;
+	float a1 = q.a.y;
+	float a2 = q.a.z;
+	float a3 = q.a.w;
+
+	return mat4(a1*a1 + a0*a0 - a2*a2 - a3*a3, 2*a2*a1 + 2*a0*a3, 2*a3*a1 - 2*a0*a2, 0, 2*a2*a1 - 2*a3*a0, a2*a2 + a0*a0 - a3*a3 - a1*a1, 2*a3*a2 + 2*a1*a0, 0, 2*a3*a1 + 2*a2*a0, 2*a3*a2 - 2*a1*a0, a3*a3 + a0*a0 - a2*a2 - a1*a1, 0, 0, 0, 0, 1);
+}
+
+
+void rotate(inout Quat q, float angle, vec3 n) {
+	q = mult(q, Quat(vec4(cos(angle / 2), sin(angle / 2) * normalize(n))));
+}
+
+
+
+
+const IRO ZERO_IRO = IRO(0, Intersection(0, vec3(0,0,0)), Intersection(0, vec3(0,0,0)));
 
 
 
@@ -95,7 +108,7 @@ IRO intersectSphereWithLine(in Primitive sphere, in vec3 start, in vec3 dir)
 	float D_4 = B_half * B_half - A * C;
 	if (D_4 < 0)
 	{
-		return IRO(0, Intersection(0, vec3(0,0,0)), Intersection(0, vec3(0,0,0)));
+		return ZERO_IRO;
 	}
 	float D_sq = sqrt(D_4);
 	float t1 = (-B_half - D_sq) / A;
@@ -105,64 +118,295 @@ IRO intersectSphereWithLine(in Primitive sphere, in vec3 start, in vec3 dir)
 	return res;
 }
 
-void swap(inout IRO a, inout IRO b)
+bool equal(float a, float b)
 {
-	IRO c = a;
+	return abs(a - b) < 1e-5;
+}
+IRO intersectLineWithCircle(in vec2 p, in vec2 dir, float rad)
+{
+	float A = (dir.x * dir.x + dir.y * dir.y);
+	float B_half = p.x * dir.x + p.y * dir.y;
+	float C = p.x * p.x + p.y * p.y - rad * rad;
+	float D = B_half * B_half - A * C;
+	if (D < 0)
+		return ZERO_IRO;
+	float D_sq = sqrt(D);
+	//не уверен что это нужно и полезно
+	if (equal(D_sq, 0))
+	{
+		float t = -B_half / A;
+		vec2 point = p + t * dir;
+		IRO res = {1, {t, vec3(p.xy, 0)}, {t, vec3(p.xy, 0)}};
+		return res;
+	}
+	float t1 = (-B_half + D_sq) / A;
+	float t2 = (-B_half - D_sq) / A;
+	vec2 p1 = (p + dir * t1) * (1.0/rad);
+	vec2 p2 = (p + dir * t2) * (1.0/rad);
+	IRO res = { 2, {t1, vec3(p1,0)}, {t2, vec3(p2, 0)} };
+	return res;
+}
+
+void swap(inout Intersection a, inout Intersection b)
+{
+	Intersection c = a;
 	a = b;
 	b = c;
 }
 
-IRO intersectWithRay(in Primitive object, in vec3 ray_start, in vec3 direction)
+void swap(inout float a, inout float b)
 {
-	//Matrix<4> transposition(Vector<4>(1, 0, 0, -position.x()), Vector<4>(0, 1, 0, -position.y()), Vector<4>(0, 0, 1, -position.z()), Vector<4>(0, 0, 0, 1));
+	float c = a;
+	a = b;
+	b = c;
+}
 
-
-
-	mat4 transposition = mat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -object.position.x, -object.position.y, -object.position.z, 1);
-	Matrix<4> rotation = inverseRot(this->rotation).rotation();
-	Matrix<4> transformation = rotation * transposition;
-
-	Vector<3> start = transformation * Vector<4>(ray_start);
-	Vector<3> dir = rotation * Vector<4>(direction);
-
-	bool has_intersections;
-	auto intersect = _intersectLine(start, dir, has_intersections);
-
-	if (!has_intersections)
+IRO intersectCylinderWithLine(in Primitive obj, in vec3 start, in vec3 dir)
+{
+	float rad = obj.sc2;
+	float half_height = obj.sc1;
+	if (equal(dir.x, 0.0) && equal(dir.y, 0.0))
 	{
-		IRO res = {0, {0, {0,0,0}}, {0, {0,0,0}}};
+		bool in_res = dot(start, start) < rad * rad;
+		if (in_res)
+		{
+			IRO res = {2, {(half_height - start.z) / dir.z, {0,0,1}}, {(-half_height - start.z) / dir.z,{0,0,-1}}};
+			return res;
+		}
+		return ZERO_IRO;
+	}
+	IRO shade_intersect = intersectLineWithCircle(start.xy, dir.xy, rad);
+
+	if (shade_intersect.inters == 0)
+	{
+		return shade_intersect;
+	}
+
+	Intersection t1 = shade_intersect.first;
+	float point_z = start.z + dir.z * t1.t;
+	if (shade_intersect.inters == 1)
+	{
+		if (point_z >= -half_height && point_z <= half_height)
+		{
+			return shade_intersect;
+		}
+		return ZERO_IRO;
+	}
+	Intersection t2 = shade_intersect.second;
+	float point_z2 = start.z + dir.z * t2.t;
+	if (!(point_z >= -half_height && point_z <= half_height) && (point_z2 >= -half_height && point_z2 <= half_height))
+	{
+		swap(t1, t2);
+		swap(point_z, point_z2);
+		swap(shade_intersect.first, shade_intersect.second);
+	}
+	if (point_z >= -half_height && point_z <= half_height)
+	{
+		if (point_z2 >= -half_height && point_z2 <= half_height)
+			return shade_intersect;
+		//z != 0 т к произошел подьем
+
+		if (point_z2 > half_height)
+		{
+			float t_out = (half_height - start.z) / dir.z;
+			IRO res = {2, t1, {t_out, {0,0,1}}};
+			return res;
+		}
+		if (point_z2 < -half_height)
+		{
+			float t_out = (-half_height - start.z) / dir.z;
+			IRO res = {2, t1, {t_out, {0, 0, -1}}};
+			return res;
+
+		}
+	}
+	//осталось возможна только ситуация когда линия проходит через оба основания либо вообще не проходит
+	if (equal(dir.z, 0))
+	{
+		return ZERO_IRO;
+	}
+	float t_out = (half_height - start.z) / dir.z;
+	vec2 up_point = (start + dir * t_out).xy;
+	if (dot(up_point, up_point) < rad * rad)
+	{
+		IRO res = {2, {t_out, {0,0,1}}, {(-half_height - start.z) / dir.z, {0,0,-1}}};
 		return res;
 	}
-	if (intersect.second.t < intersect.first.t)
-		swap(intersect.first, intersect.second);
-	if (intersect.second.t < 0)
-	{
-		IRO res = {0, {0, {0,0,0}}, {0, {0,0,0}}};
-		return res;
-	}
-	//.first может быть < 0
-	Matrix<4> back_rotation = this->rotation.rotation();
-	intersect.first.n = back_rotation * Vector<4>(intersect.first.n);
-	intersect.second.n = back_rotation * Vector<4>(intersect.second.n);
-
-	IRO res = {0, {0, {0,0,0}}, {0, {0,0,0}}};
-	return res;
+	
+	return IRO(0, Intersection(0, vec3(0,0,0)), Intersection(0, vec3(0,0,0)));
 }
 
 
+
+/*IRO intersectPrizmWithLine(Primitive obj, in vec3 start, in vec3 dir)
+{
+
+	
+
+
+	double EPSILON = 1e-6;
+	if (equal(dir.x(), 0) && equal(dir.y(), 0))
+	{
+		auto in_res = isPointInsidePolygon(start, this->base);
+		if (in_res)
+		{
+			has_intersect = true;
+			return { {(height / 2 - start.z()) / dir.z(), {0,0,1}}, {(-height / 2 - start.z()) / dir.z(), {0,0,-1}} };
+		}
+		has_intersect = false;
+		return { {0,0,0,0},{0,0,0,0} };
+	}
+	auto shade_intersect = rayIntersectsPolygon(start, dir, base, normals);
+
+	if (shade_intersect.first == 0)
+	{
+		has_intersect = false;
+		return { {0,0,0,0}, {0,0,0,0} };
+	}
+
+	ISR t1 = shade_intersect.second.first;
+	double point_z = start.z() + dir.z() * t1.t;
+	if (shade_intersect.first == 1)
+	{
+		if (point_z >= -height / 2 - EPSILON && point_z <= height / 2 + EPSILON)
+		{
+			has_intersect = true;
+			return { t1, t1 };
+		}
+		has_intersect = false;
+		return { {0,0,0,0},{0,0,0,0} };
+	}
+	ISR t2 = shade_intersect.second.second;
+	double point_z2 = start.z() + dir.z() * t2.t;
+	if (!(point_z >= -height / 2 - EPSILON && point_z <= height / 2 + EPSILON) && (point_z2 >= -height / 2 - EPSILON && point_z2 <= height / 2 + EPSILON))
+	{
+		std::swap(t1, t2);
+		std::swap(point_z, point_z2);
+		std::swap(shade_intersect.second.first, shade_intersect.second.second);
+	}
+	if (point_z >= -height / 2 - EPSILON && point_z <= height / 2 + EPSILON)
+	{
+		has_intersect = true;
+
+		if (point_z2 >= -height / 2 - EPSILON && point_z2 <= height / 2 + EPSILON)
+			return { t1, t2 };
+		//z != 0 т к произошел подьем
+
+		if (point_z2 > height / 2 + EPSILON)
+		{
+			double t_out = (height / 2 - start.z()) / dir.z();
+			Vector<2> upper_point = start + dir * t_out;
+			//наверно эту проверку можно убрать
+			if (isPointInsidePolygon(upper_point, base))
+				return { t1, {t_out, {0, 0, 1} } };
+			//невозможная ситуация, т к если он не выходит в стене то должен выходить наверху но мало ли
+			return { t1, t1 };
+		}
+		if (point_z2 < -height / 2 - EPSILON)
+		{
+			double t_out = (-height / 2 - start.z()) / dir.z();
+			Vector<2> lower_point = start + dir * t_out;
+			//эту проверку также думаю можно убрать
+			if (isPointInsidePolygon(lower_point, base))
+				return { t1, {t_out, 0, 0, -1} };
+			return { t1, t1 };
+		}
+	}
+	//осталось возможна только ситуация когда линия проходит через оба основания, через верхнее/нижнее ребро, либо вообще не проходит
+	if (equal(dir.z(), 0))
+	{
+		has_intersect = false;
+		return { {0,0,0,0}, {0,0,0,0} };
+	}
+	double t_out = (height / 2 - start.z()) / dir.z();
+	Vector<2> up_point = start + dir * t_out;
+	if (isPointInsidePolygon(up_point, base))
+	{
+		has_intersect = true;
+
+		return { {t_out, {0,0,1}},  {(-height / 2 - start.z()) / dir.z(), {0,0,-1}} };
+	}
+	has_intersect = false;
+	return{ {0,0,0,0},{0,0,0,0} };
+}*/
+
+
+
+
+IRO intersectWithRay(in Primitive object, in vec3 ray_start, in vec3 direction)
+{
+	//Matrix<4> transposition(Vector<4>(1, 0, 0, -position.x()), Vector<4>(0, 1, 0, -position.y()), Vector<4>(0, 0, 1, -position.z()), Vector<4>(0, 0, 0, 1));
+	mat4 transposition = mat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -object.position.x, -object.position.y, -object.position.z, 1);
+
+	mat4 rot = rotation(inverseRot(object.rotation));
+	mat4 transformation = rot * transposition;
+
+	vec3 start = (transformation * vec4(ray_start, 1)).xyz;
+	vec3 dir = (rot * vec4(direction, 1)).xyz;
+
+	IRO inter_res;
+
+	switch(object.type)
+	{
+		case PRIZM:
+			break;
+		case PIRAMID:
+			break;
+		case CYLINDR:
+			inter_res = intersectCylinderWithLine(object, start, dir);
+			break;
+		case SPHERE:
+			inter_res = intersectSphereWithLine(object, start, dir);
+			break;
+	}
+	if (inter_res.inters == 0)
+		return inter_res;
+	if (inter_res.first.t < 0 && inter_res.second.t < 0)
+	{
+		IRO res = {0, {0, {0,0,0}}, {0, {0,0,0}}};
+		return res;
+	}
+	
+	if (inter_res.second.t < inter_res.first.t && inter_res.second.t >= 0)
+		swap(inter_res.first, inter_res.second);
+	if (inter_res.second.t < 0)
+	{
+		inter_res.inters = 1;
+	}
+	//.first может быть < 0
+	mat4 back_rotation = rotation(object.rotation);
+	inter_res.first.n = (back_rotation * vec4(inter_res.first.n, 1)).xyz;
+	inter_res.second.n = (back_rotation * vec4(inter_res.second.n, 1)).xyz;
+
+	return inter_res;
+}
+
+float sq(float x)
+{
+	return x*x;
+}
+
 void main() {
-  // base pixel colour for image
-  vec4 pixel = vec4(0.0, 0.0, 0.0, 1.0);
-  // get index in global work group i.e x,y position
   ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
-  
-  IRO f = {false, {0, {0,0,0}}, {0, {0,0,0}}};
-  f.has_intersection;
+  float horizontal_step = 2.0/screen_size.x;
+  float vertical_step = 2.0/screen_size.y;
+  vec3 ray_dir = vec3(-1 + pixel_coords.x * horizontal_step, 1, -1 + pixel_coords.y * vertical_step);
+
+  //imageStore(img_output, pixel_coords, vec4(float(primitives[0].sc1) / 1.05, 0, 0, 1));
+  //return;
+  IRO inter = intersectWithRay(primitives[0], camera_pos, ray_dir);
+  if (inter.inters == 0)
+	imageStore(img_output, pixel_coords, vec4(0,0,0,1));
+  else
+  {
+	float r = (0.99 * sqrt((sq(dot(ray_dir, inter.first.n)) / dot(ray_dir, ray_dir))));
+	imageStore(img_output, pixel_coords, vec4(r,r,r,1));
+  }
   //
   // interesting stuff happens here later
   //
   
   // output to a specific pixel in the image
   //imageStore(img_output, pixel_coords, vec4(vec2(pixel_coords)/600, 1, 1));
-  imageStore(img_output, pixel_coords, color);
+  
 }
