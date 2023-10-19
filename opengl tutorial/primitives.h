@@ -34,11 +34,22 @@ public:
 	Object(const Vector<3>& pos, const Quat& rot);
 
 	std::pair<bool, ISR> intersectWithRay(const Vector<3>& start, const Vector<3>& direction) const;
-	std::vector<ISR> intersectWithRayOnBothSides(const Vector<3>& start, const Vector<3>& direction) const;
+	//
+	virtual std::vector<ISR> intersectWithRayOnBothSides(const Vector<3>& start, const Vector<3>& direction) const;
 
 	virtual bool isPointInside(const Vector<3>& p) const = 0;
 	void moveOn(const Vector<3>& movement);
 	void rotate(const Quat& rotation);
+};
+
+class Box : public Object
+{
+public:
+	Box(const Vector<3>& position, const Vector<3>& half_size, const Quat& rotation);
+	virtual Vector<3> countBoundingBox() const override;
+	virtual std::vector<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const override;
+	std::vector<ISR> intersectWithRayOnBothSides(const Vector<3>& start, const Vector<3>& direction) const;
+	bool isPointInside(const Vector<3>& p) const override;
 };
 
 class Prizm : public Object
@@ -102,6 +113,23 @@ class Sphere : public Object
 public:
 	virtual bool isPointInside(const Vector<3>& p) const override;
 	Sphere(const Vector<3>& pos, double rad);
+};
+
+
+class Polyhedron : public Object
+{
+	std::vector<Vector<3>> points;
+	std::vector<std::vector<int>> edges;
+	std::vector<Vector<3>> normals;
+	bool convex = true;
+	//в их собственных координатах
+	std::vector<std::vector<Vector<2>>> polygons;
+	std::vector<Matrix<3>> polygs_coords;
+public:
+	Polyhedron(const Vector<3>& position, const Quat& rotation, const std::vector<Vector<3>>& points, const std::vector<std::vector<int>>& edges);
+	virtual Vector<3> countBoundingBox() const override;
+	virtual std::vector<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const override;
+	bool isPointInside(const Vector<3>& p) const override;
 };
 
 

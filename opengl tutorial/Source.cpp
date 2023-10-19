@@ -406,7 +406,7 @@ void castRays(int window_width, int window_height, std::vector<unsigned char>& c
 			//setColor(i, j, window_width, { 255, (unsigned char)(255 * double(i) / window_width), (unsigned char)(255 * double(j) / window_height), 255 }, canvas);
 			//continue;
 
-			if (i == 200 && j == 300)
+			if (i == 300 && j == 300)
 				std::cout << "A";
 			Vector<3> ray_dir(-1 + i * horizontal_step, 1, -1 + j * vertical_step);
 			auto cast = scene.intersection(camera_pos, ray_dir);
@@ -430,7 +430,7 @@ void castRays(int window_width, int window_height, std::vector<unsigned char>& c
 			//setColor(i, j, window_width, { 255, (unsigned char)(255 * double(i) / window_width), (unsigned char)(255 * double(j) / window_height), 255 }, canvas);
 			//continue;
 
-			if (i == 300 && j == 580)
+			if (i == 300 && j == 300)
 				std::cout << "A";
 			Vector<3> ray_dir(-1 + i * horizontal_step, 1, -1 + j * vertical_step);
 			auto cast = object->intersectWithRay(camera_pos, ray_dir);
@@ -629,15 +629,19 @@ int main()
 			std::make_unique<Cylinder>(Vector<3>{0, 0, 0}, 2.1, 0.7, Quat(1. / 1.41, 1. / 1.41, 0, 0)), { 0,0,0 }, null_rotation),
 		{ 0, 0, 0 }, null_rotation);
 
-	auto cube = objectsSubtraction(std::make_unique<Prizm>(square, Vector<3>{ 0, 0, 0 }, 2, null_rotation),
+	auto cube = objectsSubtraction(std::make_unique<Box>(Vector<3>(0,0,0), Vector<3>{ 1, 1, 1 }, null_rotation),
 		std::move(cilinders), { 0, 0, 0 }, null_rotation);
-	cube = objectsSubtraction(std::move(cube), std::make_unique<Prizm>(Prizm(
-		{ {-0.9, -0.9}, {-0.9, 0.9}, {0.9, 0.9}, {0.9, -0.9} }, { 0,0,0 }, 1.8, null_rotation
-	)), { 0,5,0 }, null_rotation);
+	cube = objectsSubtraction(std::move(cube), std::make_unique<Box>(Vector<3>(0, 0, 0), Vector<3>{ 0.9, 0.9, 0.9 }, null_rotation), { 0,5,0 }, null_rotation);
 
+	auto box = std::make_unique<Box>(Vector<3>(0, 5, 0), Vector<3>{ 1, 1, 1 }, null_rotation);
 	auto cone = std::make_unique<Cone>(2, 1, Vector<3>{ 0, 5, 1 }, null_rotation);
 
 	auto CIL = std::make_unique<Cylinder>(Vector<3>{ 0, 5, 0 }, 2.1, 0.7, Quat(1. / 1.41, 0, 1. / 1.41, 0));
+
+	auto prizm = std::make_unique<Prizm>(square, Vector<3>{0, 5, 0}, 2, null_rotation);
+
+	auto poly = std::make_unique<Polyhedron>(Vector<3>{ 0, 5, 0 }, null_rotation, std::vector<Vector<3>>{ {-1, -1, -1}, {-1, -1, 1}, {-1, 1, -1}, {-1, 1, 1}, {1, -1, -1}, {1, -1, 1}, {1, 1, -1}, {1, 1, 1} }, 
+		std::vector<std::vector<int>>{ {0, 1, 5, 4}, {2, 3, 7, 6}, {0, 2, 3, 1}, {4, 6, 7, 5}, {5, 7, 3, 1}, {4, 6, 2, 0} });
 
 	camera_pos.nums[1] = 2;
 
@@ -645,7 +649,9 @@ int main()
 	{
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear the screen with... red, green, blue.
 
-		castRays(window_width, window_height, texture, camera_pos, cube.get());
+		clock_t t1 = clock();
+		castRays(window_width, window_height, texture, camera_pos, poly.get());
+		std::cout << clock() - t1 << '\n';
 		loadTexture(window_width, window_height, &texture[0], false);
 		/* { // launch compute shaders!
 			glUseProgram(ray_trace_programm);

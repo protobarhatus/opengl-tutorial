@@ -776,3 +776,175 @@ IntersectionResult::IntersectionResult(double t, const Vector<3>& n, bool in) : 
 IntersectionResult::IntersectionResult() : t(0), n(0,0,0)
 {
 }
+
+Box::Box(const Vector<3>& position, const Vector<3>& size, const Quat& rotation) : Object(position, rotation)
+{
+	bounding_box = size;
+}
+
+Vector<3> Box::countBoundingBox() const
+{
+	return this->bounding_box;
+}
+
+std::pair<bool, ISR> intersectLineWithBoxOnSide(int sig, int dir_c, int c1, int c2, const Vector<3>& bounding_box, const Vector<3>& start, const Vector<3>& dir)
+{
+	double xpT = (sig*bounding_box.nums[dir_c] - start.nums[dir_c]) / dir.nums[dir_c];
+	double yatx = start.nums[c1] + dir.nums[c1] * xpT;
+	double zatx = start.nums[c2] + dir.nums[c2] * xpT;
+	if (abs(yatx) <= bounding_box.nums[c1] && abs(zatx) <= bounding_box.nums[c2])
+	{
+		Vector<3> n;
+		n.nums[dir_c] = sig;
+		n.nums[c1] = 0;
+		n.nums[c2] = 0;
+		return { true, ISR(xpT, n, sig * sign(dir.nums[dir_c]) < 0) };
+	}
+	return { false, {0, 0,0,0,0} };
+
+}
+std::vector<ISR> Box::_intersectLine(const Vector<3>& start, const Vector<3>& dir) const
+{
+	int c = 0;
+	static std::vector<ISR> res(2);
+	auto intres = intersectLineWithBoxOnSide(1, 0, 1, 2, bounding_box, start, dir);
+	if (intres.first)
+	{
+		res[1 - intres.second.in] = intres.second;
+		++c;
+	}
+	intres = intersectLineWithBoxOnSide(-1, 0, 1, 2, bounding_box, start, dir);
+	if (intres.first)
+	{
+		res[1 - intres.second.in] = intres.second;
+		++c;
+	}
+	if (c == 2)
+		return res;
+	intres = intersectLineWithBoxOnSide(1, 1, 0, 2, bounding_box, start, dir);
+	if (intres.first)
+	{
+		res[1 - intres.second.in] = intres.second;
+		++c;
+	}
+	if (c == 2)
+		return res;
+	intres = intersectLineWithBoxOnSide(-1, 1, 0, 2, bounding_box, start, dir);
+	if (intres.first)
+	{
+		res[1 - intres.second.in] = intres.second;
+		++c;
+	}
+	if (c == 2)
+		return res;
+	intres = intersectLineWithBoxOnSide(1, 2, 1, 0, bounding_box, start, dir);
+	if (intres.first)
+	{
+		res[1 - intres.second.in] = intres.second;
+		++c;
+	}
+	if (c == 2)
+		return res;
+	intres = intersectLineWithBoxOnSide(-1, 2, 1, 0, bounding_box, start, dir);
+	if (intres.first)
+	{
+		res[1 - intres.second.in] = intres.second;
+		++c;
+	}
+	if (c == 2)
+		return res;
+	return {};
+
+}
+
+std::vector<ISR> Box::intersectWithRayOnBothSides(const Vector<3>& ray_start, const Vector<3>& direction) const
+{
+	Vector<3> start = transformation_mat * Vector<4>(ray_start);
+	Vector<3> dir = rotation_mat * Vector<4>(direction);
+	//я не понимаю почему но с этим так получается быстрее чем без этого
+	if (!lineIntersectsBoundingBox(start, dir))
+		return { false, {0,0,0,0,0} };
+	auto intersect = _intersectLine(start, dir);
+	if (intersect.size() == 0)
+		return { false, {0,0,0,0,0} };
+
+	for (auto it = intersect.begin(); it != intersect.end(); )
+	{
+		if (it->t < 0)
+		{
+			it = intersect.erase(it);
+			continue;
+		}
+
+		it->n = back_rotation_mat * Vector<4>(it->n);
+		++it;
+	}
+	return intersect;
+}
+
+bool Box::isPointInside(const Vector<3>& p) const
+{
+	return abs(p.x()) < bounding_box.x() && abs(p.y()) < bounding_box.y() && abs(p.z()) < bounding_box.z();
+}
+
+Polyhedron::Polyhedron(const Vector<3>& position, const Quat& rotation, const std::vector<Vector<3>>& points, const std::vector<std::vector<int>>& edges) : Object(position, rotation), points(points), edges(edges)
+{
+	bounding_box = countBoundingBox();
+	normals.resize(edges.size());
+	polygons.resize(edges.size());
+	polygs_coords.resize(edges.size());
+	for (int i = 0; i < edges.size(); ++i)
+	{
+		const std::vector<int>& it = edges[i];
+		Vector<3> n = cross(points[it[1]] - points[it[0]], points[it[2]] - points[it[0]]);
+		double mD = dot(points[it[0]], n);
+		double t = mD / dot(n, n);
+		if (mD < 0)
+			n = n * -1;
+		normals[i] = normalize(n);
+
+		Vector<3> base_a = normalize(points[it[1]] - points[it[0]]);
+		Vector<3> base_c = normals[i];
+		Vector<3> base_b = cross(base_c, base_a);
+
+		polygs_coords[i] = inverse(transpose(Matrix<3>{ base_a, base_b, base_c }));
+		for (int j = 0; j < it.size(); ++j)
+		{
+			polygons[i].push_back(polygs_coords[i] * (points[it[j]] - points[it[0]]));
+		}
+	}
+}
+
+Vector<3> Polyhedron::countBoundingBox() const
+{
+	Vector<3> bb({ 0,0,0 });
+	for (auto& it : points)
+		bb = max(bb, it);
+	return bb;
+}
+
+std::vector<ISR> Polyhedron::_intersectLine(const Vector<3>& start, const Vector<3>& dir) const
+{
+	std::vector<ISR> res;
+	int c = 0;
+	for (int i = 0; i < edges.size(); ++i)
+	{
+		double t = (dot(points[edges[i][0]], normals[i]) - dot(start, normals[i])) / dot(dir, normals[i]);
+		Vector<3> proj = start + dir * t;
+		proj = proj - points[edges[i][0]];
+		Vector<2> p_in_polygon = polygs_coords[i] * proj;
+		if (isPointInsidePolygon(p_in_polygon, polygons[i]))
+		{
+			res.push_back( { t, normals[i], dot(normals[i], dir)<0 });
+			if (this->convex && c == 2)
+				return res;
+		}
+	}
+	return res;
+}
+
+bool Polyhedron::isPointInside(const Vector<3>& p) const
+{
+	assert(false);
+	return false;
+}

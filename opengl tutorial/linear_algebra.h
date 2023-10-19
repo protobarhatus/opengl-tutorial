@@ -187,3 +187,16 @@ public:
 Quat operator*(const Quat& a, const Quat& b);
 
 Quat inverseRot(const Quat& q);
+Matrix<3> inverse(Matrix<3> matrix);
+
+template<int dim>
+Matrix<dim> transpose(const Matrix<dim>& m)
+{
+	Matrix<dim> res;
+	for (int i = 0; i < dim; ++i)
+	{
+		for (int j = 0; j < dim; ++j)
+			res.mat[i].nums[j] = m.mat[j].nums[i];
+	}
+	return res;
+}

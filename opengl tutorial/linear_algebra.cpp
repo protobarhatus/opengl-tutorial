@@ -57,3 +57,83 @@ Vector<3> max(const Vector<3>& a, const Vector<3>& b)
 {
 	return { std::max(a.x(), b.x()), std::max(a.y(), b.y()), std::max(a.z(), b.z()) };
 }
+
+
+
+
+
+#include <vector>
+Matrix<3> inverse(Matrix<3> matrix)
+{
+	
+	Matrix<3> result = { {1,0,0}, {0,1,0}, {0,0,1} };
+	int height = 3;
+	int width = 3;
+	auto get_index_of_first_non_zero = [width](Vector<3>& vec)->int {
+		for (int i = 0; i < width; ++i)
+			if (vec.nums[i] != 0)
+				return i;
+		return width;
+	};
+	std::vector<std::pair<int, int> > indexes_of_first_non_zero(height);
+	auto sort_rows = [height, &get_index_of_first_non_zero, &matrix, &indexes_of_first_non_zero, &result]()->void {
+		for (int i = 0; i < height; ++i)
+		{
+			indexes_of_first_non_zero[i] = { i, get_index_of_first_non_zero(matrix.mat[i]) };
+		}
+		std::sort(indexes_of_first_non_zero.begin(), indexes_of_first_non_zero.end(), [](const std::pair<int, int>& a, const std::pair<int, int>& b) {
+			return a.second < b.second; });
+		for (int i = 0; i < height; ++i)
+		{
+			if (i < indexes_of_first_non_zero[i].first)
+			{
+				std::swap(matrix.mat[i], matrix.mat[indexes_of_first_non_zero[i].first]);
+				std::swap(result.mat[i], result.mat[indexes_of_first_non_zero[i].first]);
+			}
+		}
+	};
+	auto divide_on_lead_element = [&matrix, &result, height](int x)->void {
+		long double lead_el = matrix.mat[x].nums[x];
+		for (int i = x; i < height; ++i)
+		{
+			matrix.mat[x].nums[i] /= lead_el;
+		}
+		for (int i = 0; i < height; ++i)
+		{
+			result.mat[x].nums[i] /= lead_el;
+		}
+	};
+	sort_rows();
+
+	for (int n = 0; n < height; ++n) {
+		divide_on_lead_element(n);
+		for (int i = n + 1; i < height; ++i)
+		{
+			long double multiplier = -matrix.mat[i].nums[n] / matrix.mat[n].nums[n];
+			matrix.mat[i] = matrix.mat[i] + matrix.mat[n] * (multiplier);
+			result.mat[i] = result.mat[i] + result.mat[n] * (multiplier);
+
+
+		}
+
+		//sort_rows();
+	}
+	for (int i = 0; i <  height; ++i)
+		for (int j = 0; j < width; ++j)
+			if (abs(matrix.mat[i].nums[j]) < 1e-20)
+				matrix.mat[i].nums[j] = 0;
+	for (int n = height - 1; n >= 0; --n)
+	{
+		for (int i = n - 1; i >= 0; --i)
+		{
+			long double multiplier = -matrix.mat[i].nums[n] / matrix.mat[n].nums[n];
+			matrix.mat[i] = matrix.mat[i] + matrix.mat[n] * (multiplier);
+			result.mat[i] = result.mat[i] + result.mat[n] * (multiplier);
+		}
+	}
+	for (int i = 0; i < width; ++i)
+		for (int j = 0; j < height; ++j)
+			if (abs(matrix.mat[i].nums[j]) < 1e-20)
+				matrix.mat[i].nums[j] = 0;
+	return result;
+}
