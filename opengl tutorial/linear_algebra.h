@@ -152,6 +152,7 @@ Vector<dim> operator*(const Matrix<dim>& a, const Vector<dim>& b)
 	return res;
 }
 
+Vector<3> max(const Vector<3>& a, const Vector<3>& b);
 
 class Quat;
 Quat operator*(const Quat& a, const Quat& b);

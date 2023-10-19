@@ -1,6 +1,6 @@
 #include "linear_algebra.h"
 #include <math.h>
-
+#include <algorithm>
 
 Vector<4>::Vector(double x, double y, double z, double t) : nums{ x, y, z, t } {}
 Vector<4>::Vector() : nums{ 0,0,0,0 } {}
@@ -53,4 +53,7 @@ Quat::Quat(double a0, const Vector<3>& a) : _a0(a0), a(a) {}
 
 Quat::Quat(double a0, double a1, double a2, double a3) : _a0(a0), a(a1, a2, a3) {}
 
-
+Vector<3> max(const Vector<3>& a, const Vector<3>& b)
+{
+	return { std::max(a.x(), b.x()), std::max(a.y(), b.y()), std::max(a.z(), b.z()) };
+}

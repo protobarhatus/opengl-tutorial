@@ -122,6 +122,13 @@ std::vector<ISR> ComposedObject::_intersectLine(const Vector<3>& pos, const Vect
 	}
 }
 
+
+
+Vector<3> ComposedObject::countBoundingBox() const
+{
+	return max(left->rotateBoundingBox(), right->rotateBoundingBox());
+}
+
 bool ComposedObject::isPointInside(const Vector<3>& p) const
 {
 	//потом
@@ -131,6 +138,7 @@ bool ComposedObject::isPointInside(const Vector<3>& p) const
 
 ComposedObject::ComposedObject(std::unique_ptr<Object>&& left, std::unique_ptr<Object>&& right, Operation oper, const Vector<3>& pos, const Quat& rot) : left(std::move(left)), right(std::move(right)), operation(oper), Object(pos, rot)
 {
+	bounding_box = countBoundingBox();
 }
 
 std::unique_ptr<Object> objectsCombination(std::unique_ptr<Object>&& left, std::unique_ptr<Object>&& right, ComposedObject::Operation oper, const Vector<3>& comm_pos, const Quat& comm_rot)

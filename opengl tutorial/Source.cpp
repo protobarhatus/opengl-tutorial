@@ -637,6 +637,8 @@ int main()
 
 	auto cone = std::make_unique<Cone>(2, 1, Vector<3>{ 0, 5, 1 }, null_rotation);
 
+	auto CIL = std::make_unique<Cylinder>(Vector<3>{ 0, 5, 0 }, 2.1, 0.7, Quat(1. / 1.41, 0, 1. / 1.41, 0));
+
 	camera_pos.nums[1] = 2;
 
 	while (!glfwWindowShouldClose(window)) // Main-Loop
