@@ -1,7 +1,7 @@
 #pragma once
 #include "linear_algebra.h"
 #include <vector>
-#include <list>
+#include <vector>
 struct IntersectionResult
 {
 	double t;
@@ -23,13 +23,15 @@ protected:
 	Matrix<4> back_rotation_mat;
 public:
 	//если оставить в protected то ComposedObject не сможет вызывать это для своих членов. так что пока так
-	virtual std::list<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const = 0;
+	virtual std::vector<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const = 0;
 	Object(const Vector<3>& pos, const Quat& rot);
 
 	std::pair<bool, ISR> intersectWithRay(const Vector<3>& start, const Vector<3>& direction) const;
-	std::list<ISR> intersectWithRayOnBothSides(const Vector<3>& start, const Vector<3>& direction) const;
+	std::vector<ISR> intersectWithRayOnBothSides(const Vector<3>& start, const Vector<3>& direction) const;
 
 	virtual bool isPointInside(const Vector<3>& p) const = 0;
+	void moveOn(const Vector<3>& movement);
+	void rotate(const Quat& rotation);
 };
 
 class Prizm : public Object
@@ -37,7 +39,7 @@ class Prizm : public Object
 	bool is_convex = true;
 	double half_height;
 
-	virtual std::list<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const override;
+	virtual std::vector<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const override;
 	std::vector<Vector<2>> base;
 	std::vector<Vector<3>> normals;
 public:
@@ -48,9 +50,9 @@ public:
 
 class Cone : public Object
 {
-	double height, rad;
+	double height, rad, rdivh;
 
-	virtual std::list<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const override;
+	virtual std::vector<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const override;
 public:
 	virtual bool isPointInside(const Vector<3>& p) const override;
 	Cone(double height, double rad, const Vector<3>& apex_position, const Quat& rot);
@@ -60,7 +62,7 @@ class Piramid : public Object
 {
 	bool is_convex = true;
 	double height;
-	virtual std::list<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const override;
+	virtual std::vector<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const override;
 	std::vector<Vector<2>> base;
 	std::vector<Vector<3>> normals;
 public:
@@ -72,7 +74,7 @@ class Cylinder : public Object
 {
 	double half_height, rad;
 
-	virtual std::list<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const override;
+	virtual std::vector<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const override;
 public:
 	virtual bool isPointInside(const Vector<3>& p) const override;
 	Cylinder(const Vector<3>& pos, double height, double rad, const Quat& rotation);
@@ -82,7 +84,7 @@ class Sphere : public Object
 {
 	double rad;
 
-	virtual std::list<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const override;
+	virtual std::vector<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const override;
 public:
 	virtual bool isPointInside(const Vector<3>& p) const override;
 	Sphere(const Vector<3>& pos, double rad);

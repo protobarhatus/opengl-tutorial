@@ -17,6 +17,7 @@
 #include "primitives.h"
 #include "Scene.h"
 #include "GLSL_structures.h"
+#include "ComposedObject.h"
 
 std::string readFile(const std::string& name)
 {
@@ -405,7 +406,7 @@ void castRays(int window_width, int window_height, std::vector<unsigned char>& c
 			//setColor(i, j, window_width, { 255, (unsigned char)(255 * double(i) / window_width), (unsigned char)(255 * double(j) / window_height), 255 }, canvas);
 			//continue;
 
-			if (i == 300 && j == 300)
+			if (i == 200 && j == 300)
 				std::cout << "A";
 			Vector<3> ray_dir(-1 + i * horizontal_step, 1, -1 + j * vertical_step);
 			auto cast = scene.intersection(camera_pos, ray_dir);
@@ -429,7 +430,7 @@ void castRays(int window_width, int window_height, std::vector<unsigned char>& c
 			//setColor(i, j, window_width, { 255, (unsigned char)(255 * double(i) / window_width), (unsigned char)(255 * double(j) / window_height), 255 }, canvas);
 			//continue;
 
-			if (i == 300 && j == 300)
+			if (i == 300 && j == 580)
 				std::cout << "A";
 			Vector<3> ray_dir(-1 + i * horizontal_step, 1, -1 + j * vertical_step);
 			auto cast = object->intersectWithRay(camera_pos, ray_dir);
@@ -620,14 +621,29 @@ int main()
 	//GLSL_Primitive obj = buildCylinder(2, 1, { 0, 5, 0 }, { 1, 0, 0, 0 });
 	//auto prim_buf = createSharedBufferObject(&obj, sizeof(obj), 1);
 	//auto data_buf = createSharedBufferObject(NULL, 0, 2);
+	std::vector<Vector<2>> square = { {-1, -1}, {-1, 1}, {1, 1}, {1, -1} };
+	Quat null_rotation = Quat(1, 0, 0, 0);
+	auto cilinders = objectsUnion(std::make_unique<Cylinder>(Cylinder({ 0, 0, 0 }, 2.1, 0.7, Quat(1, 0, 0, 0))),
+		objectsUnion(
+			std::make_unique<Cylinder>(Vector<3>{ 0, 0, 0 }, 2.1, 0.7, Quat(1. / 1.41, 0, 1. / 1.41, 0)),
+			std::make_unique<Cylinder>(Vector<3>{0, 0, 0}, 2.1, 0.7, Quat(1. / 1.41, 1. / 1.41, 0, 0)), { 0,0,0 }, null_rotation),
+		{ 0, 0, 0 }, null_rotation);
 
-	Prizm prizm({ {-1, -1}, {-1, 1}, {1, 1}, {1, -1} }, { 0, 5, 0 }, 2, Quat(1, 0, 0, 0));
+	auto cube = objectsSubtraction(std::make_unique<Prizm>(square, Vector<3>{ 0, 0, 0 }, 2, null_rotation),
+		std::move(cilinders), { 0, 0, 0 }, null_rotation);
+	cube = objectsSubtraction(std::move(cube), std::make_unique<Prizm>(Prizm(
+		{ {-0.9, -0.9}, {-0.9, 0.9}, {0.9, 0.9}, {0.9, -0.9} }, { 0,0,0 }, 1.8, null_rotation
+	)), { 0,5,0 }, null_rotation);
+
+	auto cone = std::make_unique<Cone>(2, 1, Vector<3>{ 0, 5, 1 }, null_rotation);
+
+	camera_pos.nums[1] = 2;
 
 	while (!glfwWindowShouldClose(window)) // Main-Loop
 	{
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear the screen with... red, green, blue.
 
-		castRays(window_width, window_height, texture, camera_pos, &prizm);
+		castRays(window_width, window_height, texture, camera_pos, cube.get());
 		loadTexture(window_width, window_height, &texture[0], false);
 		/* { // launch compute shaders!
 			glUseProgram(ray_trace_programm);
@@ -655,7 +671,7 @@ int main()
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 
-		double cam_sp = 0.5;
+		double cam_sp = 1;
 		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
 			camera_pos.nums[0] += cam_sp;
 		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)

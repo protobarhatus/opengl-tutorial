@@ -1,98 +1,102 @@
 #include "ComposedObject.h"
 #include <assert.h>
-std::list<ISR> uniteObjectsSets(const std::list<ISR>& a, const std::list<ISR>& b)
+std::vector<ISR> uniteObjectsSets(const std::vector<ISR>& a, const std::vector<ISR>& b)
 {
 	bool in_a = false;
 	bool in_b = false;
-	std::list<ISR> result;
-	auto a_it = a.begin();
-	auto b_it = b.begin();
-	while (a_it != a.end() && b_it != b.end())
+	std::vector<ISR> result;
+	int a_it = 0;
+	int b_it = 0;
+	while (a_it != a.size() && b_it != b.size())
 	{
-		if (a_it->t < b_it->t)
+		if (a[a_it].t < b[b_it].t)
 		{
 			if (!in_b)
-				result.push_back(*a_it);
-			in_a = a_it->in;
+				result.push_back(a[a_it]);
+			in_a = a[a_it].in;
 			++a_it;
 		}
 		else
 		{
 			if (!in_a)
-				result.push_back(*b_it);
-			in_b = b_it->in;
+				result.push_back(b[b_it]);
+			in_b = b[b_it].in;
 			++b_it;
 		}
 	}
 	//сейчас одно из них дошло точно до конца поэтому никаких ифов можно не делать
-	while (b_it != b.end())
+	while (b_it != b.size())
 	{
-		result.push_back(*b_it);
+		result.push_back(b[b_it]);
 		++b_it;
 	}
-	while (a_it != a.end())
+	while (a_it != a.size())
 	{
-		result.push_back(*a_it);
+		result.push_back(a[a_it]);
 		++a_it;
 	}
 	return result;
 }
 
 
-std::list<ISR> intersectObjectsSets(const std::list<ISR>& a, const std::list<ISR>& b)
+std::vector<ISR> intersectObjectsSets(const std::vector<ISR>& a, const std::vector<ISR>& b)
 {
 	bool in_a = false;
 	bool in_b = false;
-	std::list<ISR> result;
-	auto a_it = a.begin();
-	auto b_it = b.begin();
-	while (a_it != a.end() && b_it != b.end())
+	std::vector<ISR> result;
+	int a_it = 0;
+	int b_it = 0;
+	while (a_it != a.size() && b_it != b.size())
 	{
-		if (a_it->t < b_it->t)
+		if (a[a_it].t < b[b_it].t)
 		{
 			if (in_b)
-				result.push_back(*a_it);
-			in_a = a_it->in;
+				result.push_back(a[a_it]);
+			in_a = a[a_it].in;
+			++a_it;
 		}
 		else
 		{
 			if (in_a)
-				result.push_back(*b_it);
-			in_b = b_it->in;
+				result.push_back(b[b_it]);
+			in_b = b[b_it].in;
+			++b_it;
 		}
 	}
 	return result;
 }
 
-std::list<ISR> subtractObjectsSets(const std::list<ISR>& a, const std::list<ISR>& b)
+std::vector<ISR> subtractObjectsSets(const std::vector<ISR>& a, const std::vector<ISR>& b)
 {
 	bool in_a = false;
 	bool in_b = false;
-	std::list<ISR> result;
-	auto a_it = a.begin();
-	auto b_it = b.begin();
-	while (a_it != a.end() && b_it != b.end())
+	std::vector<ISR> result;
+	int a_it = 0;
+	int b_it = 0;
+	while (a_it != a.size() && b_it != b.size())
 	{
-		if (a_it->t < b_it->t)
+		if (a[a_it].t < b[b_it].t - 1e-3 * (1 - 2*in_a))
 		{
 			if (!in_b)
-				result.push_back(*a_it);
-			in_a = a_it->in;
+				result.push_back(a[a_it]);
+			in_a = a[a_it].in;
+			++a_it;
 		}
 		else
 		{
 			if (in_a)
 			{
-				result.push_back(*b_it);
-				result.back().in = !b_it->in;
-				result.back().n = -1 * b_it->n;
+				result.push_back(b[b_it]);
+				result.back().in = !b[b_it].in;
+				result.back().n = -1 * b[b_it].n;
 			}
-			in_b = b_it->in;
+			in_b = b[b_it].in;
+			++b_it;
 		}
 	}
-	while (a_it != a.end())
+	while (a_it != a.size())
 	{
-		result.push_back(*a_it);
+		result.push_back(a[a_it]);
 		++a_it;
 	}
 	return result;
@@ -100,10 +104,10 @@ std::list<ISR> subtractObjectsSets(const std::list<ISR>& a, const std::list<ISR>
 
 //поддерживаем в качестве инварианта то что два раза подр€д in и out идти не может, внутренн€€ точка убираетс€
 
-std::list<ISR> ComposedObject::_intersectLine(const Vector<3>& pos, const Vector<3>& dir) const
+std::vector<ISR> ComposedObject::_intersectLine(const Vector<3>& pos, const Vector<3>& dir) const
 {
-	auto left_points = left->_intersectLine(pos, dir);
-	auto right_points = right->_intersectLine(pos, dir);
+	auto left_points = left->intersectWithRayOnBothSides(pos, dir);
+	auto right_points = right->intersectWithRayOnBothSides(pos, dir);
 	switch (this->operation)
 	{
 	case PLUS:
@@ -125,12 +129,33 @@ bool ComposedObject::isPointInside(const Vector<3>& p) const
 	return false;
 }
 
-ComposedObject::ComposedObject(std::unique_ptr<Object>&& left, std::unique_ptr<Object>&& right, Operations oper, const Vector<3>& pos, const Quat& rot) : left(std::move(left)), right(std::move(right)), operation(oper), Object(pos, rot)
+ComposedObject::ComposedObject(std::unique_ptr<Object>&& left, std::unique_ptr<Object>&& right, Operation oper, const Vector<3>& pos, const Quat& rot) : left(std::move(left)), right(std::move(right)), operation(oper), Object(pos, rot)
 {
+}
+
+std::unique_ptr<Object> objectsCombination(std::unique_ptr<Object>&& left, std::unique_ptr<Object>&& right, ComposedObject::Operation oper, const Vector<3>& comm_pos, const Quat& comm_rot)
+{
+	//left->moveOn(comm_pos);
+	//right->moveOn(comm_pos);
+
+	//left->rotate(comm_rot);
+	//right->rotate(comm_rot);
+
+	return std::unique_ptr<Object>(new ComposedObject(std::move(left), std::move(right), oper, comm_pos, comm_rot));
 }
 
 std::unique_ptr<Object> objectsUnion(std::unique_ptr<Object>&& left, std::unique_ptr<Object>&& right, const Vector<3>& comm_pos, const Quat& comm_rot)
 {
-	
-	return std::unique_ptr<Object>();
+	return objectsCombination(std::move(left), std::move(right), ComposedObject::PLUS, comm_pos, comm_rot);
 }
+
+std::unique_ptr<Object> objectsIntersection(std::unique_ptr<Object>&& left, std::unique_ptr<Object>&& right, const Vector<3>& comm_pos, const Quat& comm_rot)
+{
+	return objectsCombination(std::move(left), std::move(right), ComposedObject::MULT, comm_pos, comm_rot);
+}
+
+std::unique_ptr<Object> objectsSubtraction(std::unique_ptr<Object>&& left, std::unique_ptr<Object>&& right, const Vector<3>& comm_pos, const Quat& comm_rot)
+{
+	return objectsCombination(std::move(left), std::move(right), ComposedObject::MINUS, comm_pos, comm_rot);
+}
+
