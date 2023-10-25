@@ -2,6 +2,9 @@
 #include "linear_algebra.h"
 #include <vector>
 #include <vector>
+
+#define BB_SPHERE
+
 struct IntersectionResult
 {
 	double t;
@@ -40,10 +43,13 @@ public:
 	virtual bool isPointInside(const Vector<3>& p) const = 0;
 	void moveOn(const Vector<3>& movement);
 	void rotate(const Quat& rotation);
+
+	Vector<3> getBoundingBox() const;
 };
 
 class Box : public Object
 {
+	Vector<3> size;
 public:
 	Box(const Vector<3>& position, const Vector<3>& half_size, const Quat& rotation);
 	virtual Vector<3> countBoundingBox() const override;

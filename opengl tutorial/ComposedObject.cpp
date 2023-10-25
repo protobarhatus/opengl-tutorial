@@ -126,6 +126,10 @@ std::vector<ISR> ComposedObject::_intersectLine(const Vector<3>& pos, const Vect
 
 Vector<3> ComposedObject::countBoundingBox() const
 {
+	//кстати если это вычитание множеств то бб второго можно не считать
+#ifdef BB_SPHERE
+	return max(left->getBoundingBox(), right->getBoundingBox());
+#endif
 	return max(left->rotateBoundingBox(), right->rotateBoundingBox());
 }
 

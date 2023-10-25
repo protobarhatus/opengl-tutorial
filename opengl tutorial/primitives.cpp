@@ -1,5 +1,8 @@
 #include "primitives.h"
 
+
+
+
 bool checkBBInterseption(int dir_c, int c1, int c2, const Vector<3>& bounding_box, const Vector<3>& start, const Vector<3>& dir)
 {
 	double xpT = (bounding_box.nums[dir_c] - start.nums[dir_c]) / dir.nums[dir_c];
@@ -18,6 +21,14 @@ bool checkBBInterseption(int dir_c, int c1, int c2, const Vector<3>& bounding_bo
 }
 bool Object::lineIntersectsBoundingBox(const Vector<3>& start, const Vector<3>& dir) const
 {
+#ifdef BB_SPHERE
+	double A = dot(dir, dir);
+	double B_half = dot(start, dir);
+	double C = dot(start, start) - bounding_box.nums[0] * bounding_box.nums[0];
+
+	double D_4 = B_half * B_half - A * C;
+	return D_4 >= 0;
+#endif
 	if (!equal(dir.x(), 0))
 	{
 		if (checkBBInterseption(0, 1, 2, bounding_box, start, dir))
@@ -73,6 +84,12 @@ static int sign(double d)
 }
 Vector<3> Prizm::countBoundingBox() const
 {
+#ifdef BB_SPHERE
+	double max = 0;
+	for (auto& it : base)
+		max = std::max(max, sqrt(dot(it, it) + half_height * half_height));
+	return { max,0,0 };
+#endif
 	Vector<2> base_bb = { 0,0 };
 	for (auto& it : base)
 	{
@@ -224,6 +241,11 @@ void Object::rotate(const Quat& rotation)
 	this->back_rotation_mat = this->rotation.rotation();
 	Matrix<4> transposition(Vector<4>(1, 0, 0, -position.x()), Vector<4>(0, 1, 0, -position.y()), Vector<4>(0, 0, 1, -position.z()), Vector<4>(0, 0, 0, 1));
 	transformation_mat = rotation_mat * transposition;
+}
+
+Vector<3> Object::getBoundingBox() const
+{
+	return bounding_box;
 }
 
 
@@ -556,6 +578,9 @@ std::vector<ISR> Cone::_intersectLine(const Vector<3>& start, const Vector<3>& d
 
 Vector<3> Cone::countBoundingBox() const
 {
+#ifdef BB_SPHERE
+	return { sqrt(height * height / 4 + rad * rad),0,0 };
+#endif
 	return { rad, rad, height/2 };
 }
 
@@ -632,6 +657,12 @@ std::vector<ISR> Piramid::_intersectLine(const Vector<3>& start, const Vector<3>
 
 Vector<3> Piramid::countBoundingBox() const
 {
+#ifdef BB_SPHERE
+	double max = 0;
+	for (auto& it : base)
+		max = std::max(max, sqrt(dot(it, it) + height * height / 4));
+	return { max,0,0 };
+#endif
 	Vector<2> base_bb = { 0,0 };
 	for (auto& it : base)
 	{
@@ -759,6 +790,9 @@ std::vector<ISR> Cylinder::_intersectLine(const Vector<3>& start, const Vector<3
 
 Vector<3> Cylinder::countBoundingBox() const
 {
+#ifdef BB_SPHERE
+	return { sqrt(rad * rad + half_height * half_height),0,0 };
+#endif
 	return { rad, rad, half_height };
 }
 
@@ -777,14 +811,20 @@ IntersectionResult::IntersectionResult() : t(0), n(0,0,0)
 {
 }
 
-Box::Box(const Vector<3>& position, const Vector<3>& size, const Quat& rotation) : Object(position, rotation)
+Box::Box(const Vector<3>& position, const Vector<3>& size, const Quat& rotation) : Object(position, rotation), size(size)
 {
-	bounding_box = size;
+
+	bounding_box = countBoundingBox();
 }
 
 Vector<3> Box::countBoundingBox() const
 {
-	return this->bounding_box;
+#ifdef BB_SPHERE
+	return { sqrt(dot(size, size)),0,0 };
+#endif
+	return size;
+
+	//return this->bounding_box;
 }
 
 std::pair<bool, ISR> intersectLineWithBoxOnSide(int sig, int dir_c, int c1, int c2, const Vector<3>& bounding_box, const Vector<3>& start, const Vector<3>& dir)
@@ -807,21 +847,13 @@ std::vector<ISR> Box::_intersectLine(const Vector<3>& start, const Vector<3>& di
 {
 	int c = 0;
 	static std::vector<ISR> res(2);
-	auto intres = intersectLineWithBoxOnSide(1, 0, 1, 2, bounding_box, start, dir);
+	auto intres = intersectLineWithBoxOnSide(1, 0, 1, 2, size, start, dir);
 	if (intres.first)
 	{
 		res[1 - intres.second.in] = intres.second;
 		++c;
 	}
-	intres = intersectLineWithBoxOnSide(-1, 0, 1, 2, bounding_box, start, dir);
-	if (intres.first)
-	{
-		res[1 - intres.second.in] = intres.second;
-		++c;
-	}
-	if (c == 2)
-		return res;
-	intres = intersectLineWithBoxOnSide(1, 1, 0, 2, bounding_box, start, dir);
+	intres = intersectLineWithBoxOnSide(-1, 0, 1, 2, size, start, dir);
 	if (intres.first)
 	{
 		res[1 - intres.second.in] = intres.second;
@@ -829,7 +861,7 @@ std::vector<ISR> Box::_intersectLine(const Vector<3>& start, const Vector<3>& di
 	}
 	if (c == 2)
 		return res;
-	intres = intersectLineWithBoxOnSide(-1, 1, 0, 2, bounding_box, start, dir);
+	intres = intersectLineWithBoxOnSide(1, 1, 0, 2, size, start, dir);
 	if (intres.first)
 	{
 		res[1 - intres.second.in] = intres.second;
@@ -837,7 +869,7 @@ std::vector<ISR> Box::_intersectLine(const Vector<3>& start, const Vector<3>& di
 	}
 	if (c == 2)
 		return res;
-	intres = intersectLineWithBoxOnSide(1, 2, 1, 0, bounding_box, start, dir);
+	intres = intersectLineWithBoxOnSide(-1, 1, 0, 2, size, start, dir);
 	if (intres.first)
 	{
 		res[1 - intres.second.in] = intres.second;
@@ -845,7 +877,15 @@ std::vector<ISR> Box::_intersectLine(const Vector<3>& start, const Vector<3>& di
 	}
 	if (c == 2)
 		return res;
-	intres = intersectLineWithBoxOnSide(-1, 2, 1, 0, bounding_box, start, dir);
+	intres = intersectLineWithBoxOnSide(1, 2, 1, 0, size, start, dir);
+	if (intres.first)
+	{
+		res[1 - intres.second.in] = intres.second;
+		++c;
+	}
+	if (c == 2)
+		return res;
+	intres = intersectLineWithBoxOnSide(-1, 2, 1, 0, size, start, dir);
 	if (intres.first)
 	{
 		res[1 - intres.second.in] = intres.second;
@@ -897,10 +937,10 @@ Polyhedron::Polyhedron(const Vector<3>& position, const Quat& rotation, const st
 	{
 		const std::vector<int>& it = edges[i];
 		Vector<3> n = cross(points[it[1]] - points[it[0]], points[it[2]] - points[it[0]]);
-		double mD = dot(points[it[0]], n);
-		double t = mD / dot(n, n);
-		if (mD < 0)
-			n = n * -1;
+		//double mD = dot(points[it[0]], n);
+		//double t = mD / dot(n, n);
+		//if (mD < 0)
+		//	n = n * -1;
 		normals[i] = normalize(n);
 
 		Vector<3> base_a = normalize(points[it[1]] - points[it[0]]);
@@ -920,12 +960,19 @@ Vector<3> Polyhedron::countBoundingBox() const
 	Vector<3> bb({ 0,0,0 });
 	for (auto& it : points)
 		bb = max(bb, it);
+#ifdef BB_SPHERE
+	return { sqrt(dot(bb, bb)),0,0 };
+#endif
 	return bb;
 }
-
+#include<algorithm>
+static bool __comp(const ISR& a, const ISR& b)
+{
+	return a.t < b.t;
+}
 std::vector<ISR> Polyhedron::_intersectLine(const Vector<3>& start, const Vector<3>& dir) const
 {
-	std::vector<ISR> res;
+ 	std::vector<ISR> res;
 	int c = 0;
 	for (int i = 0; i < edges.size(); ++i)
 	{
@@ -936,10 +983,12 @@ std::vector<ISR> Polyhedron::_intersectLine(const Vector<3>& start, const Vector
 		if (isPointInsidePolygon(p_in_polygon, polygons[i]))
 		{
 			res.push_back( { t, normals[i], dot(normals[i], dir)<0 });
+			++c;
 			if (this->convex && c == 2)
-				return res;
+				break;
 		}
 	}
+	std::sort(res.begin(), res.end(), __comp);
 	return res;
 }
 

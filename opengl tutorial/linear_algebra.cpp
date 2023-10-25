@@ -83,14 +83,20 @@ Matrix<3> inverse(Matrix<3> matrix)
 		}
 		std::sort(indexes_of_first_non_zero.begin(), indexes_of_first_non_zero.end(), [](const std::pair<int, int>& a, const std::pair<int, int>& b) {
 			return a.second < b.second; });
+		Matrix<3> sorted_matrix;
+		Matrix<3> sorted_result;
 		for (int i = 0; i < height; ++i)
 		{
-			if (i < indexes_of_first_non_zero[i].first)
-			{
-				std::swap(matrix.mat[i], matrix.mat[indexes_of_first_non_zero[i].first]);
-				std::swap(result.mat[i], result.mat[indexes_of_first_non_zero[i].first]);
-			}
+			//if (i < indexes_of_first_non_zero[i].first)
+			//{
+			//	std::swap(matrix.mat[i], matrix.mat[indexes_of_first_non_zero[i].first]);
+			//	std::swap(result.mat[i], result.mat[indexes_of_first_non_zero[i].first]);
+			//}
+			sorted_matrix.mat[i] = matrix.mat[indexes_of_first_non_zero[i].first];
+			sorted_result.mat[i] = result.mat[indexes_of_first_non_zero[i].first];
 		}
+		matrix = sorted_matrix;
+		result = sorted_result;
 	};
 	auto divide_on_lead_element = [&matrix, &result, height](int x)->void {
 		long double lead_el = matrix.mat[x].nums[x];
