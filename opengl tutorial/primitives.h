@@ -160,7 +160,7 @@ std::pair<bool, double> rayIntersectsSegment(const Vector<2>& p, const Vector<2>
 
 std::pair<int, std::pair<ISR, ISR>> rayIntersectsPolygon(const Vector<2>& p, const Vector<2>& n, const std::vector<Vector<2>>& polygon, const std::vector<Vector<3>>& normals);
 
-bool isPointInsidePolygon(const Vector<2>& p, const std::vector<Vector<2>>& polygon);
+bool __depr__isPointInsidePolygon(const Vector<2>& p, const std::vector<Vector<2>>& polygon);
 
 double getParamOnShade(const Vector<3>& st, const Vector<3>& dir, const Vector<2>& p);
 

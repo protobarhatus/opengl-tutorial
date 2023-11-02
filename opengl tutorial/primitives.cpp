@@ -1,6 +1,127 @@
 #include "primitives.h"
 
+enum PointPolygonRelation
+{
+	INSIDE,
+	BOUNDARY,
+	OUTSIDE
+};
 
+static int compareDouble(double a, double b, double eps)
+{
+	if (std::abs(a - b) < eps)
+		return 0;
+	else if (a < b)
+		return -1;
+	else
+		return 1;
+}
+
+static int sideOfPointRelativeToLine(Vector<2> point, Vector<2> low, Vector<2> high)
+{
+	//considering low.y < high.y
+	Vector<2> v1 = high - low;
+	Vector<2> v2 = point - low;
+	double z_orient = v1.x() * v2.y() - v1.y() * v2.x();
+	//z_orient > 0 => точка слева
+	return compareDouble(0, z_orient, 1e-4);
+}
+
+//проверка на то находится ли точка внутри многоугольника
+//алгоритм взят с https://github.com/CGAL/cgal/blob/b83479ee14e2e0b17a31d20f8836787b3cf58623/Polygon/include/CGAL/Polygon_2/Polygon_2_algorithms_impl.h#L396
+PointPolygonRelation isPointInsidePolygon(const Vector<2>& p, const std::vector<Vector<2>>& polygon)
+{
+
+	int current = 0;
+	if (polygon.size() < 2)
+		return OUTSIDE;
+
+	bool IsInside = false;
+	int cur_y_comp_res = compareDouble(polygon[current].y(), p.y(), 1e-4);
+	int next = 1;
+	do // check if the segment (current,next) intersects
+	   // the ray { (t,point.y()) | t >= point.x() }
+	{
+		
+		
+		int next_y_comp_res = compareDouble(polygon[next].y(), p.y(), 1e-4);
+
+		switch (cur_y_comp_res) {
+		case -1:
+			switch (next_y_comp_res) {
+			case -1:
+				break;
+			case 0:
+				switch (compareDouble(p.x(), polygon[next].x(), 1e-4)) {
+				case -1: IsInside = !IsInside; break;
+				case 0:   return BOUNDARY;
+				case 1:  break;
+				}
+				break;
+			case 1:
+				switch (sideOfPointRelativeToLine(p, polygon[current], polygon[next])) {
+				case -1: IsInside = !IsInside; break;
+				case  0: return BOUNDARY;
+				}
+				break;
+			}
+			break;
+		case 0:
+			switch (next_y_comp_res) {
+			case -1:
+				switch (compareDouble(p.x(), polygon[current].x(), 1e-4)) {
+				case -1: IsInside = !IsInside; break;
+				case 0:   return BOUNDARY;
+				case 1:  break;
+				}
+				break;
+			case 0:
+				switch (compareDouble(p.x(), polygon[current].x(), 1e-4)) {
+				case -1:
+					if (compareDouble(p.x(), polygon[next].x(), 1e-4) != -1)
+						return BOUNDARY;
+					break;
+				case 0: return BOUNDARY;
+				case 1:
+					if (compareDouble(p.x(), polygon[next].x(), 1e-4) != 1)
+						return BOUNDARY;
+					break;
+				}
+				break;
+			case 1:
+				if (compareDouble(p.x(), polygon[current].x(), 1e-4) == 0) {
+					return BOUNDARY;
+				}
+				break;
+			}
+			break;
+		case 1:
+			switch (next_y_comp_res) {
+			case -1:
+				switch (sideOfPointRelativeToLine(p, polygon[next], polygon[current])) {
+				case -1: IsInside = !IsInside; break;
+				case  0: return BOUNDARY;
+				}
+				break;
+			case 0:
+				if (compareDouble(p.x(), polygon[next].x(), 1e-4) == 0) {
+					return BOUNDARY;
+				}
+				break;
+			case 1:
+				break;
+			}
+			break;
+		}
+
+		current = next;
+		cur_y_comp_res = next_y_comp_res;
+		++next;
+		if (next == polygon.size()) next = 0;
+	} while (current != 0);
+
+	return IsInside ? INSIDE : OUTSIDE;
+}
 
 
 bool checkBBInterseption(int dir_c, int c1, int c2, const Vector<3>& bounding_box, const Vector<3>& start, const Vector<3>& dir)
@@ -344,7 +465,7 @@ std::pair<int, std::pair<ISR, ISR>> rayIntersectsPolygon(const Vector<2>& p, con
 }
 
 
-bool isPointInsidePolygon(const Vector<2>& p, const std::vector<Vector<2>>& polygon)
+bool __depr__isPointInsidePolygon(const Vector<2>& p, const std::vector<Vector<2>>& polygon)
 {
 	std::size_t vertCount = polygon.size();
 	if (vertCount < 2)
@@ -953,6 +1074,15 @@ Polyhedron::Polyhedron(const Vector<3>& position, const Quat& rotation, const st
 			polygons[i].push_back(polygs_coords[i] * (points[it[j]] - points[it[0]]));
 		}
 	}
+	if (this->convex)
+	{
+		//чтобы в простых примерах можно было не запариваться с нормалями но по идее надо это делать настраивым
+		for (int i = 0; i < normals.size(); ++i)
+		{
+			if (dot(normals[i], 0.3333333 * (points[edges[i][0]] + points[edges[i][1]] + points[edges[i][2]])) < 0)
+				normals[i] = -1 * normals[i];
+		}
+	}
 }
 
 Vector<3> Polyhedron::countBoundingBox() const
@@ -988,7 +1118,14 @@ std::vector<ISR> Polyhedron::_intersectLine(const Vector<3>& start, const Vector
 				break;
 		}
 	}
-	std::sort(res.begin(), res.end(), __comp);
+	if (res.size() == 2)
+	{
+		if (res[0].t > res[1].t)
+			std::swap(res[0], res[1]);
+		return res;
+	}
+	else if (res.size() > 2)
+		std::sort(res.begin(), res.end(), __comp);
 	return res;
 }
 

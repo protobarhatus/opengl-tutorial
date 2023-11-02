@@ -430,7 +430,7 @@ void castRays(int window_width, int window_height, std::vector<unsigned char>& c
 			//setColor(i, j, window_width, { 255, (unsigned char)(255 * double(i) / window_width), (unsigned char)(255 * double(j) / window_height), 255 }, canvas);
 			//continue;
 
-			if (i == 415 && j == 300)
+			if (i == 300 && j == 300)
 				std::cout << "A";
 			Vector<3> ray_dir(-1 + i * horizontal_step, 1, -1 + j * vertical_step);
 			auto cast = object->intersectWithRay(camera_pos, ray_dir);
@@ -454,6 +454,8 @@ GLuint createSharedBufferObject(void* data, int data_size, int binding)
 	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 	return ssbo;
 }
+
+//std::vector<std::vector<int>> fixNormalesConvex(const std::vector<std::vector<int>> )
 
 
 int main()
@@ -647,7 +649,7 @@ int main()
 
 	auto prizm = std::make_unique<Prizm>(square, Vector<3>{0, 5, 0}, 2, null_rotation);
 
-	auto poly = std::make_unique<Polyhedron>(Vector<3>{ 0, 5, 0 }, null_rotation, std::vector<Vector<3>>{
+	auto poly = std::make_unique<Polyhedron>(Vector<3>{ 0, 0, 0 }, null_rotation, std::vector<Vector<3>>{
 		{0.469, 0.469, 0.469, },
 		{0.290,     0.000 ,    0.759},
 		{	- 0.759, - 0.290,     0.000},
@@ -684,6 +686,11 @@ int main()
 			{	   19, 0, 3, 18, 14 }
 		});
 
+	auto polysub = objectsSubtraction(std::move(poly),
+		std::make_unique<Cylinder>(Vector<3>{ 0, -0.7, 0 }, 1, 0.2, Quat{ 1. / 1.41, 1. / 1.41,0,0 }), { 0,5,0 }, null_rotation);
+
+	auto cuberot = std::make_unique<Prizm>(std::vector<Vector<2>>{ { 0, 0 }, { -1, 1 }, { 1, 1 }}, Vector<3>{0, 5, 0}, 2, null_rotation);
+
 	camera_pos.nums[1] = 2;
 
 	while (!glfwWindowShouldClose(window)) // Main-Loop
@@ -691,7 +698,7 @@ int main()
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear the screen with... red, green, blue.
 
 		clock_t t1 = clock();
-		castRays(window_width, window_height, texture, camera_pos, cube.get());
+		castRays(window_width, window_height, texture, camera_pos, polysub.get());
 		std::cout << clock() - t1 << '\n';
 		loadTexture(window_width, window_height, &texture[0], false);
 		/* { // launch compute shaders!
