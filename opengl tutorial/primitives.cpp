@@ -1,6 +1,6 @@
 #include "primitives.h"
 
-enum PointPolygonRelation
+enum class PointPolygonRelation
 {
 	INSIDE,
 	BOUNDARY,
@@ -34,7 +34,7 @@ PointPolygonRelation isPointInsidePolygon(const Vector<2>& p, const std::vector<
 
 	int current = 0;
 	if (polygon.size() < 2)
-		return OUTSIDE;
+		return PointPolygonRelation::OUTSIDE;
 
 	bool IsInside = false;
 	int cur_y_comp_res = compareDouble(polygon[current].y(), p.y(), 1e-4);
@@ -54,14 +54,14 @@ PointPolygonRelation isPointInsidePolygon(const Vector<2>& p, const std::vector<
 			case 0:
 				switch (compareDouble(p.x(), polygon[next].x(), 1e-4)) {
 				case -1: IsInside = !IsInside; break;
-				case 0:   return BOUNDARY;
+				case 0:   return PointPolygonRelation::BOUNDARY;
 				case 1:  break;
 				}
 				break;
 			case 1:
 				switch (sideOfPointRelativeToLine(p, polygon[current], polygon[next])) {
 				case -1: IsInside = !IsInside; break;
-				case  0: return BOUNDARY;
+				case  0: return PointPolygonRelation::BOUNDARY;
 				}
 				break;
 			}
@@ -71,7 +71,7 @@ PointPolygonRelation isPointInsidePolygon(const Vector<2>& p, const std::vector<
 			case -1:
 				switch (compareDouble(p.x(), polygon[current].x(), 1e-4)) {
 				case -1: IsInside = !IsInside; break;
-				case 0:   return BOUNDARY;
+				case 0:   return PointPolygonRelation::BOUNDARY;
 				case 1:  break;
 				}
 				break;
@@ -79,18 +79,18 @@ PointPolygonRelation isPointInsidePolygon(const Vector<2>& p, const std::vector<
 				switch (compareDouble(p.x(), polygon[current].x(), 1e-4)) {
 				case -1:
 					if (compareDouble(p.x(), polygon[next].x(), 1e-4) != -1)
-						return BOUNDARY;
+						return PointPolygonRelation::BOUNDARY;
 					break;
-				case 0: return BOUNDARY;
+				case 0: return PointPolygonRelation::BOUNDARY;
 				case 1:
 					if (compareDouble(p.x(), polygon[next].x(), 1e-4) != 1)
-						return BOUNDARY;
+						return PointPolygonRelation::BOUNDARY;
 					break;
 				}
 				break;
 			case 1:
 				if (compareDouble(p.x(), polygon[current].x(), 1e-4) == 0) {
-					return BOUNDARY;
+					return PointPolygonRelation::BOUNDARY;
 				}
 				break;
 			}
@@ -100,12 +100,12 @@ PointPolygonRelation isPointInsidePolygon(const Vector<2>& p, const std::vector<
 			case -1:
 				switch (sideOfPointRelativeToLine(p, polygon[next], polygon[current])) {
 				case -1: IsInside = !IsInside; break;
-				case  0: return BOUNDARY;
+				case  0: return PointPolygonRelation::BOUNDARY;
 				}
 				break;
 			case 0:
 				if (compareDouble(p.x(), polygon[next].x(), 1e-4) == 0) {
-					return BOUNDARY;
+					return PointPolygonRelation::BOUNDARY;
 				}
 				break;
 			case 1:
@@ -120,7 +120,7 @@ PointPolygonRelation isPointInsidePolygon(const Vector<2>& p, const std::vector<
 		if (next == polygon.size()) next = 0;
 	} while (current != 0);
 
-	return IsInside ? INSIDE : OUTSIDE;
+	return IsInside ? PointPolygonRelation::INSIDE : PointPolygonRelation::OUTSIDE;
 }
 
 
@@ -278,7 +278,7 @@ bool Prizm::isPointInside(const Vector<3>& p) const
 	Matrix<4> transposition(Vector<4>(1, 0, 0, -position.x()), Vector<4>(0, 1, 0, -position.y()), Vector<4>(0, 0, 1, -position.z()), Vector<4>(0, 0, 0, 1));
 	Matrix<4> rotation = inverseRot(this->rotation).rotation();
 	Vector<3> point = (rotation * transposition) * Vector<4>(p);
-	return isPointInsidePolygon(point, base) && point.z() >= -half_height && point.z() <= half_height;
+	return isPointInsidePolygon(point, base) != PointPolygonRelation::OUTSIDE && point.z() >= -half_height && point.z() <= half_height;
 }
 
 #include <assert.h>
@@ -540,7 +540,7 @@ std::vector<ISR> Prizm::_intersectLine(const Vector<3>& start, const Vector<3>& 
 	if (equal(dir.x(), 0) && equal(dir.y(), 0))
 	{
 		auto in_res = isPointInsidePolygon(start, this->base);
-		if (in_res)
+		if (in_res != PointPolygonRelation::OUTSIDE)
 		{
 			double t_up = (half_height - start.z()) / dir.z();
 			double t_down = (-half_height - start.z()) / dir.z();
@@ -636,7 +636,7 @@ std::vector<ISR> Prizm::_intersectLine(const Vector<3>& start, const Vector<3>& 
 	}
 	double t_out = (half_height - start.z()) / dir.z();
 	Vector<2> up_point = start + dir * t_out;
-	if (isPointInsidePolygon(up_point, base))
+	if (isPointInsidePolygon(up_point, base) != PointPolygonRelation::OUTSIDE)
 	{
 		double t_bot = (-half_height - start.z()) / dir.z();
 		if (t_out < t_bot)
@@ -756,7 +756,7 @@ std::vector<ISR> Piramid::_intersectLine(const Vector<3>& start, const Vector<3>
 	{
 		double t_lev = (-height - start.z()) / dir.z();
 		Vector<2> base_inter = start + dir * t_lev;
-		if (isPointInsidePolygon(base_inter, base))
+		if (isPointInsidePolygon(base_inter, base) != PointPolygonRelation::OUTSIDE)
 			t[count++] = { t_lev, {0,0,-1}, false };
 	}
 	for (int i = 0; i < base.size(); ++i)
@@ -1110,8 +1110,30 @@ std::vector<ISR> Polyhedron::_intersectLine(const Vector<3>& start, const Vector
 		Vector<3> proj = start + dir * t;
 		proj = proj - points[edges[i][0]];
 		Vector<2> p_in_polygon = polygs_coords[i] * proj;
-		if (isPointInsidePolygon(p_in_polygon, polygons[i]))
+		if (isPointInsidePolygon(p_in_polygon, polygons[i]) != PointPolygonRelation::OUTSIDE)
 		{
+			if (this->convex)
+			{
+				if (c == 1 && equal(t, res[0].t))
+					continue;
+			}
+			else
+			{
+				//если границы входят в многоугольники то точка на ребрах может быть учитана несколько раз. Это немного сломает алгоритмы операций над множествами хотя модификацией это можно устранить. Но где будет больше потеря производительности здесь
+				//или там если учитывать точки несколько раз.
+				//если же границы исключать из многоугольников то будут черные линии с которыми особо ничего не сделаешь
+				bool already_counted = false;
+				for (auto& it : res)
+				{
+					if (equal(it.t, t))
+					{
+						already_counted = true;
+						break;
+					}
+				}
+				if (already_counted)
+					continue;
+			}
 			res.push_back( { t, normals[i], dot(normals[i], dir)<0 });
 			++c;
 			if (this->convex && c == 2)
