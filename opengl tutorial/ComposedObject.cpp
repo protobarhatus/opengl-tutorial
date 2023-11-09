@@ -128,9 +128,9 @@ Vector<3> ComposedObject::countBoundingBox() const
 {
 	//кстати если это вычитание множеств то бб второго можно не считать
 #ifdef BB_SPHERE
-	return max(left->getBoundingBox(), right->getBoundingBox());
+	return max(Vector<3>{ length(left->getPosition()),0,0 } + left->getBoundingBox(), Vector<3>{ length(right->getPosition()),0,0 } + right->getBoundingBox());
 #endif
-	return max(left->rotateBoundingBox(), right->rotateBoundingBox());
+	return max(left->getPosition() + left->rotateBoundingBox(), right->getPosition() + right->rotateBoundingBox());
 }
 
 bool ComposedObject::isPointInside(const Vector<3>& p) const

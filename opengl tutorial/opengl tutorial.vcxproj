@@ -87,8 +87,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>C:\Users\super\source\repos\opengl tutorial sol\Includes;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\Users\super\source\repos\opengl tutorial sol\Libraries;$(LibraryPath)</LibraryPath>
+    <IncludePath>C:\Users\super\source\repos\opengl tutorial sol\Includes;$(SolutionDir)Includes;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\Users\super\source\repos\opengl tutorial sol\Libraries;$(SolutionDir)Libraries;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -126,6 +126,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>C:\boost_1_83_0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -141,6 +142,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <AdditionalIncludeDirectories>C:\boost_1_83_0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -155,6 +157,8 @@
     <ClCompile Include="glad.c" />
     <ClCompile Include="GLSL_structures.cpp" />
     <ClCompile Include="linear_algebra.cpp" />
+    <ClCompile Include="objects_fabric.cpp" />
+    <ClCompile Include="parser.cpp" />
     <ClCompile Include="primitives.cpp" />
     <ClCompile Include="Scene.cpp" />
     <ClCompile Include="Source.cpp" />
@@ -169,6 +173,8 @@
     <ClInclude Include="GLSL_structures.h" />
     <ClInclude Include="intersection.h" />
     <ClInclude Include="linear_algebra.h" />
+    <ClInclude Include="objects_fabric.h" />
+    <ClInclude Include="parser.h" />
     <ClInclude Include="primitives.h" />
     <ClInclude Include="Scene.h" />
     <ClInclude Include="stb_image.h" />

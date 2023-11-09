@@ -45,6 +45,8 @@ public:
 	void rotate(const Quat& rotation);
 
 	Vector<3> getBoundingBox() const;
+
+	Vector<3> getPosition() const;
 };
 
 class Box : public Object

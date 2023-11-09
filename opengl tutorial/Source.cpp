@@ -18,6 +18,8 @@
 #include "Scene.h"
 #include "GLSL_structures.h"
 #include "ComposedObject.h"
+#include "objects_fabric.h"
+#include "parser.h"
 
 std::string readFile(const std::string& name)
 {
@@ -430,6 +432,8 @@ void castRays(int window_width, int window_height, std::vector<unsigned char>& c
 			//setColor(i, j, window_width, { 255, (unsigned char)(255 * double(i) / window_width), (unsigned char)(255 * double(j) / window_height), 255 }, canvas);
 			//continue;
 
+			if (i == 340 - 1 && j == 600-(362 - 30))
+				std::cout << "A";
 			if (i == 300 && j == 300)
 				std::cout << "A";
 			Vector<3> ray_dir(-1 + i * horizontal_step, 1, -1 + j * vertical_step);
@@ -460,7 +464,9 @@ GLuint createSharedBufferObject(void* data, int data_size, int binding)
 
 int main()
 {
-
+	auto asd = parse("{{3, 4}, {5,6}, {7,8}}");
+	for (auto &it : asd)
+		std::cout << it.x() << " " << it.y() << "\n";
 	// (1) GLFW: Initialise & Configure
 	// -----------------------------------------
 	if (!glfwInit())
@@ -625,71 +631,8 @@ int main()
 	//auto data_buf = createSharedBufferObject(NULL, 0, 2);
 	std::vector<Vector<2>> square = { {-1, -1}, {-1, 1}, {1, 1}, {1, -1} };
 	Quat null_rotation = Quat(1, 0, 0, 0);
-	auto cilinders = objectsUnion(std::make_unique<Cylinder>(Cylinder({ 0, 0, 0 }, 2.1, 0.7, Quat(1, 0, 0, 0))),
-		objectsUnion(
-			std::make_unique<Cylinder>(Vector<3>{ 0, 0, 0 }, 2.1, 0.7, Quat(1. / 1.41, 0, 1. / 1.41, 0)),
-			std::make_unique<Cylinder>(Vector<3>{0, 0, 0}, 2.1, 0.7, Quat(1. / 1.41, 1. / 1.41, 0, 0)), { 0,0,0 }, null_rotation),
-		{ 0, 0, 0 }, null_rotation);
-
-	auto cube = objectsSubtraction(std::make_unique<Box>(Vector<3>(0,0,0), Vector<3>{ 1, 1, 1 }, null_rotation),
-		std::move(cilinders), { 0, 0, 0 }, null_rotation);
-	cube = objectsSubtraction(std::move(cube), std::make_unique<Box>(Vector<3>(0, 0, 0), Vector<3>{ 0.9, 0.9, 0.9 }, null_rotation), { 0,5,0 }, null_rotation);
-
-
-	auto cubstcil = objectsUnion(std::make_unique<Cylinder>(Cylinder({ 0, 0, 0 }, 2.1, 0.7, Quat(1, 0, 0, 0))),
-		objectsUnion(
-			std::make_unique<Cylinder>(Vector<3>{ 0, 0, 0 }, 2.1, 0.7, Quat(1. / 1.41, 0, 1. / 1.41, 0)),
-			std::make_unique<Cylinder>(Vector<3>{0, 0, 0}, 2.1, 0.7, Quat(1. / 1.41, 1. / 1.41, 0, 0)), { 0,0,0 }, null_rotation),
-		{ 0, 5, 0 }, null_rotation);
-
-	auto box = std::make_unique<Box>(Vector<3>(0, 5, 0), Vector<3>{ 1, 1, 1 }, null_rotation);
-	auto cone = std::make_unique<Cone>(2, 1, Vector<3>{ 0, 5, 1 }, null_rotation);
-
-	auto CIL = std::make_unique<Cylinder>(Vector<3>{ 0, 5, 0 }, 2.1, 0.7, Quat(1. / 1.41, 0, 1. / 1.41, 0));
-
-	auto prizm = std::make_unique<Prizm>(square, Vector<3>{0, 5, 0}, 2, null_rotation);
-
-	auto poly = std::make_unique<Polyhedron>(Vector<3>{ 0, 0, 0 }, null_rotation, std::vector<Vector<3>>{
-		{0.469, 0.469, 0.469, },
-		{0.290,     0.000 ,    0.759},
-		{	- 0.759, - 0.290,     0.000},
-		{	0.759 ,    0.290 ,   0.000},
-		{	- 0.469,    0.469, - 0.469},
-		{	0.000, - 0.759, - 0.290},
-		{	- 0.759,     0.290 ,    0.000},
-		{	0.469, - 0.469,     0.469},
-		{	- 0.469,     0.469,     0.469},
-		{	- 0.469, - 0.469,     0.469},
-		{	0.469, - 0.469, - 0.469},
-		{	0.290,     0.000, - 0.759},
-		{	- 0.469, - 0.469, - 0.469},
-		{	0.000, - 0.759,     0.290},
-		{	0.000,     0.759, - 0.290},
-		{	- 0.290,     0.000,     0.759},
-		{	0.759, - 0.290,     0.000},
-		{	- 0.290,     0.000, - 0.759},
-		{	0.469,     0.469, - 0.469},
-		{	0.000 ,    0.759,     0.290}
-	}, 
-		std::vector<std::vector<int>>{ 
-			{ 9, 13, 7, 1, 15  },
-			{	   6, 4, 14, 19, 8  },
-			{	  12, 5 ,13, 9, 2   },
-			{	   6, 2 ,12, 17, 4   },
-			{	   16, 10, 11, 18, 3   },
-			{	  19, 8 ,15, 1, 0   },
-			{	  16, 7 ,1, 0, 3 },
-			{	   5, 12 ,17, 11 ,10 },
-			{	   18, 14 ,4, 17 ,11 },
-			{	   16, 10 ,5 ,13 ,7 },
-			{	   2, 6 ,8 ,15 ,9  },
-			{	   19, 0, 3, 18, 14 }
-		});
-
-	auto polysub = objectsSubtraction(std::move(poly),
-		std::make_unique<Cylinder>(Vector<3>{ 0, -0.7, 0 }, 1, 0.2, Quat{ 1. / 1.41, 1. / 1.41,0,0 }), { 0,5,0 }, null_rotation);
-
-	auto cuberot = std::make_unique<Prizm>(std::vector<Vector<2>>{ { 0, 0 }, { -1, 1 }, { 1, 1 }}, Vector<3>{0, 5, 0}, 2, null_rotation);
+	
+	auto obj = makePolyhedronWithoutCilinderExample({ 0,5,0 }, null_rotation);
 
 	camera_pos.nums[1] = 2;
 
@@ -698,7 +641,7 @@ int main()
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear the screen with... red, green, blue.
 
 		clock_t t1 = clock();
-		castRays(window_width, window_height, texture, camera_pos, polysub.get());
+		castRays(window_width, window_height, texture, camera_pos, obj.get());
 		std::cout << clock() - t1 << '\n';
 		loadTexture(window_width, window_height, &texture[0], false);
 		/* { // launch compute shaders!

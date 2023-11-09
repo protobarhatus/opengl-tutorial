@@ -225,7 +225,7 @@ Prizm::Prizm(const std::vector<Vector<2>>& polygon, const Vector<3>& pos, double
 	normals.resize(base.size());
 	for (int i = 0; i < base.size(); ++i)
 	{
-		Vector<2> normal = { polygon[i < polygon.size() - 1 ? i + 1 : 0].y() - polygon[i].y(), polygon[i].x() - polygon[i < polygon.size() - 1 ? i + 1 : 0].y() };
+		Vector<2> normal = { polygon[i < polygon.size() - 1 ? i + 1 : 0].y() - polygon[i].y(), polygon[i].x() - polygon[i < polygon.size() - 1 ? i + 1 : 0].x() };
 		normals[i] = { normalize(normal) * sign(dot(polygon[i], normal)), 0 };
 	}
 
@@ -292,7 +292,7 @@ Cone::Cone(double height, double rad, const Vector<3>& apex_position, const Quat
 
 bool Piramid::lineIntersectsBoundingBox(const Vector<3>& start, const Vector<3>& dir) const
 {
-	return lineIntersectsBoundingBox({ start.x(), start.y(), start.z() + height / 2 }, dir);
+	return Object::lineIntersectsBoundingBox({ start.x(), start.y(), start.z() + height / 2 }, dir);
 }
 
 bool Piramid::isPointInside(const Vector<3>& p) const
@@ -447,9 +447,10 @@ std::pair<int, std::pair<ISR, ISR>> rayIntersectsPolygon(const Vector<2>& p, con
 		if (!int_res.first)
 			continue;
 		Vector<2> point = p + n * int_res.second;
-		if (i > 0 && equal(point, polygon[i]))
+		//if (i > 0 && equal(point, polygon[i]))
+		//	continue;
+		if (c == 1 && equal(int_res.second, res[0].t))
 			continue;
-		
 		res[c++] = { int_res.second, normals[i], false };
 		if (c == 2)
 			break;
@@ -707,10 +708,13 @@ Vector<3> Cone::countBoundingBox() const
 
 bool Cone::lineIntersectsBoundingBox(const Vector<3>& start, const Vector<3>& dir) const
 {
-	return lineIntersectsBoundingBox({ start.x(), start.y(), start.z() + height / 2 }, dir);
+	return Object::lineIntersectsBoundingBox({ start.x(), start.y(), start.z() + height / 2 }, dir);
 }
 
-
+Vector<3> Object::getPosition() const
+{
+	return this->position;
+}
 
 std::pair<bool, double> intersectLineWithTriangle(const Vector<3>& p, const Vector<3>& dir, const Vector<3>& A, const Vector<3>& B, const Vector<3>& C)
 {
@@ -969,47 +973,54 @@ std::vector<ISR> Box::_intersectLine(const Vector<3>& start, const Vector<3>& di
 	int c = 0;
 	static std::vector<ISR> res(2);
 	auto intres = intersectLineWithBoxOnSide(1, 0, 1, 2, size, start, dir);
+	int previn = -1;
 	if (intres.first)
 	{
 		res[1 - intres.second.in] = intres.second;
+		previn = intres.second.in;
 		++c;
 	}
 	intres = intersectLineWithBoxOnSide(-1, 0, 1, 2, size, start, dir);
-	if (intres.first)
+	if (intres.first && intres.second.in != previn)
 	{
 		res[1 - intres.second.in] = intres.second;
+		previn = intres.second.in;
 		++c;
 	}
 	if (c == 2)
 		return res;
 	intres = intersectLineWithBoxOnSide(1, 1, 0, 2, size, start, dir);
-	if (intres.first)
+	if (intres.first && intres.second.in != previn)
 	{
 		res[1 - intres.second.in] = intres.second;
+		previn = intres.second.in;
 		++c;
 	}
 	if (c == 2)
 		return res;
 	intres = intersectLineWithBoxOnSide(-1, 1, 0, 2, size, start, dir);
-	if (intres.first)
+	if (intres.first && intres.second.in != previn)
 	{
 		res[1 - intres.second.in] = intres.second;
+		previn = intres.second.in;
 		++c;
 	}
 	if (c == 2)
 		return res;
 	intres = intersectLineWithBoxOnSide(1, 2, 1, 0, size, start, dir);
-	if (intres.first)
+	if (intres.first && intres.second.in != previn)
 	{
 		res[1 - intres.second.in] = intres.second;
+		previn = intres.second.in;
 		++c;
 	}
 	if (c == 2)
 		return res;
 	intres = intersectLineWithBoxOnSide(-1, 2, 1, 0, size, start, dir);
-	if (intres.first)
+	if (intres.first && intres.second.in != previn)
 	{
 		res[1 - intres.second.in] = intres.second;
+		previn = intres.second.in;
 		++c;
 	}
 	if (c == 2)

@@ -200,3 +200,9 @@ Matrix<dim> transpose(const Matrix<dim>& m)
 	}
 	return res;
 }
+
+template<int dim>
+double length(const Vector<dim>& v)
+{
+	return sqrt(dot(v, v));
+}
