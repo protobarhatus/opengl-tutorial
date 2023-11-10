@@ -748,7 +748,35 @@ std::pair<bool, double> intersectLineWithTriangle(const Vector<3>& p, const Vect
 
 }
 
+std::unique_ptr<Object> Box::copy() const
+{
+	return std::unique_ptr<Object>(new Box(*this));
+}
 
+std::unique_ptr<Object> Prizm::copy() const
+{
+	return std::unique_ptr<Object>(new Prizm(*this));
+}
+std::unique_ptr<Object> Cone::copy() const
+{
+	return std::unique_ptr<Object>(new Cone(*this));
+}
+std::unique_ptr<Object> Piramid::copy() const
+{
+	return std::unique_ptr<Object>(new Piramid(*this));
+}
+std::unique_ptr<Object> Cylinder::copy() const
+{
+	return std::unique_ptr<Object>(new Cylinder(*this));
+}
+std::unique_ptr<Object> Sphere::copy() const
+{
+	return std::unique_ptr<Object>(new Sphere(*this));
+}
+std::unique_ptr<Object> Polyhedron::copy() const
+{
+	return std::unique_ptr<Object>(new Polyhedron(*this));
+}
 
 std::vector<ISR> Piramid::_intersectLine(const Vector<3>& start, const Vector<3>& dir) const
 {

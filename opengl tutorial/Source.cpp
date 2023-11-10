@@ -464,9 +464,8 @@ GLuint createSharedBufferObject(void* data, int data_size, int binding)
 
 int main()
 {
-	auto asd = parse("{{3, 4}, {5,6}, {7,8}}");
-	for (auto &it : asd)
-		std::cout << it.x() << " " << it.y() << "\n";
+	
+	//parse("2.0");
 	// (1) GLFW: Initialise & Configure
 	// -----------------------------------------
 	if (!glfwInit())
@@ -632,8 +631,11 @@ int main()
 	std::vector<Vector<2>> square = { {-1, -1}, {-1, 1}, {1, 1}, {1, -1} };
 	Quat null_rotation = Quat(1, 0, 0, 0);
 	
-	auto obj = makePolyhedronWithoutCilinderExample({ 0,5,0 }, null_rotation);
-
+	//auto obj = makePolyhedronWithoutCilinderExample({ 0,5,0 }, null_rotation);
+	//auto obj = parse("A = Box(hsize: {1,1,1}; position: {0,5,0}; rotation: 1 + {0,0,0} ) B = Sphere(radius: 1.3; position: {-1, 5, 0}) __obj__ = A*B");
+	//auto obj = parse("A = Box(hsize: {1,1,1}; position: {0,5,0}; rotation: 1 + {0,0,0} ) B = Sphere(radius: 1.3; position: {-1, 5, 0}) __obj__ = A*B");
+	auto obj = parse(readFile("examples/box_with_windows.txt"));
+	assert(obj != nullptr);
 	camera_pos.nums[1] = 2;
 
 	while (!glfwWindowShouldClose(window)) // Main-Loop

@@ -158,13 +158,16 @@ class Quat;
 Quat operator*(const Quat& a, const Quat& b);
 class Quat
 {
-private:
+	//в паблик выношу для парсера хз можно ли иначе
+public:
 	double _a0;
 	Vector<3> a;
+private:
+	
 	friend Quat operator*(const Quat& a, const Quat& b);
 	friend Quat inverseRot(const Quat& q);
 public:
-
+	Quat();
 	Quat(double a0, double a1, double a2, double a3);
 	Quat(double a0, const Vector<3>& a);
 	void rotate(double angle, const Vector<3>& n);

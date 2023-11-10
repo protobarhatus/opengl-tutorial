@@ -1,2 +1,3 @@
 #pragma once
-std::vector<Vector<2>> parse(const std::string& str);
+#include "ComposedObject.h"
+std::unique_ptr<Object> parse(const std::string& str);

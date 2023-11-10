@@ -2,7 +2,7 @@
 #include "linear_algebra.h"
 #include <vector>
 #include <vector>
-
+#include <memory>
 #define BB_SPHERE
 
 struct IntersectionResult
@@ -29,6 +29,7 @@ protected:
 	//оно переопределяется в пирамиде и конусе т к там центр смещен по вертикали
 	virtual bool lineIntersectsBoundingBox(const Vector<3>& start, const Vector<3>& dir) const;
 public:
+	virtual std::unique_ptr<Object> copy() const = 0;
 	virtual Vector<3> countBoundingBox() const = 0;
 	//для composed object требуется перевести bounding box в мировую ск т к иначе граница комбинированного бб будет рассчитана неправильно
 	Vector<3> rotateBoundingBox() const;
@@ -53,6 +54,7 @@ class Box : public Object
 {
 	Vector<3> size;
 public:
+	virtual std::unique_ptr<Object> copy() const override;
 	Box(const Vector<3>& position, const Vector<3>& half_size, const Quat& rotation);
 	virtual Vector<3> countBoundingBox() const override;
 	virtual std::vector<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const override;
@@ -70,6 +72,7 @@ class Prizm : public Object
 	std::vector<Vector<3>> normals;
 	virtual Vector<3> countBoundingBox() const override;
 public:
+	virtual std::unique_ptr<Object> copy() const override;
 	Prizm(const std::vector<Vector<2>>& polygon, const Vector<3>& pos, double height, const Quat& rot);
 
 	virtual bool isPointInside(const Vector<3>& p) const override;
@@ -83,6 +86,7 @@ class Cone : public Object
 	virtual Vector<3> countBoundingBox() const override;
 	virtual bool lineIntersectsBoundingBox(const Vector<3>& start, const Vector<3>& dir) const;
 public:
+	virtual std::unique_ptr<Object> copy() const override;
 	virtual bool isPointInside(const Vector<3>& p) const override;
 	Cone(double height, double rad, const Vector<3>& apex_position, const Quat& rot);
 };
@@ -97,6 +101,7 @@ class Piramid : public Object
 	std::vector<Vector<3>> normals;
 	virtual bool lineIntersectsBoundingBox(const Vector<3>& start, const Vector<3>& dir) const;
 public:
+	virtual std::unique_ptr<Object> copy() const override;
 	virtual bool isPointInside(const Vector<3>& p) const override;
 	Piramid(const std::vector<Vector<2>>& polygon, const Vector<3>& pos, double height, const Quat& rot);
 };
@@ -108,6 +113,7 @@ class Cylinder : public Object
 	virtual std::vector<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const override;
 	virtual Vector<3> countBoundingBox() const override;
 public:
+	virtual std::unique_ptr<Object> copy() const override;
 	virtual bool isPointInside(const Vector<3>& p) const override;
 	Cylinder(const Vector<3>& pos, double height, double rad, const Quat& rotation);
 };
@@ -119,6 +125,7 @@ class Sphere : public Object
 	virtual std::vector<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const override;
 	virtual Vector<3> countBoundingBox() const override;
 public:
+	virtual std::unique_ptr<Object> copy() const override;
 	virtual bool isPointInside(const Vector<3>& p) const override;
 	Sphere(const Vector<3>& pos, double rad);
 };
@@ -134,6 +141,7 @@ class Polyhedron : public Object
 	std::vector<std::vector<Vector<2>>> polygons;
 	std::vector<Matrix<3>> polygs_coords;
 public:
+	virtual std::unique_ptr<Object> copy() const override;
 	Polyhedron(const Vector<3>& position, const Quat& rotation, const std::vector<Vector<3>>& points, const std::vector<std::vector<int>>& edges);
 	virtual Vector<3> countBoundingBox() const override;
 	virtual std::vector<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const override;

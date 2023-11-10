@@ -36,6 +36,9 @@ Quat inverseRot(const Quat& q)
 {
 	return Quat(q.a0(), -1 * q.a);
 }
+
+Quat::Quat() : _a0(1), a({ 0,0,0 }) {}
+
 Matrix<4> Quat::rotation() const
 {
 	return Matrix<4>(Vector<4>(a1() * a1() + a0() * a0() - a2() * a2() - a3() * a3(), 2 * a2() * a1() - 2 * a3() * a0(), 2 * a3() * a1() + 2 * a2() * a0(), 0),
