@@ -36,7 +36,7 @@ namespace Parser
 	BOOST_SPIRIT_DEFINE(vector_vec4);
 
 	x3::rule<class vectorint, std::vector<int>> vector_int = "std::vector<int>";
-	auto vector_int_def = x3::lit("<>") >> x3::lit("{") >> x3::int_ % ',' >> '}';
+	auto vector_int_def = x3::lit("{") >> x3::int_ % ',' >> '}';
 	BOOST_SPIRIT_DEFINE(vector_int);
 
 	x3::rule<class vectorvectorint, std::vector<std::vector<int>>> vec_vec_int;
@@ -75,7 +75,9 @@ namespace Parser
 	BOOST_SPIRIT_DEFINE(cone_tuple_rule);
 
 	x3::rule<class conerule, std::unique_ptr<Object>> cone_rule = "Cone";
-	auto cone_rule_def = cone_tuple_rule[([](auto& ctx) { x3::_val(ctx) = std::apply(makeCone, x3::_attr(ctx)); })];
+	auto cone_rule_def = cone_tuple_rule[([](auto& ctx) {
+		x3::_val(ctx) = std::apply(makeCone, x3::_attr(ctx));
+		})];
 	BOOST_SPIRIT_DEFINE(cone_rule);
 
 #define PROP(name, rule) (x3::lit(#name) >> ':' >> rule >> ';')
@@ -129,7 +131,7 @@ namespace Parser
 	std::map<std::string, std::unique_ptr<Object>> __vars_map;
 
 	x3::rule<class word, std::string> liter_rule;
-	auto liter_rule_def = x3::alpha >> *(x3::alnum);
+	auto liter_rule_def = x3::alpha >> *(x3::alnum) ;
 	BOOST_SPIRIT_DEFINE(liter_rule);
 
 	x3::rule<class assign_tuple, std::tuple<std::string, std::unique_ptr<Object>>> tuple_assignation_rule;
@@ -197,7 +199,7 @@ namespace Parser
 
 	x3::rule<class addterm, std::unique_ptr<Object>> add_term;
 	auto add_term_def = tuple_add_term[([](auto& ctx) { 
-		std::cout << "ASDSAD";
+
 		x3::_val(ctx) = objectsUnion(
 		std::move(std::get<0>(x3::_attr(ctx))),
 		std::move(std::get<1>(x3::_attr(ctx))),
@@ -206,34 +208,27 @@ namespace Parser
 	BOOST_SPIRIT_DEFINE(add_term);
 
 
-	auto expression_rule_def =add_term | monom;
+	auto expression_rule_def = add_term | monom;
 	BOOST_SPIRIT_DEFINE(expression_rule);
 
 
 	x3::rule<class fin, std::unique_ptr<Object>> final_rule;
-	auto final_rule_def = +assignation_rule >> x3::lit("__obj__") >> '=' >> expression_rule;
+	auto final_rule_def = +assignation_rule >> x3::lit("__obj__") >> '=' >> expression_rule >> x3::eoi;
 	BOOST_SPIRIT_DEFINE(final_rule);
 
 
 
 }
-x3::rule<class assign, x3::unused_type> assignation_rule;
-	auto assignation_rule_def = x3::double_[([](auto& ctx)
-		{ std::cout << x3::_attr(ctx) << "ASDASD\n"; })];
-	BOOST_SPIRIT_DEFINE(assignation_rule);
-#include <iostream>
+
+
 std::unique_ptr<Object> parse(const std::string & str)
 {
-	
-	//boost::spirit::x3::phrase_parse(str.begin(), str.end(), str, str);
-
-	
-	//x3::phrase_parse(str.begin(), str.end(), assignation_rule, x3::space);
-	//return nullptr;
-
 	std::unique_ptr<Object> res;
-	Parser::__vars_map.clear();
-	boost::spirit::x3::phrase_parse(str.begin(), str.end(), Parser::final_rule, x3::space, res);
 
+	Parser::__vars_map.clear();
+	std::string::const_iterator begin = str.begin();
+	boost::spirit::x3::phrase_parse(begin, str.end(), Parser::final_rule, x3::space, res);
+	if (begin != str.end())
+		return nullptr;
 	return res;
 }

@@ -1,0 +1,7 @@
+B1 = Box(hsize: {1,0.2,1}; position: {0,-0.5,0};rotation: 1+{0,0,0})
+B2 = Box(hsize: {1,0.2,1}; position: {0,0.5,0};rotation: 1+{0,0,0})
+B3 = Box(hsize: {1,0.2,1}; position: {0,-0,0};rotation: 1+{0,0,0})
+
+C = Cone(height: 1.5; radius: 0.5; position: {0,0.5,0}; rotation: -0.7+{0.7,0,0})
+
+__obj__ = ((B1+B2) + B3) \ C

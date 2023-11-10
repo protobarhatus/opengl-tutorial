@@ -634,7 +634,8 @@ int main()
 	//auto obj = makePolyhedronWithoutCilinderExample({ 0,5,0 }, null_rotation);
 	//auto obj = parse("A = Box(hsize: {1,1,1}; position: {0,5,0}; rotation: 1 + {0,0,0} ) B = Sphere(radius: 1.3; position: {-1, 5, 0}) __obj__ = A*B");
 	//auto obj = parse("A = Box(hsize: {1,1,1}; position: {0,5,0}; rotation: 1 + {0,0,0} ) B = Sphere(radius: 1.3; position: {-1, 5, 0}) __obj__ = A*B");
-	auto obj = parse(readFile("examples/box_with_windows.txt"));
+	auto obj = parse(readFile("examples/plates_with_cone_cut.txt"));
+	obj->moveOn({ 0,5,0 });
 	assert(obj != nullptr);
 	camera_pos.nums[1] = 2;
 
