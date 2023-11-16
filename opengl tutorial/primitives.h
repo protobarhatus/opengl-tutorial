@@ -93,6 +93,10 @@ public:
 	Prizm(const std::vector<Vector<2>>& polygon, const Vector<3>& pos, double height, const Quat& rot);
 
 	virtual bool isPointInside(const Vector<3>& p) const override;
+
+	const std::vector<Vector<2>>& getBase() const;
+	const std::vector<Vector<3>>& getNormals() const;
+	double getHalfHeight() const;
 };
 
 class Cone : public Object

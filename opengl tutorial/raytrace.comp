@@ -30,6 +30,7 @@ struct Primitive
 
 uniform int primitives_count;
 uniform int data_count;
+uniform int normals_count;
 
 layout(binding = 1) buffer primitives_array
 {
@@ -474,12 +475,14 @@ IRO rayIntersectsPolygon(vec2 p, vec2 n, uint polygon_start, uint polygon_size, 
 
 }
 
+IRO WHITE_IRO = {2, {0, {0, -1, 0}}, {1, {0,-1,0}}};
 
 //только выпуклые
 IRO intersectPrizmWithLine(Primitive obj, in vec3 start, in vec3 dir)
 {
 	float EPSILON = 1e-6;
 	float half_height = obj.sc1;
+	return WHITE_IRO;
 	if (equal(dir.x, 0) && equal(dir.y, 0))
 	{
 		uint in_res = isPointInsidePolygon(start.xy, Prizm_polygonStart(obj), Prizm_polygonSize(obj));
@@ -501,7 +504,7 @@ IRO intersectPrizmWithLine(Primitive obj, in vec3 start, in vec3 dir)
 		return ZERO_IRO;
 	}
 	IRO shade_intersect = rayIntersectsPolygon(start.xy, dir.xy, Prizm_polygonStart(obj), Prizm_polygonSize(obj), Prizm_normalsStart(obj), Prizm_normalsSize(obj));
-
+	
 	if (shade_intersect.inters == 0)
 	{
 		return ZERO_IRO;
@@ -509,6 +512,8 @@ IRO intersectPrizmWithLine(Primitive obj, in vec3 start, in vec3 dir)
 
 	Intersection t1 = shade_intersect.second;
 	float point_z = start.z + dir.z * t1.t;
+	
+
 	if (shade_intersect.inters == 1)
 	{
 		//если токо одно пересечение то пока не рисуем
@@ -531,7 +536,6 @@ IRO intersectPrizmWithLine(Primitive obj, in vec3 start, in vec3 dir)
 	}
 	if (point_z >= -half_height - EPSILON && point_z <= half_height + EPSILON)
 	{
-
 		if (point_z2 >= -half_height - EPSILON && point_z2 <= half_height + EPSILON)
 		{
 			if (t1.t < t2.t)
@@ -542,6 +546,7 @@ IRO intersectPrizmWithLine(Primitive obj, in vec3 start, in vec3 dir)
 			else
 			{
 				IRO res = {2, t2, t1};
+				return WHITE_IRO;
 				return res;
 			}
 		}
@@ -628,6 +633,7 @@ IRO intersectWithRay(in Primitive object, in vec3 ray_start, in vec3 direction)
 	{
 		case PRIZM:
 			inter_res = intersectPrizmWithLine(object, start, dir);
+			break;
 		case PIRAMID:
 			break;
 		case CYLINDR:
@@ -645,17 +651,19 @@ IRO intersectWithRay(in Primitive object, in vec3 ray_start, in vec3 direction)
 		return res;
 	}
 	
+	
 	if (inter_res.second.t < inter_res.first.t && inter_res.second.t >= 0)
 		swap(inter_res.first, inter_res.second);
+	
 	if (inter_res.second.t < 0)
 	{
 		inter_res.inters = 1;
 	}
+	
 	//.first может быть < 0
 	mat4 back_rotation = rotation(object.rotation);
 	inter_res.first.n = (back_rotation * vec4(inter_res.first.n, 1)).xyz;
 	inter_res.second.n = (back_rotation * vec4(inter_res.second.n, 1)).xyz;
-
 	return inter_res;
 }
 
@@ -666,6 +674,7 @@ float sq(float x)
 
 void main() {
   ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+
   float horizontal_step = 2.0/screen_size.x;
   float vertical_step = 2.0/screen_size.y;
   vec3 ray_dir = vec3(-1 + pixel_coords.x * horizontal_step, 1, -1 + pixel_coords.y * vertical_step);
@@ -678,6 +687,7 @@ void main() {
   else
   {
 	float r = (0.99 * sqrt((sq(dot(ray_dir, inter.first.n)) / dot(ray_dir, ray_dir))));
+	r = -inter.first.n.y;
 	imageStore(img_output, pixel_coords, vec4(r,r,r,1));
   }
   //

@@ -1,7 +1,4 @@
-﻿#include <glad/glad.h> // GLAD: https://github.com/Dav1dde/glad ... GLAD 2 also works via the web-service: https://gen.glad.sh/ (leaving all checkbox options unchecked)
-
-#include <GLFW/glfw3.h>
-#include <stdlib.h>
+﻿#include <stdlib.h>
 #include <stdio.h>
 #include <iostream>
 #include <fstream>
@@ -20,6 +17,8 @@
 #include "ComposedObject.h"
 #include "objects_fabric.h"
 #include "parser.h"
+#include "gl_utils.h"
+#include "GLSL_structures.h"
 
 std::string readFile(const std::string& name)
 {
@@ -448,18 +447,6 @@ void castRays(int window_width, int window_height, std::vector<unsigned char>& c
 }
 
 
-GLuint createSharedBufferObject(void* data, int data_size, int binding)
-{
-	GLuint ssbo;
-	glGenBuffers(1, &ssbo);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssbo);
-	glBufferData(GL_SHADER_STORAGE_BUFFER, data_size, data,GL_STATIC_READ ); //sizeof(data) only works for statically sized C/C++ arrays.
-	glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding, ssbo);
-	glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
-	return ssbo;
-}
-
-
 
 int main()
 {
@@ -579,21 +566,23 @@ int main()
 
 	int camera_pos_location = glGetUniformLocation(ray_trace_programm, "camera_pos");
 	int screen_size_location = glGetUniformLocation(ray_trace_programm, "screen_size");
-	int primitive_count_location = glGetUniformLocation(ray_trace_programm, "primitives_count");
-	int data_count_location = glGetUniformLocation(ray_trace_programm, "data_count");
 
-	//GLSL_Primitive sphere = buildSphere(1, { 0, 5, 0 }, { 1, 0, 0, 0 });
-	GLSL_Primitive globj = buildCylinder(2, 1, { 0, 5, 0 }, { 1, 0, 0, 0 });
-	auto prim_buf = createSharedBufferObject(&globj, sizeof(globj), 1);
-	auto data_buf = createSharedBufferObject(NULL, 0, 2);
-	auto normals_buf = createSharedBufferObject(, , 3);
+	
 	std::vector<Vector<2>> square = { {-1, -1}, {-1, 1}, {1, 1}, {1, -1} };
 	Quat null_rotation = Quat(1, 0, 0, 0);
 	
 
-	auto obj = parse(readFile("examples/plates_with_cone_cut.txt"));
-	obj->moveOn({ 0,5,0 });
+	auto obj = parse(readFile("examples/hex_prizm.txt"));
+	//auto obj = makeCylinder(2, 0.5, { 0,5,0 }, null_rotation);
+
 	assert(obj != nullptr);
+	obj->moveOn({ 0,5,0 });
+
+
+	GlslSceneMemory shader_scene(10, 100, 100);
+	shader_scene.addObject(obj->copy());
+	shader_scene.bind(ray_trace_programm);
+
 	camera_pos.nums[1] = 2;
 
 	while (!glfwWindowShouldClose(window)) // Main-Loop
@@ -608,8 +597,6 @@ int main()
 			glUseProgram(ray_trace_programm);
 			glUniform3f(camera_pos_location, camera_pos.x(), camera_pos.y(), camera_pos.z());
 			glUniform2i(screen_size_location, window_width, window_height);
-			glUniform1i(primitive_count_location, 1);
-			glUniform1i(data_count_location, 0);
 			
 			glDispatchCompute((GLuint)window_width, (GLuint)window_width, 1);
 			std::cout << glGetError();

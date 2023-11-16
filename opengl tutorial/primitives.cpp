@@ -1206,3 +1206,18 @@ double Cylinder::getRadius() const
 {
 	return this->rad;
 }
+
+const std::vector<Vector<2>>& Prizm::getBase() const
+{
+	return this->base;
+}
+
+const std::vector<Vector<3>>& Prizm::getNormals() const
+{
+	return this->normals;
+}
+
+double Prizm::getHalfHeight() const
+{
+	return this->half_height;
+}
