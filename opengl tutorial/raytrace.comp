@@ -18,8 +18,10 @@ struct Primitive
 	uint data_index;
 	//сколько элементов в data_array она занимает
 	uint data_count;
-	vec3 position;
+	uint normals_index;
+	vec4 position;
 	Quat rotation;
+	uint normals_count;
 	//половина высоты для призмы и цилиндра, высота для пирамиды, радиус для сферы
 	float sc1;
 	//радиус для цилиндра
@@ -61,6 +63,27 @@ const uint PIRAMID = 1;
 const uint SPHERE = 2;
 const uint CYLINDR = 3;
 
+
+//некоторая инкапсуляция для примитивов. sc1, sc2 - это еще ладно но обращение к буферам точно надо
+uint Prizm_polygonStart(Primitive obj)
+{
+	return obj.data_index;
+}
+
+uint Prizm_polygonSize(Primitive obj)
+{
+	return obj.data_count;
+}
+
+uint Prizm_normalsStart(Primitive obj)
+{
+	return obj.normals_index;
+}
+
+uint Prizm_normalsSize(Primitive obj)
+{
+	return obj.normals_count;
+}
 
 
 
@@ -236,99 +259,354 @@ IRO intersectCylinderWithLine(in Primitive obj, in vec3 start, in vec3 dir)
 	return IRO(0, Intersection(0, vec3(0,0,0)), Intersection(0, vec3(0,0,0)));
 }
 
+uint POINT_ON_BOUNDARY;
+uint POINT_IN_POLYGON;
+uint POINT_OUT_OF_POLYGON;
 
+//специфичное сравнение для проверки на принадлежность многоугольнику
+int compareDouble(double a, double b, double eps)
+{
+	if (abs(a - b) < eps)
+		return 0;
+	else if (a < b)
+		return -1;
+	else
+		return 1;
+}
 
-/*IRO intersectPrizmWithLine(Primitive obj, in vec3 start, in vec3 dir)
+int sideOfPointRelativeToLine(vec2 point, vec2 low, vec2 high)
+{
+	//considering low.y < high.y
+	vec2 v1 = high - low;
+	vec2 v2 = point - low;
+	float z_orient = v1.x * v2.y - v1.y * v2.x;
+
+	return compareDouble(0, z_orient, 1e-4);
+}
+
+uint isPointInsidePolygon(vec2 p, uint pol_start, uint pol_size)
 {
 
-	
+	int current = 0;
+	if (pol_size < 2)
+		return POINT_OUT_OF_POLYGON;
 
-
-	double EPSILON = 1e-6;
-	if (equal(dir.x(), 0) && equal(dir.y(), 0))
+	bool IsInside = false;
+	int cur_y_comp_res = compareDouble(base_points[pol_start + current].y, p.y, 1e-4);
+	int next = 1;
+	do 
 	{
-		auto in_res = isPointInsidePolygon(start, this->base);
-		if (in_res)
-		{
-			has_intersect = true;
-			return { {(height / 2 - start.z()) / dir.z(), {0,0,1}}, {(-height / 2 - start.z()) / dir.z(), {0,0,-1}} };
+		
+		int next_y_comp_res = compareDouble(base_points[pol_start + next].y, p.y, 1e-4);
+		switch (cur_y_comp_res) {
+		case -1:
+			switch (next_y_comp_res) {
+			case -1:
+				break;
+			case 0:
+				switch (compareDouble(p.x, base_points[pol_start + next].x, 1e-4)) {
+				case -1: IsInside = !IsInside; break;
+				case 0:   return POINT_ON_BOUNDARY;
+				case 1:  break;
+				}
+				break;
+			case 1:
+				switch (sideOfPointRelativeToLine(p, base_points[pol_start + current], base_points[pol_start + next])) {
+				case -1: IsInside = !IsInside; break;
+				case  0: return POINT_ON_BOUNDARY;
+				}
+				break;
+			}
+			break;
+		case 0:
+			switch (next_y_comp_res) {
+			case -1:
+				switch (compareDouble(p.x, base_points[pol_start + current].x, 1e-4)) {
+				case -1: IsInside = !IsInside; break;
+				case 0:   return POINT_ON_BOUNDARY;
+				case 1:  break;
+				}
+				break;
+			case 0:
+				switch (compareDouble(p.x, base_points[pol_start + current].x, 1e-4)) {
+				case -1:
+					if (compareDouble(p.x, base_points[pol_start + next].x, 1e-4) != -1)
+						return POINT_ON_BOUNDARY;
+					break;
+				case 0: return POINT_ON_BOUNDARY;
+				case 1:
+					if (compareDouble(p.x, base_points[pol_start + next].x, 1e-4) != 1)
+						return POINT_ON_BOUNDARY;
+					break;
+				}
+				break;
+			case 1:
+				if (compareDouble(p.x, base_points[pol_start + current].x, 1e-4) == 0) {
+					return POINT_ON_BOUNDARY;
+				}
+				break;
+			}
+			break;
+		case 1:
+			switch (next_y_comp_res) {
+			case -1:
+				switch (sideOfPointRelativeToLine(p, base_points[pol_start + next], base_points[pol_start + current])) {
+				case -1: IsInside = !IsInside; break;
+				case  0: return POINT_ON_BOUNDARY;
+				}
+				break;
+			case 0:
+				if (compareDouble(p.x, base_points[pol_start + next].x, 1e-4) == 0) {
+					return POINT_ON_BOUNDARY;
+				}
+				break;
+			case 1:
+				break;
+			}
+			break;
 		}
-		has_intersect = false;
-		return { {0,0,0,0},{0,0,0,0} };
-	}
-	auto shade_intersect = rayIntersectsPolygon(start, dir, base, normals);
 
-	if (shade_intersect.first == 0)
-	{
-		has_intersect = false;
-		return { {0,0,0,0}, {0,0,0,0} };
-	}
+		current = next;
+		cur_y_comp_res = next_y_comp_res;
+		++next;
+		if (next == pol_size)
+			next = 0;
+	} while (current != 0);
 
-	ISR t1 = shade_intersect.second.first;
-	double point_z = start.z() + dir.z() * t1.t;
-	if (shade_intersect.first == 1)
+	return IsInside ? POINT_IN_POLYGON : POINT_OUT_OF_POLYGON;
+}
+
+
+
+float getParam(vec2 st, vec2 dir, vec2 p)
+{
+	if (equal(dir.x, 0))
 	{
-		if (point_z >= -height / 2 - EPSILON && point_z <= height / 2 + EPSILON)
+		return (p.y - st.y) / dir.y;
+	}
+	return (p.x - st.x) / dir.x;
+}
+
+struct BF_pair
+{
+	bool b;
+	float f;
+};
+
+BF_pair rayIntersectsSegment(vec2 p, vec2 dir, vec2 a, vec2 b)
+{
+	float div = dir.x * (b.y - a.y) - dir.y * (b.x - a.x);
+	float num = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+	if (equal(div, 0))
+	{
+		if (equal(num, 0))
 		{
-			has_intersect = true;
-			return { t1, t1 };
-		}
-		has_intersect = false;
-		return { {0,0,0,0},{0,0,0,0} };
-	}
-	ISR t2 = shade_intersect.second.second;
-	double point_z2 = start.z() + dir.z() * t2.t;
-	if (!(point_z >= -height / 2 - EPSILON && point_z <= height / 2 + EPSILON) && (point_z2 >= -height / 2 - EPSILON && point_z2 <= height / 2 + EPSILON))
-	{
-		std::swap(t1, t2);
-		std::swap(point_z, point_z2);
-		std::swap(shade_intersect.second.first, shade_intersect.second.second);
-	}
-	if (point_z >= -height / 2 - EPSILON && point_z <= height / 2 + EPSILON)
-	{
-		has_intersect = true;
+			if (dot(b - p, a - p) < 0)
+			{
+				BF_pair res =  { true, 0 };
+				return res;
+			}
+			else if (dot(dir, a - p) < 0)
+			{
+				BF_pair res =  { false, 0 };
+				return res;
+			}
+			else if (dot(a - p, a - p) < dot(b - p, b - p))
+			{
+				BF_pair res =  { true, getParam(p, dir, a) };
+				return res;
+			}
+			else
+			{
+				BF_pair res =  { true,getParam(p, dir, b) };
+				return res;
+			}
 
-		if (point_z2 >= -height / 2 - EPSILON && point_z2 <= height / 2 + EPSILON)
-			return { t1, t2 };
+		}
+		else
+			{
+				BF_pair res =  { false, 0 };
+				return res;
+			}
+	}
+	else
+	{
+		vec2 point = p + dir * (num / div);
+		if (dot(b - point, a - point) <= 0)
+		{
+			BF_pair res = {true, num/div};
+			return res;
+		}
+		BF_pair res =  { false, 0 };
+		return res;
+	}
+
+}
+
+
+
+
+IRO rayIntersectsPolygon(vec2 p, vec2 n, uint polygon_start, uint polygon_size, uint normals_start, uint normals_size)
+{
+	int c = 0;
+	Intersection res[2];
+	for (int i = 0; i < polygon_size; ++i)
+	{
+		BF_pair int_res = rayIntersectsSegment(p, n, base_points[polygon_start + i],base_points[polygon_start + (i < polygon_size - 1 ? i + 1 : 0)]);
+		if (!int_res.b)
+			continue;
+		vec2 point = p + n * int_res.f;
+
+		if (c == 1 && equal(int_res.f, res[0].t))
+			continue;
+		c++;
+		res[c].t = int_res.f;
+		res[c].n = normals[normals_start + i];
+		if (c == 2)
+			break;
+	}
+	//if (res[0].t < res[1].t)
+	//	res[0].in = true;
+	//else
+	//	res[1].in = true;
+	IRO irores = { c, res[0], res[1] };
+	return irores;
+
+}
+
+
+//только выпуклые
+IRO intersectPrizmWithLine(Primitive obj, in vec3 start, in vec3 dir)
+{
+	float EPSILON = 1e-6;
+	float half_height = obj.sc1;
+	if (equal(dir.x, 0) && equal(dir.y, 0))
+	{
+		uint in_res = isPointInsidePolygon(start.xy, Prizm_polygonStart(obj), Prizm_polygonSize(obj));
+		if (in_res != POINT_OUT_OF_POLYGON)
+		{
+			float t_up = (half_height - start.z) / dir.z;
+			float t_down = (-half_height - start.z) / dir.z;
+			if (t_up < t_down)
+			{
+				IRO res = {2,  {t_up, {0,0,1}}, {t_down, {0,0,-1} }};
+				return res;
+			}
+			else
+			{
+				IRO res = {2,  {t_down, {0,0,-1}} , {t_up, {0,0,1}} };
+				return res;
+			}
+		}
+		return ZERO_IRO;
+	}
+	IRO shade_intersect = rayIntersectsPolygon(start.xy, dir.xy, Prizm_polygonStart(obj), Prizm_polygonSize(obj), Prizm_normalsStart(obj), Prizm_normalsSize(obj));
+
+	if (shade_intersect.inters == 0)
+	{
+		return ZERO_IRO;
+	}
+
+	Intersection t1 = shade_intersect.second;
+	float point_z = start.z + dir.z * t1.t;
+	if (shade_intersect.inters == 1)
+	{
+		//если токо одно пересечение то пока не рисуем
+		return ZERO_IRO;
+		if (point_z >= -half_height - EPSILON && point_z <= half_height + EPSILON)
+		{
+			//если все же вернусь сюда то надо не забыть проставить нормально in и out
+			IRO res = { 1, t1, t1 };
+			return res;
+		}
+		return ZERO_IRO;
+	}
+	Intersection t2 = shade_intersect.second;
+	float point_z2 = start.z + dir.z * t2.t;
+	if (!(point_z >= -half_height - EPSILON && point_z <= half_height + EPSILON) && (point_z2 >= -half_height - EPSILON && point_z2 <= half_height + EPSILON))
+	{
+		swap(t1, t2);
+		swap(point_z, point_z2);
+		swap(shade_intersect.first, shade_intersect.second);
+	}
+	if (point_z >= -half_height - EPSILON && point_z <= half_height + EPSILON)
+	{
+
+		if (point_z2 >= -half_height - EPSILON && point_z2 <= half_height + EPSILON)
+		{
+			if (t1.t < t2.t)
+			{
+				IRO res = {2, t1, t2 };
+				return res;
+			}
+			else
+			{
+				IRO res = {2, t2, t1};
+				return res;
+			}
+		}
 		//z != 0 т к произошел подьем
 
-		if (point_z2 > height / 2 + EPSILON)
+		if (point_z2 > half_height + EPSILON)
 		{
-			double t_out = (height / 2 - start.z()) / dir.z();
-			Vector<2> upper_point = start + dir * t_out;
-			//наверно эту проверку можно убрать
-			if (isPointInsidePolygon(upper_point, base))
-				return { t1, {t_out, {0, 0, 1} } };
+			float t_out = (half_height - start.z) / dir.z;
+			if (t1.t < t_out)
+			{
+				IRO res = {2,  t1, {t_out, {0, 0, 1} } };
+				return res;
+			}
+			else
+			{
+				IRO res = {2,  {t_out, {0, 0, 1} }, t1 };
+				return res;
+			}
 			//невозможная ситуация, т к если он не выходит в стене то должен выходить наверху но мало ли
-			return { t1, t1 };
+			IRO res = {2, t1, t1 };
+			return res;
 		}
-		if (point_z2 < -height / 2 - EPSILON)
+		if (point_z2 < -half_height - EPSILON)
 		{
-			double t_out = (-height / 2 - start.z()) / dir.z();
-			Vector<2> lower_point = start + dir * t_out;
-			//эту проверку также думаю можно убрать
-			if (isPointInsidePolygon(lower_point, base))
-				return { t1, {t_out, 0, 0, -1} };
-			return { t1, t1 };
+			float t_out = (-half_height - start.z) / dir.z;
+			if (t1.t < t_out)
+			{
+				IRO res = {2, t1, {t_out, {0, 0, -1} } };
+				return res;
+			}
+			else
+			{
+				IRO res = {2, {t_out, {0, 0, -1} }, t1 };
+				return res;
+			}
+			IRO res = {2,  t1, t1 };
+			return res;
 		}
 	}
 	//осталось возможна только ситуация когда линия проходит через оба основания, через верхнее/нижнее ребро, либо вообще не проходит
-	if (equal(dir.z(), 0))
+	if (equal(dir.z, 0))
 	{
-		has_intersect = false;
-		return { {0,0,0,0}, {0,0,0,0} };
+		return ZERO_IRO;
 	}
-	double t_out = (height / 2 - start.z()) / dir.z();
-	Vector<2> up_point = start + dir * t_out;
-	if (isPointInsidePolygon(up_point, base))
+	float t_out = (half_height - start.z) / dir.z;
+	vec2 up_point = start.xy + dir.xy * t_out;
+	if (isPointInsidePolygon(up_point, Prizm_polygonStart(obj), Prizm_polygonSize(obj)) != POINT_OUT_OF_POLYGON)
 	{
-		has_intersect = true;
+		float t_bot = (-half_height - start.z) / dir.z;
+		if (t_out < t_bot)
+		{
+			IRO res = {2, {t_out, {0,0,1}},  {t_bot, {0,0,-1}} };
+			return res;
+		}
+		else
+		{
+			IRO res = {2, {t_bot, {0,0,-1}},  {t_out, {0,0,1}} };
+			return res;
+		}
+	}
 
-		return { {t_out, {0,0,1}},  {(-height / 2 - start.z()) / dir.z(), {0,0,-1}} };
-	}
-	has_intersect = false;
-	return{ {0,0,0,0},{0,0,0,0} };
-}*/
+	return ZERO_IRO;
+}
+
+
 
 
 
@@ -349,7 +627,7 @@ IRO intersectWithRay(in Primitive object, in vec3 ray_start, in vec3 direction)
 	switch(object.type)
 	{
 		case PRIZM:
-			break;
+			inter_res = intersectPrizmWithLine(object, start, dir);
 		case PIRAMID:
 			break;
 		case CYLINDR:

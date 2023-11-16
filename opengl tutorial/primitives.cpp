@@ -495,45 +495,6 @@ std::pair<bool, double> intersectLineWithTriangle(const Vector<3>& p, const Vect
 std::vector<ISR> Prizm::_intersectLine(const Vector<3>& start, const Vector<3>& dir) const
 {
 
-	/*ISR res[2];
-	int c = 0;
-	if (equal(dir.x(), 0) && equal(dir.y(), 0))
-	{
-		auto in_res = isPointInsidePolygon(start, this->base);
-		if (in_res)
-		{
-			has_intersect = true;
-			return { {(height / 2 - start.z()) / dir.z(), {0,0,1}}, {(-height / 2 - start.z()) / dir.z(), {0,0,-1}} };
-		}
-		has_intersect = false;
-		return { {0,0,0,0},{0,0,0,0} };
-	}
-	if (!equal(dir.z(), 0))
-	{
-		double t_up = (height / 2 - start.z()) / dir.z();
-		if (isPointInsidePolygon(Vector<2>(start) + Vector<2>(dir) * t_up, base))
-			res[c++] = IntersectionResult(t_up, 0, 0, 1);
-		double t_down = (-height / 2 - start.z()) / dir.z();
-		if (isPointInsidePolygon(Vector<2>(start) + Vector<2>(dir) * t_down, base))
-			res[c++] = { t_down, 0, 0, -1 };
-	}
-	for (int i = 0; i < base.size() && c < 2; ++i)
-	{
-		int nex = i < base.size() - 1 ? i + 1 : 0;
-		auto inter_res = intersectLineWithTriangle(start, dir, Vector<3>(base[i], -height / 2), Vector<3>(base[nex], -height / 2), { base[i], height / 2 });
-		if (inter_res.first && (c == 0 || !equal(inter_res.second, res[0].t)))
-			res[c++] = { inter_res.second, normals[i] };
-		else
-		{
-			inter_res = intersectLineWithTriangle(start, dir, { base[i], height / 2 }, { base[nex],height / 2 }, { base[nex], -height / 2 });
-			if (inter_res.first && (c == 0 || !equal(inter_res.second, res[0].t)))
-				res[c++] = { inter_res.second, normals[i] };
-		}
-	}
-	has_intersect = c > 0;
-	if (c == 1)
-		res[1] = res[0];
-	return { res[0], res[1] };*/
 	if (!is_convex)
 		assert(false);
 
@@ -1194,4 +1155,54 @@ bool Polyhedron::isPointInside(const Vector<3>& p) const
 {
 	assert(false);
 	return false;
+}
+
+
+ObjectType Box::getId() const
+{
+	return ObjectType::BOX;
+}
+ObjectType Prizm::getId() const
+{
+	return ObjectType::PRIZM;
+}
+ObjectType Cone::getId() const
+{
+	return ObjectType::CONE;
+}
+ObjectType Piramid::getId() const
+{
+	return ObjectType::PIRAMID;
+}
+ObjectType Cylinder::getId() const
+{
+	return ObjectType::CYLINDER;
+}
+ObjectType Sphere::getId() const
+{
+	return ObjectType::SPHERE;
+}
+ObjectType Polyhedron::getId() const
+{
+	return ObjectType::POLYHEDRON;
+}
+
+double Sphere::getRadius() const
+{
+	return this->rad;
+}
+
+Quat Object::getRotation() const
+{
+	return this->rotation;
+}
+
+double Cylinder::getHalfHeight() const
+{
+	return this->half_height;
+}
+
+double Cylinder::getRadius() const
+{
+	return this->rad;
 }

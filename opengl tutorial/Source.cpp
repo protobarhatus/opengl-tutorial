@@ -459,13 +459,11 @@ GLuint createSharedBufferObject(void* data, int data_size, int binding)
 	return ssbo;
 }
 
-//std::vector<std::vector<int>> fixNormalesConvex(const std::vector<std::vector<int>> )
 
 
 int main()
 {
 	
-	//parse("2.0");
 	// (1) GLFW: Initialise & Configure
 	// -----------------------------------------
 	if (!glfwInit())
@@ -524,37 +522,6 @@ int main()
 	data[3] = Vertex(Vector<3>(1, 0, -1), Vector<2>(1, 0));
 	data_size = 4;
 	elements_size = 6;
-	//setCube(data, data_size, elements, elements_size, Vector<3>(0, 0, -5));
-	/*//setCube(data, data_size, elements, elements_size, Vector<3>(0, 0, -5));
-	//setCube(data, data_size, elements, elements_size, Vector(0, 2, -5));
-	//std::vector<Vector<2>> base = { {-0.64, 0.49}, {-0.25, 0.9}, {0.6, 0.75}, {0.83, 0.09}, {0.41, -0.52}, {-0.33, -0.96}, {-0.79, -0.28}, {-0.59, -0.58} };
-	//Vector<3> position = { 0,0,-5 };
-	float height = 2;
-	//setConvexPrizm(data, data_size, elements, elements_size, position, base, height);
-	//Prizm cube(base, position, height, Quat(1, 0, 0, 0));
-
-	std::vector<Vector<2>> base = { {-1, -1}, {-1, 1}, {1, 1}, {1, -1} };
-	Vector<3> position = { 0, 1, -5 };
-	setConvexPiramid(data, data_size, elements, elements_size, position, base, height);
-
-	Piramid piramid(base, Vector<3>(position.x(), position.z(), position.y()), height, Quat{ 1,0,0,0 });
-
-	Vector<3> line_base = { -1, -1, -1 };
-	Vector<3> line_dir = { 2, 1, -8 };
-
-	auto intersect = piramid.intersectWithRay(Vector<3>(line_base.x(), line_base.z(), line_base.y()), Vector<3>(line_dir.x(), line_dir.z(), line_dir.y()));
-	//auto intersect = cube.intersectWithRay(line_base, line_dir);
-	std::swap(intersect.second.nums[1], intersect.second.nums[2]);
-	setGreenCube(data, data_size, elements, elements_size, intersect.second);
-
-
-	//ЭТО ЧИСТО ДЛЯ ЛИНИИ КОСТЫЛЬ
-	data[data_size++] = Vertex(line_base, Vector<2>(48.0 / 512, 48.0 / 256));
-	data[data_size++] = Vertex(line_base + 10 * line_dir, Vector<2>(48.0 / 512, 48.0 / 256));
-
-	elements[elements_size++] = data_size - 2;
-	elements[elements_size++] = data_size - 1;*/
-
 
 
 	glBufferData(GL_ARRAY_BUFFER, data_size*sizeof(Vertex), data, GL_STATIC_DRAW);
@@ -607,15 +574,6 @@ int main()
 	int counter = 0;
 
 	std::vector<unsigned char> texture(window_width * window_height * 4, 255);
-
-	//Scene scene;
-	//int cube = scene.addObject(std::make_shared<Prizm>(Prizm({ {-1, -1}, {-1, 1}, {1, 1}, {1, -1} }, { 0, 5, 0 }, 2, Quat(1, 0, 0, 0))));
-	//scene.subtractObject(std::make_shared<Prizm>(Prizm({ {-0.5, -1.1}, {-0.5, 1.1}, {0.5, 1.1}, {0.5, -1.1} }, { 0,5, 0 }, 1, Quat(1, 0, 0, 0))), cube);
-	//int sphere = scene.addObject(std::make_shared<Sphere>(Vector<3>{0, 5, 0}, 1));
-	//scene.subtractObject(std::make_shared<Cylinder>(Vector<3>{0, 5, 0}, 2.1, 0.5, Quat(1. / 1.41, 0, 1./1.41, 0)), cube);
-	//scene.subtractObject(std::make_shared<Cylinder>(Vector<3>{ 0, 5, 0 }, 2.1, 0.5, Quat(1./1.41, 1./1.41, 0, 0)), cube);
-	//scene.subtractObject(std::make_shared<Cylinder>(Vector<3>{ 0, 5, 0 }, 2.1, 0.5, Quat(1, 0, 0, 0)), cube);
-	//scene.addObject(std::make_shared<Piramid>(Piramid({ { -1, -1 }, { -1, 1 }, { 1, 1 }, { 1, -1 } }, { 0, 5, 0 }, 2, Quat(1, 0, 0, 0))));
 	
 	createTexImage(window_width, window_height);
 
@@ -625,15 +583,14 @@ int main()
 	int data_count_location = glGetUniformLocation(ray_trace_programm, "data_count");
 
 	//GLSL_Primitive sphere = buildSphere(1, { 0, 5, 0 }, { 1, 0, 0, 0 });
-	//GLSL_Primitive obj = buildCylinder(2, 1, { 0, 5, 0 }, { 1, 0, 0, 0 });
-	//auto prim_buf = createSharedBufferObject(&obj, sizeof(obj), 1);
-	//auto data_buf = createSharedBufferObject(NULL, 0, 2);
+	GLSL_Primitive globj = buildCylinder(2, 1, { 0, 5, 0 }, { 1, 0, 0, 0 });
+	auto prim_buf = createSharedBufferObject(&globj, sizeof(globj), 1);
+	auto data_buf = createSharedBufferObject(NULL, 0, 2);
+	auto normals_buf = createSharedBufferObject(, , 3);
 	std::vector<Vector<2>> square = { {-1, -1}, {-1, 1}, {1, 1}, {1, -1} };
 	Quat null_rotation = Quat(1, 0, 0, 0);
 	
-	//auto obj = makePolyhedronWithoutCilinderExample({ 0,5,0 }, null_rotation);
-	//auto obj = parse("A = Box(hsize: {1,1,1}; position: {0,5,0}; rotation: 1 + {0,0,0} ) B = Sphere(radius: 1.3; position: {-1, 5, 0}) __obj__ = A*B");
-	//auto obj = parse("A = Box(hsize: {1,1,1}; position: {0,5,0}; rotation: 1 + {0,0,0} ) B = Sphere(radius: 1.3; position: {-1, 5, 0}) __obj__ = A*B");
+
 	auto obj = parse(readFile("examples/plates_with_cone_cut.txt"));
 	obj->moveOn({ 0,5,0 });
 	assert(obj != nullptr);
@@ -643,11 +600,11 @@ int main()
 	{
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear the screen with... red, green, blue.
 
-		clock_t t1 = clock();
-		castRays(window_width, window_height, texture, camera_pos, obj.get());
-		std::cout << clock() - t1 << '\n';
-		loadTexture(window_width, window_height, &texture[0], false);
-		/* { // launch compute shaders!
+		//clock_t t1 = clock();
+		//castRays(window_width, window_height, texture, camera_pos, obj.get());
+		//std::cout << clock() - t1 << '\n';
+		//loadTexture(window_width, window_height, &texture[0], false);
+		 { // launch compute shaders!
 			glUseProgram(ray_trace_programm);
 			glUniform3f(camera_pos_location, camera_pos.x(), camera_pos.y(), camera_pos.z());
 			glUniform2i(screen_size_location, window_width, window_height);
@@ -660,7 +617,7 @@ int main()
 		}
 		
 		
-		glUseProgram(prog);*/
+		glUseProgram(prog);
 
 		glUniform4f(rotation_location, rot.a0(), rot.a1(), rot.a2(), rot.a3());
 		//glUniform3f(position_location, camera_pos.x(), camera_pos.y(), camera_pos.z());

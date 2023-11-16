@@ -133,6 +133,11 @@ Vector<3> ComposedObject::countBoundingBox() const
 	return max(left->getPosition() + left->rotateBoundingBox(), right->getPosition() + right->rotateBoundingBox());
 }
 
+ObjectType ComposedObject::getId() const
+{
+	return ObjectType::COMPOSED_OBJECT;
+}
+
 std::unique_ptr<Object> ComposedObject::copy() const
 {
 	return std::make_unique<ComposedObject>(left->copy(), right->copy(), operation, position, rotation);
