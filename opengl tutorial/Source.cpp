@@ -437,6 +437,8 @@ void castRays(int window_width, int window_height, std::vector<unsigned char>& c
 				std::cout << "A";
 			Vector<3> ray_dir(-1 + i * horizontal_step, 1, -1 + j * vertical_step);
 			auto cast = object->intersectWithRay(camera_pos, ray_dir);
+			//setColor(i, j, window_width, { (unsigned char)(254 * std::max(0., std::min(1., cast.second.n.x()))), (unsigned char)(254 * std::max(0., std::min(1., cast.second.n.y()))), (unsigned char)(254 * std::max(0., std::min(1., cast.second.n.z()))), 1 }, canvas);
+			//continue;
 			unsigned char r = 254 * sqrt((sq(dot(ray_dir, cast.second.n)) / dot(ray_dir, ray_dir)));
 			if (cast.first)
 				setColor(i, j, window_width, { r, r,r,255 }, canvas);
@@ -466,8 +468,8 @@ int main()
 	int monitor_width = mode->width; // Monitor's width.
 	int monitor_height = mode->height;
 
-	int window_width = 600;
-	int window_height = 600;
+	int window_width = 1000;
+	int window_height = 1000;
 
 	GLFWwindow* window = glfwCreateWindow(window_width, window_height, "GLFW Test Window – Changing Colours", NULL, NULL);
 	// GLFWwindow* window = glfwCreateWindow(window_width, window_height, "Drawing Basic Shapes - Buffer Objects & Shaders", glfwGetPrimaryMonitor(), NULL); // Full Screen Mode ("Alt" + "F4" to Exit!)
@@ -566,22 +568,22 @@ int main()
 
 	int camera_pos_location = glGetUniformLocation(ray_trace_programm, "camera_pos");
 	int screen_size_location = glGetUniformLocation(ray_trace_programm, "screen_size");
-
+	int normals_count_location = glGetUniformLocation(ray_trace_programm, "normals_count");
 	
 	std::vector<Vector<2>> square = { {-1, -1}, {-1, 1}, {1, 1}, {1, -1} };
 	Quat null_rotation = Quat(1, 0, 0, 0);
 	
 
 	auto obj = parse(readFile("examples/hex_prizm.txt"));
-	//auto obj = makeCylinder(2, 0.5, { 0,5,0 }, null_rotation);
+	
 
 	assert(obj != nullptr);
 	obj->moveOn({ 0,5,0 });
 
 
-	GlslSceneMemory shader_scene(10, 100, 100);
+	GlslSceneMemory shader_scene(10, 100, 100, 1000, 50);
 	shader_scene.addObject(obj->copy());
-	shader_scene.bind(ray_trace_programm);
+	shader_scene.bind(ray_trace_programm, prog);
 
 	camera_pos.nums[1] = 2;
 
@@ -589,17 +591,17 @@ int main()
 	{
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear the screen with... red, green, blue.
 
-		//clock_t t1 = clock();
-		//castRays(window_width, window_height, texture, camera_pos, obj.get());
-		//std::cout << clock() - t1 << '\n';
-		//loadTexture(window_width, window_height, &texture[0], false);
-		 { // launch compute shaders!
+		/*clock_t t1 = clock();
+		castRays(window_width, window_height, texture, camera_pos, obj.get());
+		std::cout << clock() - t1 << '\n';
+		loadTexture(window_width, window_height, &texture[0], false);*/
+		/**/ { // launch compute shaders!
 			glUseProgram(ray_trace_programm);
 			glUniform3f(camera_pos_location, camera_pos.x(), camera_pos.y(), camera_pos.z());
 			glUniform2i(screen_size_location, window_width, window_height);
 			
 			glDispatchCompute((GLuint)window_width, (GLuint)window_width, 1);
-			std::cout << glGetError();
+			//std::cout << glGetError();
 			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 		}
 		
@@ -632,9 +634,9 @@ int main()
 			camera_pos.nums[1] -= cam_sp;
 
 		++counter;
-		while (glfwGetTime() - cstart < counter * (1.0 / 60.0))
-		{
-		}
+		//while (glfwGetTime() - cstart < counter * (1.0 / 60.0))
+		//{
+		//}
 		if (counter % 60 == 0)
 			std::cout << counter << std::endl;
 	}

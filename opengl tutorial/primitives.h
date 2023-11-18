@@ -76,6 +76,8 @@ public:
 	virtual std::vector<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const override;
 	std::vector<ISR> intersectWithRayOnBothSides(const Vector<3>& start, const Vector<3>& direction) const;
 	bool isPointInside(const Vector<3>& p) const override;
+	Vector<3> getHsize() const;
+
 };
 
 class Prizm : public Object
@@ -111,6 +113,10 @@ public:
 	virtual std::unique_ptr<Object> copy() const override;
 	virtual bool isPointInside(const Vector<3>& p) const override;
 	Cone(double height, double rad, const Vector<3>& apex_position, const Quat& rot);
+
+	double getHeight() const;
+	double getRadius() const;
+	double getRdivh() const;
 };
 
 class Piramid : public Object
@@ -127,6 +133,10 @@ public:
 	virtual std::unique_ptr<Object> copy() const override;
 	virtual bool isPointInside(const Vector<3>& p) const override;
 	Piramid(const std::vector<Vector<2>>& polygon, const Vector<3>& pos, double height, const Quat& rot);
+
+	const std::vector<Vector<2>>& getBase() const;
+	const std::vector<Vector<3>>& getNormals() const;
+	double getHeight() const;
 };
 
 class Cylinder : public Object
@@ -176,6 +186,12 @@ public:
 	virtual Vector<3> countBoundingBox() const override;
 	virtual std::vector<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const override;
 	bool isPointInside(const Vector<3>& p) const override;
+
+	const std::vector<Vector<3>>& getPoints() const;
+	const std::vector<Vector<3>>& getNormals() const;
+	const std::vector<std::vector<int>>& getEdges() const;
+	const std::vector<std::vector<Vector<2>>> getPolygons() const;
+	const std::vector<Matrix<3>>& getCoords() const;
 };
 
 

@@ -691,22 +691,6 @@ std::pair<bool, double> intersectLineWithTriangle(const Vector<3>& p, const Vect
 
 	int sa = sign(dot(cross(projection - A, B - A), n));
 	return { sa == sign(dot(cross(projection - B, C - B), n)) && sa == sign(dot(cross(projection - C, A - C), n)) , t };
-
-	/*b = B - C;
-	double L;
-	if (!equal(a.z() * b.y(), -a.y() * b.z()))
-		L = (a.z() * projection.y() - a.y() * projection.z()) / (a.z() * b.y() + a.y() * b.z());
-	else if (!equal(a.x() * b.z(), -a.z() * b.x()))
-		L = (a.x() * projection.z() - a.z() * projection.x()) / (a.x() * b.z() + a.z() * b.x());
-	else
-		L = (a.y() * projection.x() - a.x() * projection.y()) / (a.y() * b.x() + a.x() * b.y());
-
-	Vector<3> AC_proj = projection - L * b;
-	if (dot(AC_proj - A, AC_proj - C) < 0)
-		return { true, t };
-	else
-		return { false, 0 };*/
-
 }
 
 std::unique_ptr<Object> Box::copy() const
@@ -1106,10 +1090,12 @@ std::vector<ISR> Polyhedron::_intersectLine(const Vector<3>& start, const Vector
 	int c = 0;
 	for (int i = 0; i < edges.size(); ++i)
 	{
+
 		double t = (dot(points[edges[i][0]], normals[i]) - dot(start, normals[i])) / dot(dir, normals[i]);
 		Vector<3> proj = start + dir * t;
 		proj = proj - points[edges[i][0]];
 		Vector<2> p_in_polygon = polygs_coords[i] * proj;
+		//return { {1, {p_in_polygon, 0}, true} };
 		if (isPointInsidePolygon(p_in_polygon, polygons[i]) != PointPolygonRelation::OUTSIDE)
 		{
 			if (this->convex)
@@ -1220,4 +1206,57 @@ const std::vector<Vector<3>>& Prizm::getNormals() const
 double Prizm::getHalfHeight() const
 {
 	return this->half_height;
+}
+
+double Cone::getHeight() const
+{
+	return this->height;
+}
+double Cone::getRadius() const
+{
+	return this->rad;
+}
+double Cone::getRdivh() const
+{
+	return this->rdivh;
+}
+
+const std::vector<Vector<2>>& Piramid::getBase() const
+{
+	return base;
+}
+const std::vector<Vector<3>>& Piramid::getNormals() const
+{
+	return normals;
+}
+double Piramid::getHeight() const
+{
+	return height;
+}
+
+Vector<3> Box::getHsize() const
+{
+	return this->size;
+}
+
+
+const std::vector<Vector<3>>& Polyhedron::getPoints() const
+{
+	return this->points;
+}
+const std::vector<Vector<3>>& Polyhedron::getNormals() const
+{
+	return this->normals;
+}
+const std::vector<std::vector<int>>& Polyhedron::getEdges() const
+{
+	return this->edges;
+}
+const std::vector<std::vector<Vector<2>>> Polyhedron::getPolygons() const
+{
+	return this->polygons;
+}
+const std::vector<Matrix<3>>& Polyhedron::getCoords() const
+{
+	return this->polygs_coords;
 }

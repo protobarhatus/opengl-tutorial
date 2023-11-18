@@ -16,16 +16,23 @@ struct Primitive
 {
 	uint type;
 	uint data_index;
-	//сколько элементов в data_array она занимает
+	//сколько элементов в data_array она занимает. Кроме многогранника, для которого это количество вершин
 	uint data_count;
+	//для многогранника сначала пойдут точки а потом сразу нормали
 	uint normals_index;
-	vec4 position;
+	vec3 position;
+	//rdivh для конуса
+	float sc3;
 	Quat rotation;
+	//для многогранника это количество граней
 	uint normals_count;
-	//половина высоты для призмы и цилиндра, высота для пирамиды, радиус для сферы
+	//половина высоты для призмы и цилиндра, высота для пирамиды и конуса, радиус для сферы, 
 	float sc1;
-	//радиус для цилиндра
+	//радиус для цилиндра и конуса
 	float sc2;
+	//для многогранника. Остальная информация для него будет идти в int_data. [0] это индекс в матричный массив, затем таблица, задающая грани:на каждую строчку идет [количество элементов в массиве] и сам массив.
+	//для многоугольников в собственных координатах это идет просто подряд без указания размера, поэтому итерироваться они обязаны одновременно с гранями.
+	uint int_data_index;
 };
 
 uniform int primitives_count;
@@ -44,6 +51,45 @@ layout(binding = 3, packed) buffer normals_array
 {
 	vec3 normals[];
 };
+layout(binding = 4) buffer int_array
+{
+	int int_data[];
+};
+layout(binding = 5) buffer matrix_array
+{
+	mat3 matrix_data[];
+};
+
+uint Polyhedron_vertexAmount(Primitive obj)
+{
+	return obj.data_count;
+}
+
+uint Polyhedron_edgesAmount(Primitive obj)
+{
+	return obj.normals_count;
+}
+
+uint Polyhedron_pointsStart(Primitive obj)
+{
+	return obj.normals_index;
+}
+uint Polyhedron_polygons2dStart(Primitive obj)
+{
+	return obj.data_index;
+}
+uint Polyhedron_matrixesStart(Primitive obj)
+{
+	return int_data[obj.int_data_index];
+}
+uint Polyhedron_edges2dStart(Primitive obj)
+{
+	return obj.int_data_index + 1;
+}
+uint Polyhedron_normalsStart(Primitive obj)
+{
+	return obj.data_index + Polyhedron_vertexAmount(obj);
+}
 
 struct Intersection
 {
@@ -58,12 +104,14 @@ struct IRO
 };
 
 
-//они дублируются в glsl_structures.h, лучше не менять
-const uint PRIZM = 0;
-const uint PIRAMID = 1;
-const uint SPHERE = 2;
-const uint CYLINDR = 3;
-
+const uint BOX = 0;
+const uint PRIZM = 1;
+const uint CONE = 2;
+const uint PIRAMID = 3;
+const uint CYLINDR = 4;
+const uint SPHERE = 5;
+const uint POLYHEDRON = 6;
+const uint COMPOSED_OBJECT = 7;
 
 //некоторая инкапсуляция для примитивов. sc1, sc2 - это еще ладно но обращение к буферам точно надо
 uint Prizm_polygonStart(Primitive obj)
@@ -86,7 +134,25 @@ uint Prizm_normalsSize(Primitive obj)
 	return obj.normals_count;
 }
 
+uint Piramid_polygonStart(Primitive obj)
+{
+	return obj.data_index;
+}
 
+uint Piramid_polygonSize(Primitive obj)
+{
+	return obj.data_count;
+}
+
+uint Piramid_normalsStart(Primitive obj)
+{
+	return obj.normals_index;
+}
+
+uint Piramid_normalsSize(Primitive obj)
+{
+	return obj.normals_count;
+}
 
 Quat mult(in Quat a, in Quat b)
 {
@@ -260,9 +326,9 @@ IRO intersectCylinderWithLine(in Primitive obj, in vec3 start, in vec3 dir)
 	return IRO(0, Intersection(0, vec3(0,0,0)), Intersection(0, vec3(0,0,0)));
 }
 
-uint POINT_ON_BOUNDARY;
-uint POINT_IN_POLYGON;
-uint POINT_OUT_OF_POLYGON;
+uint POINT_ON_BOUNDARY = 0;
+uint POINT_IN_POLYGON = 1;
+uint POINT_OUT_OF_POLYGON = 2;
 
 //специфичное сравнение для проверки на принадлежность многоугольнику
 int compareDouble(double a, double b, double eps)
@@ -445,7 +511,13 @@ BF_pair rayIntersectsSegment(vec2 p, vec2 dir, vec2 a, vec2 b)
 }
 
 
-
+IRO WHITE_IRO = {2, {1, {1, 1, 1}}, {2, {0,-1,0}}};
+IRO RED_IRO = {2, {1, {1,0,0}}, {2, {0,0,0}}};
+IRO GREEN_IRO = {2, {1, {0,1,0}}, {2, {0,0,0}}};
+IRO BLUE_IRO = {2, {1, {0,0,1}}, {2, {0,0,0}}};
+IRO YELLOW_IRO = {2, {1, {1,1,0}}, {2, {0,0,0}}};
+IRO MAGENTA_IRO = {2, {1, {1,0,1}}, {2, {0,0,0}}};
+IRO LIGHT_IRO = {2, {1, {0,1,1}}, {2, {0,0,0}}};
 
 IRO rayIntersectsPolygon(vec2 p, vec2 n, uint polygon_start, uint polygon_size, uint normals_start, uint normals_size)
 {
@@ -454,15 +526,16 @@ IRO rayIntersectsPolygon(vec2 p, vec2 n, uint polygon_start, uint polygon_size, 
 	for (int i = 0; i < polygon_size; ++i)
 	{
 		BF_pair int_res = rayIntersectsSegment(p, n, base_points[polygon_start + i],base_points[polygon_start + (i < polygon_size - 1 ? i + 1 : 0)]);
+		
 		if (!int_res.b)
 			continue;
 		vec2 point = p + n * int_res.f;
 
 		if (c == 1 && equal(int_res.f, res[0].t))
 			continue;
-		c++;
 		res[c].t = int_res.f;
 		res[c].n = normals[normals_start + i];
+		c++;
 		if (c == 2)
 			break;
 	}
@@ -475,14 +548,18 @@ IRO rayIntersectsPolygon(vec2 p, vec2 n, uint polygon_start, uint polygon_size, 
 
 }
 
-IRO WHITE_IRO = {2, {0, {0, -1, 0}}, {1, {0,-1,0}}};
-
+float indic(float x)
+{
+	if (x < 0)
+		return 0;
+	return 1;
+}
 //только выпуклые
 IRO intersectPrizmWithLine(Primitive obj, in vec3 start, in vec3 dir)
 {
 	float EPSILON = 1e-6;
 	float half_height = obj.sc1;
-	return WHITE_IRO;
+
 	if (equal(dir.x, 0) && equal(dir.y, 0))
 	{
 		uint in_res = isPointInsidePolygon(start.xy, Prizm_polygonStart(obj), Prizm_polygonSize(obj));
@@ -504,13 +581,13 @@ IRO intersectPrizmWithLine(Primitive obj, in vec3 start, in vec3 dir)
 		return ZERO_IRO;
 	}
 	IRO shade_intersect = rayIntersectsPolygon(start.xy, dir.xy, Prizm_polygonStart(obj), Prizm_polygonSize(obj), Prizm_normalsStart(obj), Prizm_normalsSize(obj));
-	
+
 	if (shade_intersect.inters == 0)
 	{
 		return ZERO_IRO;
 	}
 
-	Intersection t1 = shade_intersect.second;
+	Intersection t1 = shade_intersect.first;
 	float point_z = start.z + dir.z * t1.t;
 	
 
@@ -528,12 +605,14 @@ IRO intersectPrizmWithLine(Primitive obj, in vec3 start, in vec3 dir)
 	}
 	Intersection t2 = shade_intersect.second;
 	float point_z2 = start.z + dir.z * t2.t;
+	
 	if (!(point_z >= -half_height - EPSILON && point_z <= half_height + EPSILON) && (point_z2 >= -half_height - EPSILON && point_z2 <= half_height + EPSILON))
 	{
 		swap(t1, t2);
 		swap(point_z, point_z2);
 		swap(shade_intersect.first, shade_intersect.second);
 	}
+
 	if (point_z >= -half_height - EPSILON && point_z <= half_height + EPSILON)
 	{
 		if (point_z2 >= -half_height - EPSILON && point_z2 <= half_height + EPSILON)
@@ -546,12 +625,11 @@ IRO intersectPrizmWithLine(Primitive obj, in vec3 start, in vec3 dir)
 			else
 			{
 				IRO res = {2, t2, t1};
-				return WHITE_IRO;
 				return res;
 			}
 		}
+		
 		//z != 0 т к произошел подьем
-
 		if (point_z2 > half_height + EPSILON)
 		{
 			float t_out = (half_height - start.z) / dir.z;
@@ -571,11 +649,13 @@ IRO intersectPrizmWithLine(Primitive obj, in vec3 start, in vec3 dir)
 		}
 		if (point_z2 < -half_height - EPSILON)
 		{
+			
 			float t_out = (-half_height - start.z) / dir.z;
 			if (t1.t < t_out)
 			{
 				IRO res = {2, t1, {t_out, {0, 0, -1} } };
 				return res;
+				
 			}
 			else
 			{
@@ -583,17 +663,26 @@ IRO intersectPrizmWithLine(Primitive obj, in vec3 start, in vec3 dir)
 				return res;
 			}
 			IRO res = {2,  t1, t1 };
+			
 			return res;
+			
 		}
+		
 	}
+	
 	//осталось возможна только ситуация когда линия проходит через оба основания, через верхнее/нижнее ребро, либо вообще не проходит
 	if (equal(dir.z, 0))
 	{
 		return ZERO_IRO;
 	}
+	if (point_z < -half_height && point_z2 < -half_height)
+		return ZERO_IRO;
+	if (point_z > half_height && point_z2 > half_height)
+		return ZERO_IRO;
 	float t_out = (half_height - start.z) / dir.z;
 	vec2 up_point = start.xy + dir.xy * t_out;
-	if (isPointInsidePolygon(up_point, Prizm_polygonStart(obj), Prizm_polygonSize(obj)) != POINT_OUT_OF_POLYGON)
+	
+	//if (isPointInsidePolygon(up_point, Prizm_polygonStart(obj), Prizm_polygonSize(obj)) != POINT_OUT_OF_POLYGON)
 	{
 		float t_bot = (-half_height - start.z) / dir.z;
 		if (t_out < t_bot)
@@ -612,8 +701,293 @@ IRO intersectPrizmWithLine(Primitive obj, in vec3 start, in vec3 dir)
 }
 
 
+IRO intersectConeWithLine(in Primitive object, in vec3 start, in vec3 dir)
+{
+	float height = object.sc1;
+	float rad = object.sc2;
+	float rdivh = object.sc3;
+
+	float M_s = rdivh * rdivh;
+	float A = dir.x * dir.x + dir.y * dir.y - M_s * dir.z * dir.z;
+	float B_half = dir.x * start.x + dir.y * start.y - M_s * dir.z * start.z;
+	float C = start.x * start.x + start.y * start.y - M_s * start.z * start.z;
+	float D_4 = B_half * B_half - A * C;
+	if (D_4 < 0)
+		return ZERO_IRO;
+	float D_sq_2 = sqrt(D_4);
+	float t1 = (-B_half - D_sq_2) / A;
+	float t2 = (-B_half + D_sq_2) / A;
+
+	float z1 = start.z + dir.z * t1;
+	float z2 = start.z + dir.z * t2;
+
+	bool z1_good = z1 >= -height && z1 <= 0;
+	bool z2_good = z2 >= -height && z2 <= 0;
+	if (z1_good && z2_good)
+	{
+		vec2 p1 = start.xy + dir.xy * t1;
+		vec2 p2 = start.xy + dir.xy * t2;
+
+		float zn1 = -dot(p1, p1) / z1;
+		float zn2 = -dot(p2, p2) / z2;
+
+		IRO res = {2, {t1, normalize(vec3(p1, zn1))}, {t2, normalize(vec3(p2, zn2))}};
+		return res;
+	}
+	if (!z1_good && !z2_good)
+		return ZERO_IRO;
+	if (z2_good)
+	{
+		swap(t1, t2);
+		swap(z1, z2);
+	}
+	//если линия пересекает усеченный конус в одном месте и не выходит в другом, то она гарантированно пройдет через основание
+	vec2 p1 = start.xy + dir.xy * t1;
+	float zn1 = -dot(p1, p1) / z1;
+
+	float t_base = (-height - start.z) / dir.z;
+	if (t_base < t1)
+	{
+		IRO res = {2, {t_base, {0,0,-1}}, {t1, normalize(vec3(p1, zn1))}};
+		return res;
+	}
+	IRO res = {2, {t1, normalize(vec3(p1, zn1))}, {t_base, {0,0,-1}}};
+	return res;
+}
 
 
+BF_pair intersectLineWithTriangle(vec3 p, vec3 dir, vec3 A, vec3 B, vec3 C)
+{
+	vec3 a = C - A, b = B - A;
+	vec3 n = cross(a, b);
+	if (equal(dot(n, dir), 0))
+	{
+		BF_pair r = {false, 0};
+		return r;
+	}
+	float t = (dot(A, n) - dot(p, n)) / dot(dir, n);
+	vec3 projection = p + dir * t;
+
+	float sa = sign(dot(cross(projection - A, B - A), n));
+	BF_pair res = { equal(sa, sign(dot(cross(projection - B, C - B), n))) && equal(sa, sign(dot(cross(projection - C, A - C), n))) , t };
+	return res;
+}
+
+
+IRO intersectPiramidWithLine(in Primitive obj, in vec3 start, in vec3 dir)
+{
+	float height = obj.sc1;
+
+	int count = 0;
+	Intersection t[2];
+	if (!equal(dir.z, 0))
+	{
+		float t_lev = (-height - start.z) / dir.z;
+		vec2 base_inter = start.xy + dir.xy * t_lev;
+		if (isPointInsidePolygon(base_inter, Piramid_polygonStart(obj), Piramid_polygonSize(obj)) != POINT_OUT_OF_POLYGON)
+		{
+			t[count].t = t_lev;
+			t[count].n = vec3(0,0,-1);
+			count++;
+		}
+	}
+	uint base_start = Piramid_polygonStart(obj);
+	uint base_size = Piramid_polygonSize(obj);
+	uint normals_start = Piramid_normalsStart(obj);
+	uint normals_size = Piramid_normalsSize(obj);
+	for (int i = 0; i < base_size; ++i)
+	{
+		BF_pair inter = intersectLineWithTriangle(start, dir, vec3(base_points[base_start + i].xy, -height), vec3(base_points[base_start + (i < base_size - 1 ? i + 1 : 0)], -height), vec3( 0,0,0 ));
+		if (inter.b)
+		{
+			t[count].t = inter.f;
+			t[count].n = normals[normals_start + i];
+			count++;
+		}
+		if (count == 2)
+			break;
+	}
+	if (t[0].t < t[1].t)
+	{
+		IRO res = {count, t[0], t[1]};
+		return res;
+	}
+	IRO res = {count, t[1], t[0]};
+	return res;
+}
+
+
+
+
+struct BoolISRBool
+{
+	bool have_intersect;
+	Intersection inter;
+	int isin;
+};
+BoolISRBool intersectLineWithBoxOnSide(int sig, int dir_c, int c1, int c2, vec3 bounding_box, vec3 start, vec3 dir)
+{
+	float xpT = (sig*bounding_box[dir_c] - start[dir_c]) / dir[dir_c];
+	float yatx = start[c1] + dir[c1] * xpT;
+	float zatx = start[c2] + dir[c2] * xpT;
+	if (abs(yatx) <= bounding_box[c1] && abs(zatx) <= bounding_box[c2])
+	{
+		vec3 n;
+		n[dir_c] = sig;
+		n[c1] = 0;
+		n[c2] = 0;
+
+		BoolISRBool res = { true,  {xpT, n}, int((sig * sign(dir[dir_c])) < 0) };
+		return res;
+	}
+	BoolISRBool res = {false, {0,{0,0,0}}, 0};
+	return res;
+
+}
+
+IRO intersectBoxWithLine(in Primitive obj, in vec3 start, in vec3 dir)
+{
+	int c = 0;
+	Intersection res[2];
+	vec3 size = vec3(obj.sc1, obj.sc2, obj.sc3);
+	BoolISRBool intres = intersectLineWithBoxOnSide(1, 0, 1, 2, size, start, dir);
+	int previn = -1;
+	if (intres.have_intersect)
+	{
+		res[1 - intres.isin] = intres.inter;
+		previn = intres.isin;
+		++c;
+	}
+	intres = intersectLineWithBoxOnSide(-1, 0, 1, 2, size, start, dir);
+	if (intres.have_intersect && intres.isin != previn)
+	{
+		res[1 - intres.isin] = intres.inter;
+		previn = intres.isin;
+		++c;
+	}
+	if (c == 2)
+	{
+		IRO res = {2, res[0], res[1]};
+		return res;
+	}
+	intres = intersectLineWithBoxOnSide(1, 1, 0, 2, size, start, dir);
+	if (intres.have_intersect && intres.isin != previn)
+	{
+		res[1 - intres.isin] = intres.inter;
+		previn = intres.isin;
+		++c;
+	}
+	if (c == 2)
+	{
+		IRO res = {2, res[0], res[1]};
+		return res;
+	}
+	intres = intersectLineWithBoxOnSide(-1, 1, 0, 2, size, start, dir);
+	if (intres.have_intersect && intres.isin != previn)
+	{
+		res[1 - intres.isin] = intres.inter;
+		previn = intres.isin;
+		++c;
+	}
+	if (c == 2)
+	{
+		IRO res = {2, res[0], res[1]};
+		return res;
+	}
+	intres = intersectLineWithBoxOnSide(1, 2, 1, 0, size, start, dir);
+	if (intres.have_intersect && intres.isin != previn)
+	{
+		res[1 - intres.isin] = intres.inter;
+		previn = intres.isin;
+		++c;
+	}
+	if (c == 2)
+	{
+		IRO res = {2, res[0], res[1]};
+		return res;
+	}
+	intres = intersectLineWithBoxOnSide(-1, 2, 1, 0, size, start, dir);
+	if (intres.have_intersect && intres.isin != previn)
+	{
+		res[1 - intres.isin] = intres.inter;
+		previn = intres.isin;
+		++c;
+	}
+	if (c == 2)
+	{
+		IRO res = {2, res[0], res[1]};
+		return res;
+	}
+	IRO ires = {0, {0, {0,0,0}}, {0, {0,0,0}}};
+	return ires;
+}
+
+IRO _debugIRO(vec3 n)
+{
+	IRO Deb_r = {2, {1, n}, {2, {0,0,0}}};
+	return Deb_r;
+}
+
+IRO intersectPolyhedronWithLine(Primitive obj, vec3 start,vec3 dir)
+{
+	
+	Intersection res[2];
+	int c = 0;
+	uint int_data_iterator_sub1 = Polyhedron_edges2dStart(obj);
+	uint polygons_iterator = Polyhedron_polygons2dStart(obj);
+	uint normals_start = Polyhedron_normalsStart(obj);
+	uint points_start = Polyhedron_pointsStart(obj);
+
+	
+	for (int i = 0; i < Polyhedron_edgesAmount(obj); ++i)
+	{
+		float t = (dot(normals[points_start + int_data[int_data_iterator_sub1 + 1]], normals[normals_start + i]) - dot(start, normals[normals_start + i])) / dot(dir, normals[normals_start + i]);
+		vec3 proj = start + dir * t;
+		proj = proj - normals[points_start + int_data[int_data_iterator_sub1 + 1]];
+		vec2 p_in_polygon = (matrix_data[Polyhedron_matrixesStart(obj) + i] * proj).xy;
+
+		if (isPointInsidePolygon(p_in_polygon, polygons_iterator, int_data[int_data_iterator_sub1]) != POINT_OUT_OF_POLYGON)
+		{
+			if (c == 1 && equal(t, res[0].t))
+				continue;
+			//СЧИТАЕМ ВЫПУКЛЫМ
+			/*else
+			{
+				//если границы входят в многоугольники то точка на ребрах может быть учитана несколько раз. Это немного сломает алгоритмы операций над множествами хотя модификацией это можно устранить. Но где будет больше потеря производительности здесь
+				//или там если учитывать точки несколько раз.
+				//если же границы исключать из многоугольников то будут черные линии с которыми особо ничего не сделаешь
+				bool already_counted = false;
+				for (auto& it : res)
+				{
+					if (equal(it.t, t))
+					{
+						already_counted = true;
+						break;
+					}
+				}
+				if (already_counted)
+					continue;
+			}*/
+			Intersection to_res = {t, normals[normals_start + i]};
+			res[c] = to_res;
+			++c;
+			if (c == 2)
+				break;
+			
+		}
+		polygons_iterator += int_data[int_data_iterator_sub1];
+		int_data_iterator_sub1 += int_data[int_data_iterator_sub1] + 1;
+	}
+	if (c == 2)
+	{
+		if (res[0].t > res[1].t)
+			swap(res[0], res[1]);
+		IRO irores = {2, res[0], res[1]};
+		return irores;
+	}
+	
+	return ZERO_IRO;
+}
 
 
 IRO intersectWithRay(in Primitive object, in vec3 ray_start, in vec3 direction)
@@ -635,12 +1009,22 @@ IRO intersectWithRay(in Primitive object, in vec3 ray_start, in vec3 direction)
 			inter_res = intersectPrizmWithLine(object, start, dir);
 			break;
 		case PIRAMID:
+			inter_res = intersectPiramidWithLine(object, start, dir);
 			break;
 		case CYLINDR:
 			inter_res = intersectCylinderWithLine(object, start, dir);
 			break;
 		case SPHERE:
 			inter_res = intersectSphereWithLine(object, start, dir);
+			break;
+		case CONE:
+			inter_res = intersectConeWithLine(object, start, dir);
+			break;
+		case BOX:
+			inter_res = intersectBoxWithLine(object, start, dir);
+			break;
+		case POLYHEDRON:
+			inter_res = intersectPolyhedronWithLine(object, start, dir);
 			break;
 	}
 	if (inter_res.inters == 0)
@@ -672,29 +1056,52 @@ float sq(float x)
 	return x*x;
 }
 
+
 void main() {
   ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+ 
 
   float horizontal_step = 2.0/screen_size.x;
   float vertical_step = 2.0/screen_size.y;
   vec3 ray_dir = vec3(-1 + pixel_coords.x * horizontal_step, 1, -1 + pixel_coords.y * vertical_step);
 
-  //imageStore(img_output, pixel_coords, vec4(float(primitives[0].sc1) / 1.05, 0, 0, 1));
-  //return;
   IRO inter = intersectWithRay(primitives[0], camera_pos, ray_dir);
   if (inter.inters == 0)
 	imageStore(img_output, pixel_coords, vec4(0,0,0,1));
   else
   {
 	float r = (0.99 * sqrt((sq(dot(ray_dir, inter.first.n)) / dot(ray_dir, ray_dir))));
-	r = -inter.first.n.y;
 	imageStore(img_output, pixel_coords, vec4(r,r,r,1));
+	//imageStore(img_output, pixel_coords, vec4(abs(inter.first.n),1));
   }
-  //
-  // interesting stuff happens here later
-  //
-  
-  // output to a specific pixel in the image
-  //imageStore(img_output, pixel_coords, vec4(vec2(pixel_coords)/600, 1, 1));
+
   
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+//Problems:
+//1) нижнее isInsidePolygon действительно ли можно спокойно убрать и почему там проблемы если его включить
+//2) почему в призме повернутой на 90 в центре горит точка
+//3) небольшое мерцание на границе пирамиды
