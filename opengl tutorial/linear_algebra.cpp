@@ -27,6 +27,11 @@ Vector<3> cross(const Vector<3>& a, const Vector<3>& b)
 	return Vector<3>(a.nums[1] * b.nums[2] - a.nums[2] * b.nums[1], b.nums[0] * a.nums[2] - a.nums[0] * b.nums[2], a.nums[0] * b.nums[1] - b.nums[0] * a.nums[1]);
 }
 
+bool equal(const Quat& a, const Quat& b)
+{
+	return std::abs(a.a0()- b.a0()) < 1e-10 && equal(a.a, b.a);
+}
+
 Quat operator*(const Quat& a, const Quat& b)
 {
 	return Quat(a.a0() * b.a0() - dot(a.a, b.a), a.a0() * b.a + a.a * b.a0() + cross(a.a, b.a));

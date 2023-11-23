@@ -36,22 +36,28 @@ struct GLSL_ComposedObject
 	int operation;
 };
 
+enum class OperationTypeInShader
+{
+	OBJECTS_ADD = -1,
+	OBJECTS_MULT = -2,
+	OBJECTS_SUB = -3
+};
+
 class GlslSceneMemory
 {
-	GLSL_Primitive* primitives_buffer;
-	GLSL_vec2* vec2_buffer;
-	GLSL_vec4* vec3_buffer;
-	int* int_buffer;
-	GLSL_mat3* mat3_buffer;
-	int prim_buffer_size, vec2_buffer_size, vec3_buffer_size, int_buffer_size, mat3_buffer_size;
-	int prim_buffer_count, vec2_count, vec3_count, int_buffer_count, mat3_buffer_count;
+	std::vector<GLSL_Primitive> primitives_buffer;
+	std::vector<GLSL_vec2> vec2_buffer;
+	std::vector<GLSL_vec4> vec3_buffer;
+	std::vector<int> int_buffer;
+	std::vector<GLSL_mat3> mat3_buffer;
 
 	void addObject(const std::unique_ptr<Object>& obj);
 	typedef int ComposedObjectRepresentation;
 	std::vector<GLSL_ComposedObject> composed_object_nodes_buffer;
 	
+	void setComposedObject(const std::unique_ptr<Object>& obj, int buffer_position);
 public:
-	GlslSceneMemory(int prim_count, int vec2_count, int vec3_count, int int_buffer_count, int mat3_buffer_count);
+	GlslSceneMemory();
 	void setSceneAsComposedObject(const std::unique_ptr<Object>& obj);
 	
 	void bind(int programm, int current_program);

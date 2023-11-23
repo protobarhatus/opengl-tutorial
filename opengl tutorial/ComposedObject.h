@@ -20,6 +20,12 @@ public:
 	virtual std::unique_ptr<Object> copy() const override;
 	virtual bool isPointInside(const Vector<3>& p) const override;
 	ComposedObject(std::unique_ptr<Object>&& left, std::unique_ptr<Object>&& right, Operation oper, const Vector<3>& pos, const Quat& rot);
+
+	Operation getOperation() const;
+	const std::unique_ptr<Object>& getLeft() const;
+	const std::unique_ptr<Object>& getRight() const;
+	//сецчас не учитывает вращение
+	virtual void globalizeCoordinates();
 };
 
 std::unique_ptr<Object> objectsCombination(std::unique_ptr<Object>&& left, std::unique_ptr<Object>&& right, ComposedObject::Operation oper, const Vector<3>& comm_pos, const Quat& comm_rot);

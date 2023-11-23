@@ -63,6 +63,8 @@ public:
 	Vector<3> getPosition() const;
 
 	Quat getRotation() const;
+	//служит только для ComposedObject
+	virtual void globalizeCoordinates();
 };
 
 class Box : public Object

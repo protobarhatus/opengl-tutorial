@@ -553,6 +553,19 @@ IRO _debugIRO(vec3 n)
 	return Deb_r;
 }
 
+Intersection WHITE_INTER = { {1, 1, 1},1};
+Intersection RED_INTER =  { {1,0,0},1};
+Intersection GREEN_INTER =  { {0,1,0},1};
+Intersection BLUE_INTER =  { {0,0,1},1};
+Intersection YELLOW_INTER =  {{1,1,0},1};
+Intersection MAGENTA_INTER = {{1,0,1},1};
+Intersection LIGHT_INTER = {{0,1,1},1};
+Intersection _debugINTER(vec3 n)
+{
+	Intersection Deb_r = { n,1};
+	return Deb_r;
+}
+
 IRO rayIntersectsPolygon(vec2 p, in vec2 n, uint polygon_start, uint polygon_size, uint normals_start, uint normals_size)
 {
 	int c = 0;
@@ -1090,7 +1103,7 @@ float sq(float x)
 
 
 //точки которые вылазят за стек будут отброшены.
-#define STACK_SIZE 1000
+#define STACK_SIZE 20
 
 
 
@@ -1278,19 +1291,28 @@ void combineObjects(int current, int left, int right)
 	}
 }
 
-Intersection intersectWithRay(vec3 camera_pos, vec3 dir)
+Intersection intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_intersection)
 {
-	
 	int current = 0;
 	int prev = -1;
+	if (ComposedObjectNode_isPrimitive(composed_objects[0]))
+	{
+		IRO inter_res = intersectWithRay(primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[0])], camera_pos, dir);
+		has_intersection = (inter_res.inters > 0);
+		return inter_res.first;
+	}
+	//has_intersection = true;
 	while (current != -1)
 	{
+		
 		if (prev == ComposedObjectNode_parent(composed_objects[current], current))
 		{
 			int left = ComposedObjectNode_left(composed_objects[current], current);
 			if (ComposedObjectNode_isPrimitive(composed_objects[left]))
 			{
+				
 				intersectWithPrimitiveAsNode(left, camera_pos, dir);
+				//return MAGENTA_INTER;
 				prev = left;
 			}
 			else
@@ -1325,28 +1347,39 @@ Intersection intersectWithRay(vec3 camera_pos, vec3 dir)
 		}
 	}
 
-
+	if (lists_stack[0] == -1)
+	{
+		has_intersection = false;
+		Intersection res = {{0,0,0},0};
+		return res;
+	}
+	has_intersection = true;
 	return intersections_stack[lists_stack[0]].data;
 }
 
-float RRR = 0.5;
 
 void main() {
-  ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+    if (composed_object_nodes_count > STACK_SIZE)
+	{
+		imageStore(img_output, pixel_coords, vec4(abs(LIGHT_INTER.n), 1));
+		return;
+	}
+    float horizontal_step = 2.0/screen_size.x;
+    float vertical_step = 2.0/screen_size.y;
+    vec3 ray_dir = vec3(-1 + pixel_coords.x * horizontal_step, 1, -1 + pixel_coords.y * vertical_step);
 
-  float horizontal_step = 2.0/screen_size.x;
-  float vertical_step = 2.0/screen_size.y;
-  vec3 ray_dir = vec3(-1 + pixel_coords.x * horizontal_step, 1, -1 + pixel_coords.y * vertical_step);
+    bool has_intersection;
+    Intersection inter = intersectWithRay(camera_pos, ray_dir, has_intersection);
 
-  IRO inter = intersectWithRay(primitives[0], camera_pos, ray_dir);
-  if (inter.inters == 0)
-	imageStore(img_output, pixel_coords, vec4(0,0,0,1));
-  else
-  {
-	float r = (0.99 * sqrt((sq(dot(ray_dir, inter.first.n)) / dot(ray_dir, ray_dir))));
-	imageStore(img_output, pixel_coords, vec4(r,r,r,1));
-	//imageStore(img_output, pixel_coords, vec4(abs(inter.first.n),1));
-  }
+    if (!has_intersection)
+	    imageStore(img_output, pixel_coords, vec4(0,0,0,1));
+    else
+    {
+		float r = (0.99 * sqrt((sq(dot(ray_dir, inter.n)) / dot(ray_dir, ray_dir))));
+	//imageStore(img_output, pixel_coords, vec4(r,r,r,1));
+		imageStore(img_output, pixel_coords, vec4(abs(inter.n),1));
+    }
 
   
 }

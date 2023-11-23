@@ -20,35 +20,6 @@
 #include "gl_utils.h"
 #include "GLSL_structures.h"
 
-std::string readFile(const std::string& name)
-{
-	std::ifstream file(name, std::ios_base::in);
-	std::string str{ std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>() };
-	return str;
-}
-
-void loadShader(int prog, const std::string& name, GLuint type)
-{
-	unsigned int vert = glCreateShader(type);
-	std::string src = readFile(name);
-	const char* vert_src = src.c_str();
-	glShaderSource(vert, 1, &vert_src, NULL);
-	glCompileShader(vert);
-	glAttachShader(prog, vert);
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 void loadTexture(int width, int height, const unsigned char* buffer, bool first_time=false)
 {
@@ -537,14 +508,17 @@ int main()
 
 	int ray_trace_programm = glCreateProgram();
 	loadShader(ray_trace_programm, "raytrace.comp", GL_COMPUTE_SHADER);
-	
+
 	glEnable(GL_DEPTH_TEST);
 	glLinkProgram(prog);
 	glValidateProgram(prog);
 	glUseProgram(prog);
 
 	glLinkProgram(ray_trace_programm);
+	printProgramLog(ray_trace_programm);
 	glValidateProgram(ray_trace_programm);
+	printProgramLog(ray_trace_programm);
+
 
 	int rotation_location = glGetUniformLocation(prog, "u_cr");
 	int position_location = glGetUniformLocation(prog, "u_pos");
@@ -574,17 +548,16 @@ int main()
 	Quat null_rotation = Quat(1, 0, 0, 0);
 	
 
-	auto obj = parse(readFile("examples/hex_prizm.txt"));
+	auto obj = parse(readFile("examples/plates_with_cone_cut.txt"));
 	
 
 	assert(obj != nullptr);
 	obj->moveOn({ 0,5,0 });
+	obj->globalizeCoordinates();
 
-
-	GlslSceneMemory shader_scene(10, 100, 100, 1000, 50);
-	shader_scene.addObject(obj->copy());
+	GlslSceneMemory shader_scene;
+	shader_scene.setSceneAsComposedObject(obj->copy());
 	shader_scene.bind(ray_trace_programm, prog);
-
 	camera_pos.nums[1] = 2;
 
 	while (!glfwWindowShouldClose(window)) // Main-Loop
@@ -601,7 +574,7 @@ int main()
 			glUniform2i(screen_size_location, window_width, window_height);
 			
 			glDispatchCompute((GLuint)window_width, (GLuint)window_width, 1);
-			//std::cout << glGetError();
+			//std::cout << glGetError() << '\n';;
 			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 		}
 		

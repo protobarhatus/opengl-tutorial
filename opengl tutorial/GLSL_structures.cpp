@@ -45,21 +45,9 @@ GLSL_Primitive buildPolyhedron(const std::unique_ptr<Object>& obj, unsigned int 
 }
 
 
-GlslSceneMemory::GlslSceneMemory(int prim_count, int vec2_count, int vec3_count, int int_buffer_count, int mat3_buffer_count)
+GlslSceneMemory::GlslSceneMemory()
 {
-	this->primitives_buffer = (GLSL_Primitive*)calloc(prim_count, sizeof(GLSL_Primitive));
-	this->vec2_buffer = new GLSL_vec2[ vec2_count];
-	this->vec3_buffer = new GLSL_vec4[ vec3_count];
-	this->int_buffer = new int[int_buffer_count];
-	this->mat3_buffer = new GLSL_mat3[mat3_buffer_count];
 
-	this->prim_buffer_size = prim_count;
-	this->vec2_buffer_size = vec2_count;
-	this->vec3_buffer_size = vec3_count;
-	this->int_buffer_size = int_buffer_count;
-	this->mat3_buffer_size = mat3_buffer_count;
-
-	this->prim_buffer_count = this->vec2_count = this->vec3_count = this->int_buffer_count = this->mat3_buffer_count = 0;
 }
 
 
@@ -84,10 +72,42 @@ std::vector<Vector<2>> getVec2Data(const std::unique_ptr<Object>& obj)
 	}
 }
 
+OperationTypeInShader mapOperations(ComposedObject::Operation op)
+{
+	switch (op)
+	{
+	case ComposedObject::Operation::PLUS:
+		return OperationTypeInShader::OBJECTS_ADD;
+	case ComposedObject::Operation::MINUS:
+		return OperationTypeInShader::OBJECTS_SUB;
+	case ComposedObject::Operation::MULT:
+		return OperationTypeInShader::OBJECTS_MULT;
+	}
+}
+
+void GlslSceneMemory::setComposedObject(const std::unique_ptr<Object>& obj, int buffer_position)
+{
+	if (this->composed_object_nodes_buffer.size() <= buffer_position)
+		this->composed_object_nodes_buffer.resize(buffer_position + 1);
+	if (obj->getId() == ObjectType::COMPOSED_OBJECT)
+	{
+		const ComposedObject* obj_p = (const ComposedObject*)obj.get();
+		assert(equal(obj_p->getPosition(), { 0,0,0 }));
+		assert(equal(obj_p->getRotation(), Quat(1, 0, 0, 0)));
+		this->composed_object_nodes_buffer[buffer_position] = { (int)mapOperations(obj_p->getOperation()) };
+		setComposedObject(obj_p->getLeft(), 2 * (buffer_position + 1) - 1);
+		setComposedObject(obj_p->getRight(), 2 * (buffer_position + 1));
+	}
+	else
+	{
+		this->composed_object_nodes_buffer[buffer_position] = { (int)this->primitives_buffer.size() };
+		this->addObject(obj);
+	}
+}
 
 void GlslSceneMemory::setSceneAsComposedObject(const std::unique_ptr<Object>& obj)
 {
-
+	setComposedObject(obj, 0);
 }
 
 std::vector<Vector<3>> getVec3Data(const std::unique_ptr<Object>& obj)
@@ -155,44 +175,50 @@ void GlslSceneMemory::addObject(const std::unique_ptr<Object>& obj)
 	if (obj->getId() == ObjectType::COMPOSED_OBJECT)
 		assert(false);
 
-	GLSL_Primitive primitive = buildObject(obj, this->vec2_count, this->vec3_count, this->int_buffer_count);
+	GLSL_Primitive primitive = buildObject(obj, this->vec2_buffer.size(), this->vec3_buffer.size(), this->int_buffer.size());
 	auto vec2_data = getVec2Data(obj);
 	auto vec3_data = getVec3Data(obj);
-	auto int_data = getIntData(obj, this->mat3_buffer_count);
+	auto int_data = getIntData(obj, this->mat3_buffer.size());
 	auto mat3_data = getMat3Data(obj);
 
-	if (this->prim_buffer_count + 1 >= prim_buffer_size || vec2_count + vec2_data.size() >= vec2_buffer_size ||
-		vec3_count + vec3_data.size() >= vec2_buffer_size || this->int_buffer_count + 1 >= int_buffer_size || this->mat3_buffer_count + 1 >= this->mat3_buffer_size)
-		throw "Out of memory";
 
-	this->primitives_buffer[this->prim_buffer_count++] = primitive;
+	this->primitives_buffer.push_back(primitive);
 	for (auto& it : vec2_data)
-		this->vec2_buffer[this->vec2_count++] = it;
+		this->vec2_buffer.push_back(it);
 	for (auto& it : vec3_data)
-		this->vec3_buffer[this->vec3_count++] = it;
+		this->vec3_buffer.push_back(it);
 	for (auto& it : int_data)
-		this->int_buffer[this->int_buffer_count++] = it;
+		this->int_buffer.push_back(it);
 	for (auto& it : mat3_data)
-		this->mat3_buffer[this->mat3_buffer_count++] = it;
+		this->mat3_buffer.push_back(it);
 }
 
 void GlslSceneMemory::bind(int programm, int current_program)
 {
-	auto prim_buf = createSharedBufferObject(this->primitives_buffer, sizeof(GLSL_Primitive)*this->prim_buffer_count, 1);
-	auto data_buf = createSharedBufferObject(this->vec2_buffer, sizeof(GLSL_vec2)*this->vec2_count, 2);
-	auto normals_buf = createSharedBufferObject(this->vec3_buffer, sizeof(GLSL_vec4)*this->vec3_count, 3);
-	auto int_buf = createSharedBufferObject(this->int_buffer, sizeof(int) * this->int_buffer_count, 4);
-	auto mat3_buf = createSharedBufferObject(this->mat3_buffer, sizeof(GLSL_mat3) * this->mat3_buffer_count, 5);
+	if (this->primitives_buffer.size() > 0)
+		auto prim_buf = createSharedBufferObject(&this->primitives_buffer[0], sizeof(GLSL_Primitive)*this->primitives_buffer.size(), 1);
+	if (this->vec2_buffer.size() > 0)
+		auto data_buf = createSharedBufferObject(&this->vec2_buffer[0], sizeof(GLSL_vec2)*this->vec2_buffer.size(), 2);
+	if (this->vec3_buffer.size() > 0)
+		auto normals_buf = createSharedBufferObject(&this->vec3_buffer[0], sizeof(GLSL_vec4)*this->vec3_buffer.size(), 3);
+	if (this->int_buffer.size() > 0)
+		auto int_buf = createSharedBufferObject(&this->int_buffer[0], sizeof(int) * this->int_buffer.size(), 4);
+	if (this->mat3_buffer.size() > 0)
+		auto mat3_buf = createSharedBufferObject(&this->mat3_buffer[0], sizeof(GLSL_mat3) * this->mat3_buffer.size(), 5);
+	if (this->composed_object_nodes_buffer.size() > 0)
+		auto composed_buf = createSharedBufferObject(&this->composed_object_nodes_buffer[0], sizeof(GLSL_ComposedObject) * this->composed_object_nodes_buffer.size(), 6);
 
 
 	int primitive_count_location = glGetUniformLocation(programm, "primitives_count");
 	int data_count_location = glGetUniformLocation(programm, "data_count");
 	int normals_count_location = glGetUniformLocation(programm, "normals_count");
+	int composed_object_nodes_count_location = glGetUniformLocation(programm, "composed_object_nodes_count");
 
 	glUseProgram(programm);
-	glUniform1i(primitive_count_location, this->prim_buffer_count);
-	glUniform1i(data_count_location, this->vec2_count);
-	glUniform1i(normals_count_location, this->vec3_count);
+	glUniform1i(primitive_count_location, this->primitives_buffer.size());
+	glUniform1i(data_count_location, vec2_buffer.size());
+	glUniform1i(normals_count_location, this->vec3_buffer.size());
+	glUniform1i(composed_object_nodes_count_location, this->composed_object_nodes_buffer.size());
 	glUseProgram(current_program);
 	
 }
@@ -217,7 +243,7 @@ GLSL_Primitive buildObject(const std::unique_ptr<Object>& obj, int data_index, i
 		return buildBox(((Box*)obj.get())->getHsize(), obj->getPosition(), obj->getRotation());
 	case ObjectType::POLYHEDRON:
 		return buildPolyhedron(obj, data_index, normals_index, int_index);
-	default:
+	default://composed object тоже сюда не должен попадать
 		assert(false);
 	}
 }

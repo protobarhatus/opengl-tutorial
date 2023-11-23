@@ -166,6 +166,7 @@ private:
 	
 	friend Quat operator*(const Quat& a, const Quat& b);
 	friend Quat inverseRot(const Quat& q);
+	friend bool equal(const Quat& a, const Quat& b);
 public:
 	Quat();
 	Quat(double a0, double a1, double a2, double a3);
@@ -185,7 +186,7 @@ public:
 
 };
 
-
+bool equal(const Quat& a, const Quat& b);
 
 Quat operator*(const Quat& a, const Quat& b);
 

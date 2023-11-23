@@ -155,6 +155,30 @@ ComposedObject::ComposedObject(std::unique_ptr<Object>&& left, std::unique_ptr<O
 	bounding_box = countBoundingBox();
 }
 
+ComposedObject::Operation ComposedObject::getOperation() const
+{
+	return this->operation;
+}
+
+const std::unique_ptr<Object>& ComposedObject::getLeft() const
+{
+	return this->left;
+}
+
+const std::unique_ptr<Object>& ComposedObject::getRight() const
+{
+	return this->right;
+}
+
+void ComposedObject::globalizeCoordinates()
+{
+	this->left->moveOn(this->position);
+	this->left->globalizeCoordinates();
+	this->right->moveOn(this->position);
+	this->right->globalizeCoordinates();
+	this->position = { 0,0,0 };
+}
+
 std::unique_ptr<Object> objectsCombination(std::unique_ptr<Object>&& left, std::unique_ptr<Object>&& right, ComposedObject::Operation oper, const Vector<3>& comm_pos, const Quat& comm_rot)
 {
 	//left->moveOn(comm_pos);

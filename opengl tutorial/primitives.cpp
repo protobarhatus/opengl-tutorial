@@ -355,6 +355,11 @@ void Object::moveOn(const Vector<3>& movement)
 	transformation_mat = rotation_mat * transposition;
 }
 
+void Object::globalizeCoordinates()
+{
+
+}
+
 void Object::rotate(const Quat& rotation)
 {
 	this->rotation = this->rotation * rotation;
