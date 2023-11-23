@@ -30,6 +30,12 @@ struct GLSL_mat3
 	GLSL_mat3() {}
 	GLSL_mat3(const Matrix<3>& m);
 };
+
+struct GLSL_ComposedObject
+{
+	int operation;
+};
+
 class GlslSceneMemory
 {
 	GLSL_Primitive* primitives_buffer;
@@ -40,11 +46,14 @@ class GlslSceneMemory
 	int prim_buffer_size, vec2_buffer_size, vec3_buffer_size, int_buffer_size, mat3_buffer_size;
 	int prim_buffer_count, vec2_count, vec3_count, int_buffer_count, mat3_buffer_count;
 
-
+	void addObject(const std::unique_ptr<Object>& obj);
+	typedef int ComposedObjectRepresentation;
+	std::vector<GLSL_ComposedObject> composed_object_nodes_buffer;
+	
 public:
 	GlslSceneMemory(int prim_count, int vec2_count, int vec3_count, int int_buffer_count, int mat3_buffer_count);
-	void addObject(const std::unique_ptr<Object>& obj);
-
+	void setSceneAsComposedObject(const std::unique_ptr<Object>& obj);
+	
 	void bind(int programm, int current_program);
 };
 

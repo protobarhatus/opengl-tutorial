@@ -84,6 +84,12 @@ std::vector<Vector<2>> getVec2Data(const std::unique_ptr<Object>& obj)
 	}
 }
 
+
+void GlslSceneMemory::setSceneAsComposedObject(const std::unique_ptr<Object>& obj)
+{
+
+}
+
 std::vector<Vector<3>> getVec3Data(const std::unique_ptr<Object>& obj)
 {
 	switch (obj->getId())
