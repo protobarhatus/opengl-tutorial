@@ -35,9 +35,33 @@ struct Primitive
 	uint int_data_index;
 };
 
+const int OBJECTS_ADD = -1;
+const int OBJECTS_MULT = -2;
+const int OBJECTS_SUB = -3;
+
+struct ComposedObjectNode
+{
+//положительный означает примитив. Отрицательный - операцию. 
+	int operation;
+};
+
+layout(binding = 6) buffer composed_objects_array
+{
+	ComposedObjectNode composed_objects[];
+};
+
+#define ComposedObjectNode_isPrimitive(X) (X.operation >= 0)
+#define ComposedObjectNode_getPrimitiveIndex(X) (X.operation)
+
+#define ComposedObjectNode_left(X, N) (2*((N)+1) - 1)
+#define ComposedObjectNode_right(X, N) (2*((N)+1))
+#define ComposedObjectNode_parent(X, N) (((N)+1)/2 - 1)
+
+
 uniform int primitives_count;
 uniform int data_count;
 uniform int normals_count;
+uniform int composed_object_nodes_count;
 
 layout(binding = 1) buffer primitives_array
 {
@@ -60,6 +84,8 @@ layout(binding = 5) buffer matrix_array
 	mat3 matrix_data[];
 };
 
+
+//Возможно стоит сделать эти вещи дефайнами
 uint Polyhedron_vertexAmount(Primitive obj)
 {
 	return obj.data_count;
@@ -93,8 +119,8 @@ uint Polyhedron_normalsStart(Primitive obj)
 
 struct Intersection
 {
-	float t;
 	vec3 n;
+	float t;
 };
 
 struct IRO
@@ -164,7 +190,6 @@ Quat inverseRot(in Quat q)
 	return Quat(vec4(q.a.x, -1 * q.a.yzw));
 }
 
-
 mat4 rotation(in Quat q)
 {
 	float a0 = q.a.x;
@@ -174,8 +199,6 @@ mat4 rotation(in Quat q)
 
 	return mat4(a1*a1 + a0*a0 - a2*a2 - a3*a3, 2*a2*a1 + 2*a0*a3, 2*a3*a1 - 2*a0*a2, 0, 2*a2*a1 - 2*a3*a0, a2*a2 + a0*a0 - a3*a3 - a1*a1, 2*a3*a2 + 2*a1*a0, 0, 2*a3*a1 + 2*a2*a0, 2*a3*a2 - 2*a1*a0, a3*a3 + a0*a0 - a2*a2 - a1*a1, 0, 0, 0, 0, 1);
 }
-
-
 void rotate(inout Quat q, float angle, vec3 n) {
 	q = mult(q, Quat(vec4(cos(angle / 2), sin(angle / 2) * normalize(n))));
 }
@@ -183,7 +206,9 @@ void rotate(inout Quat q, float angle, vec3 n) {
 
 
 
-const IRO ZERO_IRO = IRO(0, Intersection(0, vec3(0,0,0)), Intersection(0, vec3(0,0,0)));
+
+
+const IRO ZERO_IRO = IRO(0, Intersection( vec3(0,0,0), 0), Intersection( vec3(0,0,0),0));
 
 
 
@@ -204,7 +229,7 @@ IRO intersectSphereWithLine(in Primitive sphere, in vec3 start, in vec3 dir)
 	float t1 = (-B_half - D_sq) / A;
 	float t2 = (-B_half + D_sq) / A;
 
-	IRO res = {2, {t1, (start + dir * t1)*(1.0/rad)}, {t2, (start + dir * t2)*(1.0/rad)}};
+	IRO res = {2, { (start + dir * t1)*(1.0/rad),t1}, { (start + dir * t2)*(1.0/rad),t2}};
 	return res;
 }
 
@@ -226,14 +251,14 @@ IRO intersectLineWithCircle(in vec2 p, in vec2 dir, float rad)
 	{
 		float t = -B_half / A;
 		vec2 point = p + t * dir;
-		IRO res = {1, {t, vec3(p.xy, 0)}, {t, vec3(p.xy, 0)}};
+		IRO res = {1, {vec3(p.xy, 0),t }, { vec3(p.xy, 0),t}};
 		return res;
 	}
 	float t1 = (-B_half + D_sq) / A;
 	float t2 = (-B_half - D_sq) / A;
 	vec2 p1 = (p + dir * t1) * (1.0/rad);
 	vec2 p2 = (p + dir * t2) * (1.0/rad);
-	IRO res = { 2, {t1, vec3(p1,0)}, {t2, vec3(p2, 0)} };
+	IRO res = { 2, { vec3(p1,0),t1}, { vec3(p2, 0),t2} };
 	return res;
 }
 
@@ -260,7 +285,7 @@ IRO intersectCylinderWithLine(in Primitive obj, in vec3 start, in vec3 dir)
 		bool in_res = dot(start, start) < rad * rad;
 		if (in_res)
 		{
-			IRO res = {2, {(half_height - start.z) / dir.z, {0,0,1}}, {(-half_height - start.z) / dir.z,{0,0,-1}}};
+			IRO res = {2, { {0,0,1},(half_height - start.z) / dir.z}, {{0,0,-1},(-half_height - start.z) / dir.z}};
 			return res;
 		}
 		return ZERO_IRO;
@@ -299,13 +324,13 @@ IRO intersectCylinderWithLine(in Primitive obj, in vec3 start, in vec3 dir)
 		if (point_z2 > half_height)
 		{
 			float t_out = (half_height - start.z) / dir.z;
-			IRO res = {2, t1, {t_out, {0,0,1}}};
+			IRO res = {2, t1, { {0,0,1},t_out}};
 			return res;
 		}
 		if (point_z2 < -half_height)
 		{
 			float t_out = (-half_height - start.z) / dir.z;
-			IRO res = {2, t1, {t_out, {0, 0, -1}}};
+			IRO res = {2, t1, { {0, 0, -1},t_out}};
 			return res;
 
 		}
@@ -319,11 +344,11 @@ IRO intersectCylinderWithLine(in Primitive obj, in vec3 start, in vec3 dir)
 	vec2 up_point = (start + dir * t_out).xy;
 	if (dot(up_point, up_point) < rad * rad)
 	{
-		IRO res = {2, {t_out, {0,0,1}}, {(-half_height - start.z) / dir.z, {0,0,-1}}};
+		IRO res = {2, { {0,0,1},t_out}, { {0,0,-1},(-half_height - start.z) / dir.z}};
 		return res;
 	}
 	
-	return IRO(0, Intersection(0, vec3(0,0,0)), Intersection(0, vec3(0,0,0)));
+	return IRO(0, Intersection( vec3(0,0,0),0), Intersection( vec3(0,0,0),0));
 }
 
 uint POINT_ON_BOUNDARY = 0;
@@ -464,6 +489,7 @@ BF_pair rayIntersectsSegment(vec2 p, vec2 dir, vec2 a, vec2 b)
 {
 	float div = dir.x * (b.y - a.y) - dir.y * (b.x - a.x);
 	float num = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+	
 	if (equal(div, 0))
 	{
 		if (equal(num, 0))
@@ -498,10 +524,13 @@ BF_pair rayIntersectsSegment(vec2 p, vec2 dir, vec2 a, vec2 b)
 	}
 	else
 	{
-		vec2 point = p + dir * (num / div);
-		if (dot(b - point, a - point) <= 0)
+		float t = num / div;
+		//t /= 10;
+		vec2 point = p + dir * t;
+		//это место все еще может давать артефакты, в зависимости от числа в сравнении. 1e-6 работает вроде хорошо. Возможно стоит сделать проверку если point в окрестности a или b но это будет занимать время
+		if (dot(b - point, a - point) <= 1e-6)
 		{
-			BF_pair res = {true, num/div};
+			BF_pair res = {true, t};
 			return res;
 		}
 		BF_pair res =  { false, 0 };
@@ -511,18 +540,24 @@ BF_pair rayIntersectsSegment(vec2 p, vec2 dir, vec2 a, vec2 b)
 }
 
 
-IRO WHITE_IRO = {2, {1, {1, 1, 1}}, {2, {0,-1,0}}};
-IRO RED_IRO = {2, {1, {1,0,0}}, {2, {0,0,0}}};
-IRO GREEN_IRO = {2, {1, {0,1,0}}, {2, {0,0,0}}};
-IRO BLUE_IRO = {2, {1, {0,0,1}}, {2, {0,0,0}}};
-IRO YELLOW_IRO = {2, {1, {1,1,0}}, {2, {0,0,0}}};
-IRO MAGENTA_IRO = {2, {1, {1,0,1}}, {2, {0,0,0}}};
-IRO LIGHT_IRO = {2, {1, {0,1,1}}, {2, {0,0,0}}};
+IRO WHITE_IRO = {2, { {1, 1, 1},1}, { {0,-1,0},2}};
+IRO RED_IRO = {2, { {1,0,0},1}, { {0,0,0},2}};
+IRO GREEN_IRO = {2, { {0,1,0},1}, { {0,0,0},2}};
+IRO BLUE_IRO = {2, { {0,0,1},1}, { {0,0,0},2}};
+IRO YELLOW_IRO = {2, { {1,1,0},1}, { {0,0,0},2}};
+IRO MAGENTA_IRO = {2, { {1,0,1},1}, { {0,0,0},2}};
+IRO LIGHT_IRO = {2, { {0,1,1},1}, { {0,0,0},2}};
+IRO _debugIRO(vec3 n)
+{
+	IRO Deb_r = {2, { n,1}, { {0,0,0},2}};
+	return Deb_r;
+}
 
-IRO rayIntersectsPolygon(vec2 p, vec2 n, uint polygon_start, uint polygon_size, uint normals_start, uint normals_size)
+IRO rayIntersectsPolygon(vec2 p, in vec2 n, uint polygon_start, uint polygon_size, uint normals_start, uint normals_size)
 {
 	int c = 0;
 	Intersection res[2];
+	
 	for (int i = 0; i < polygon_size; ++i)
 	{
 		BF_pair int_res = rayIntersectsSegment(p, n, base_points[polygon_start + i],base_points[polygon_start + (i < polygon_size - 1 ? i + 1 : 0)]);
@@ -539,6 +574,7 @@ IRO rayIntersectsPolygon(vec2 p, vec2 n, uint polygon_start, uint polygon_size, 
 		if (c == 2)
 			break;
 	}
+
 	//if (res[0].t < res[1].t)
 	//	res[0].in = true;
 	//else
@@ -569,12 +605,12 @@ IRO intersectPrizmWithLine(Primitive obj, in vec3 start, in vec3 dir)
 			float t_down = (-half_height - start.z) / dir.z;
 			if (t_up < t_down)
 			{
-				IRO res = {2,  {t_up, {0,0,1}}, {t_down, {0,0,-1} }};
+				IRO res = {2,  { {0,0,1},t_up}, { {0,0,-1},t_down }};
 				return res;
 			}
 			else
 			{
-				IRO res = {2,  {t_down, {0,0,-1}} , {t_up, {0,0,1}} };
+				IRO res = {2,  { {0,0,-1},t_down} , { {0,0,1},t_up} };
 				return res;
 			}
 		}
@@ -635,12 +671,12 @@ IRO intersectPrizmWithLine(Primitive obj, in vec3 start, in vec3 dir)
 			float t_out = (half_height - start.z) / dir.z;
 			if (t1.t < t_out)
 			{
-				IRO res = {2,  t1, {t_out, {0, 0, 1} } };
+				IRO res = {2,  t1, { {0, 0, 1},t_out } };
 				return res;
 			}
 			else
 			{
-				IRO res = {2,  {t_out, {0, 0, 1} }, t1 };
+				IRO res = {2,  { {0, 0, 1},t_out }, t1 };
 				return res;
 			}
 			//невозможная ситуация, т к если он не выходит в стене то должен выходить наверху но мало ли
@@ -653,13 +689,13 @@ IRO intersectPrizmWithLine(Primitive obj, in vec3 start, in vec3 dir)
 			float t_out = (-half_height - start.z) / dir.z;
 			if (t1.t < t_out)
 			{
-				IRO res = {2, t1, {t_out, {0, 0, -1} } };
+				IRO res = {2, t1, { {0, 0, -1},t_out } };
 				return res;
 				
 			}
 			else
 			{
-				IRO res = {2, {t_out, {0, 0, -1} }, t1 };
+				IRO res = {2, { {0, 0, -1},t_out }, t1 };
 				return res;
 			}
 			IRO res = {2,  t1, t1 };
@@ -687,12 +723,12 @@ IRO intersectPrizmWithLine(Primitive obj, in vec3 start, in vec3 dir)
 		float t_bot = (-half_height - start.z) / dir.z;
 		if (t_out < t_bot)
 		{
-			IRO res = {2, {t_out, {0,0,1}},  {t_bot, {0,0,-1}} };
+			IRO res = {2, { {0,0,1},t_out},  { {0,0,-1},t_bot} };
 			return res;
 		}
 		else
 		{
-			IRO res = {2, {t_bot, {0,0,-1}},  {t_out, {0,0,1}} };
+			IRO res = {2, { {0,0,-1},t_bot},  { {0,0,1},t_out} };
 			return res;
 		}
 	}
@@ -731,7 +767,7 @@ IRO intersectConeWithLine(in Primitive object, in vec3 start, in vec3 dir)
 		float zn1 = -dot(p1, p1) / z1;
 		float zn2 = -dot(p2, p2) / z2;
 
-		IRO res = {2, {t1, normalize(vec3(p1, zn1))}, {t2, normalize(vec3(p2, zn2))}};
+		IRO res = {2, { normalize(vec3(p1, zn1)),t1}, { normalize(vec3(p2, zn2)),t2}};
 		return res;
 	}
 	if (!z1_good && !z2_good)
@@ -748,10 +784,10 @@ IRO intersectConeWithLine(in Primitive object, in vec3 start, in vec3 dir)
 	float t_base = (-height - start.z) / dir.z;
 	if (t_base < t1)
 	{
-		IRO res = {2, {t_base, {0,0,-1}}, {t1, normalize(vec3(p1, zn1))}};
+		IRO res = {2, { {0,0,-1},t_base}, { normalize(vec3(p1, zn1)),t1}};
 		return res;
 	}
-	IRO res = {2, {t1, normalize(vec3(p1, zn1))}, {t_base, {0,0,-1}}};
+	IRO res = {2, { normalize(vec3(p1, zn1)),t1}, { {0,0,-1},t_base}};
 	return res;
 }
 
@@ -837,10 +873,10 @@ BoolISRBool intersectLineWithBoxOnSide(int sig, int dir_c, int c1, int c2, vec3 
 		n[c1] = 0;
 		n[c2] = 0;
 
-		BoolISRBool res = { true,  {xpT, n}, int((sig * sign(dir[dir_c])) < 0) };
+		BoolISRBool res = { true,  { n,xpT}, int((sig * sign(dir[dir_c])) < 0) };
 		return res;
 	}
-	BoolISRBool res = {false, {0,{0,0,0}}, 0};
+	BoolISRBool res = {false, {{0,0,0},0}, 0};
 	return res;
 
 }
@@ -918,15 +954,11 @@ IRO intersectBoxWithLine(in Primitive obj, in vec3 start, in vec3 dir)
 		IRO res = {2, res[0], res[1]};
 		return res;
 	}
-	IRO ires = {0, {0, {0,0,0}}, {0, {0,0,0}}};
+	IRO ires = {0, { {0,0,0},0}, { {0,0,0},0}};
 	return ires;
 }
 
-IRO _debugIRO(vec3 n)
-{
-	IRO Deb_r = {2, {1, n}, {2, {0,0,0}}};
-	return Deb_r;
-}
+
 
 IRO intersectPolyhedronWithLine(Primitive obj, vec3 start,vec3 dir)
 {
@@ -968,7 +1000,7 @@ IRO intersectPolyhedronWithLine(Primitive obj, vec3 start,vec3 dir)
 				if (already_counted)
 					continue;
 			}*/
-			Intersection to_res = {t, normals[normals_start + i]};
+			Intersection to_res = { normals[normals_start + i],t};
 			res[c] = to_res;
 			++c;
 			if (c == 2)
@@ -1031,7 +1063,7 @@ IRO intersectWithRay(in Primitive object, in vec3 ray_start, in vec3 direction)
 		return inter_res;
 	if (inter_res.first.t < 0 && inter_res.second.t < 0)
 	{
-		IRO res = {0, {0, {0,0,0}}, {0, {0,0,0}}};
+		IRO res = {0, {{0,0,0},0 }, { {0,0,0},0}};
 		return res;
 	}
 	
@@ -1057,9 +1089,186 @@ float sq(float x)
 }
 
 
+//точки которые вылазят за стек будут отброшены.
+#define STACK_SIZE 1000
+
+
+
+
+struct IntersectionListUnit
+{
+	Intersection data;
+	int next_index;
+	bool is_in;
+};
+IntersectionListUnit intersections_stack[STACK_SIZE];
+//поскольку удаление не предусмотренно, мы просто идем вправо. То есть есть ограничение по в целом количеству пересечений на обьекте.
+int stack_index = 0;
+//листы по инлексу должны совпадать с нодами, которых они представляют. Это по сути просто отображение из нодов в начало листа с их данными
+int lists_stack[STACK_SIZE];
+
+void intersectWithPrimitiveAsNode(int node, vec3 camera_pos, vec3 dir)
+{
+	IRO inter_res = intersectWithRay(primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[node])], camera_pos, dir);
+	switch(inter_res.inters)
+	{
+		case 0:
+			lists_stack[node] = -1;
+			return;
+		case 1:
+			//это просто касание, и не стоит это рассматривать. Потому что тогда is_in всеравно кривоватое.
+			lists_stack[node] = -1;
+			return;
+			/*if (inter_res.first.t >= 0)
+			{
+				lists_stack[node] = stack_index;
+				intersections_stack[stack_index++] = IntersectionListUnit(inter_res.first, -1);
+				return;
+			}
+			lists_stack[node] = -1;
+			return;*/
+		case 2:
+			if (inter_res.first.t >= 0) //если .first >= 0 то и .second >= 0 точно
+			{
+				lists_stack[node] = stack_index;
+				intersections_stack[stack_index] = IntersectionListUnit(inter_res.first, stack_index + 1, true);
+				stack_index++;
+				intersections_stack[stack_index++] = IntersectionListUnit(inter_res.second, -1, false);
+				return;
+			}
+			//.second точно >= 0, иначе бы вернулось ZERO_IRO
+			lists_stack[node] = stack_index;
+			intersections_stack[stack_index++] = IntersectionListUnit(inter_res.second, -1, false); //вообще конечно вопрос как это повлияет на алгоритмы т-м операций но вроде бы должно быть нормально.
+			return;
+	}
+}
+
+int pushBackToList(int object, int last_pushed, int to_push)
+{
+	if (last_pushed == -1)
+		lists_stack[object] = to_push;
+	else
+		intersections_stack[last_pushed].next_index = to_push;
+	return to_push;
+}
+
+//при этом листы, относящиеся к дочерним нодам разрушаются.
+void uniteObjects(int current, int left, int right)
+{
+	int left_it = lists_stack[left];
+	int right_it = lists_stack[right];
+
+	bool in_a = false;
+	bool in_b = false;
+
+	int last_pushed = -1;
+
+	while (left_it != -1 && right_it != -1)
+	{
+		if (intersections_stack[left_it].data.t < intersections_stack[right_it].data.t)
+		{
+			if (!in_b)
+				last_pushed = pushBackToList(current, last_pushed, left_it);
+			in_a = intersections_stack[left_it].is_in;
+			left_it = intersections_stack[left_it].next_index;
+		}
+		else
+		{
+			if (!in_a)
+				last_pushed = pushBackToList(current, last_pushed, right_it);
+			in_b = intersections_stack[right_it].is_in;
+			right_it = intersections_stack[right_it].next_index;
+		}
+	}
+	//сейчас одно из них дошло точно до конца поэтому никаких ифов можно не делать
+	while (right_it != -1)
+	{
+		last_pushed = pushBackToList(current, last_pushed, right_it);
+		right_it = intersections_stack[right_it].next_index;
+	}
+	while (left_it != -1)
+	{
+		last_pushed = pushBackToList(current, last_pushed, left_it);
+		left_it = intersections_stack[left_it].next_index;
+	}
+	pushBackToList(current, last_pushed, -1);
+}
+
+void combineObjects(int current, int left, int right)
+{
+	switch(composed_objects[current].operation)
+	{
+	case OBJECTS_ADD:
+		uniteObjects(current, left, right);
+		return;
+	case OBJECTS_MULT:
+		intersectObjects(current, left, right);
+		return;
+	case OBJECTS_SUB:
+		subtractObjects(current, left, right);
+		return;
+	}
+}
+
+Intersection intersectWithRay(vec3 camera_pos, vec3 dir)
+{
+	
+	int current = 0;
+	int prev = -1;
+	while (current != -1)
+	{
+		if (prev == ComposedObjectNode_parent(composed_objects[current], current))
+		{
+			int left = ComposedObjectNode_left(composed_objects[current], current);
+			if (ComposedObjectNode_isPrimitive(composed_objects[left]))
+			{
+				intersectWithPrimitiveAsNode(left, camera_pos, dir);
+				prev = left;
+			}
+			else
+			{
+				prev = current;
+				current = left;
+				continue;
+			}
+		}
+		else if (prev == ComposedObjectNode_left(composed_objects[current], current))
+		{
+			int right = ComposedObjectNode_right(composed_objects[current], current);
+			if (ComposedObjectNode_isPrimitive(composed_objects[right]))
+			{
+				intersectWithPrimitiveAsNode(right, camera_pos, dir);
+				prev = right;
+			}
+			else
+			{
+				prev = current;
+				current = right;
+				continue;
+			}
+		}
+		else
+		{
+			int left = ComposedObjectNode_left(composed_objects[current], current);
+			int right = prev;
+			combineObjects(current, left, right);
+			prev = current;
+			current = ComposedObjectNode_parent(composed_objects[current], current);
+		}
+	}
+
+
+	return intersections_stack[lists_stack[0]].data;
+}
+
+float RRR = 0.5;
+
 void main() {
   ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
- 
+  for (int i = 0; i < 100; ++i)
+	RRR += 0.001;
+  imageStore(img_output, pixel_coords, vec4(RRR,RRR,RRR,1));
+  return;
 
   float horizontal_step = 2.0/screen_size.x;
   float vertical_step = 2.0/screen_size.y;

@@ -427,7 +427,8 @@ std::pair<bool,double> rayIntersectsSegment(const Vector<2>& p, const Vector<2>&
 	else
 	{
 		Vector<2> point = p + dir * (num / div);
-		if (dot(b - point, a - point) <= 0)
+		
+		if (dot(b - point, a - point) <= 1e-8)
 			return { true, num/div };
 		return { false, 0 };
 	}
@@ -441,12 +442,13 @@ std::pair<int, std::pair<ISR, ISR>> rayIntersectsPolygon(const Vector<2>& p, con
 {
 	int c = 0;
 	ISR res[2];
+	//auto n_ = normalize(n);
 	for (int i = 0; i < polygon.size(); ++i)
 	{
 		auto int_res = rayIntersectsSegment(p, n, polygon[i], polygon[i < polygon.size() - 1 ? i + 1 : 0]);
 		if (!int_res.first)
 			continue;
-		Vector<2> point = p + n * int_res.second;
+		Vector<2> point = p + n* int_res.second;
 		//if (i > 0 && equal(point, polygon[i]))
 		//	continue;
 		if (c == 1 && equal(int_res.second, res[0].t))
@@ -513,7 +515,7 @@ std::vector<ISR> Prizm::_intersectLine(const Vector<3>& start, const Vector<3>& 
 		}
 		return {};
 	}
-	auto shade_intersect = rayIntersectsPolygon(start, dir, base, normals);
+	auto shade_intersect = rayIntersectsPolygon(start, (dir), base, normals);
 
 	if (shade_intersect.first == 0)
 	{
@@ -815,7 +817,7 @@ std::vector<ISR> Cylinder::_intersectLine(const Vector<3>& start, const Vector<3
 		}
 		return {};
 	}
-	auto shade_intersect = intersectLineWithCircle(start, dir, rad);
+	auto shade_intersect = intersectLineWithCircle(start, normalize<2>(dir), rad);
 
 	if (shade_intersect.first == 0)
 	{

@@ -431,7 +431,7 @@ void castRays(int window_width, int window_height, std::vector<unsigned char>& c
 			//setColor(i, j, window_width, { 255, (unsigned char)(255 * double(i) / window_width), (unsigned char)(255 * double(j) / window_height), 255 }, canvas);
 			//continue;
 
-			if (i == 340 - 1 && j == 600-(362 - 30))
+			if (i == 683 - 1 && j == window_height-(530 - 30))
 				std::cout << "A";
 			if (i == 300 && j == 300)
 				std::cout << "A";
@@ -595,7 +595,7 @@ int main()
 		castRays(window_width, window_height, texture, camera_pos, obj.get());
 		std::cout << clock() - t1 << '\n';
 		loadTexture(window_width, window_height, &texture[0], false);*/
-		/**/ { // launch compute shaders!
+		/* */{ // launch compute shaders!
 			glUseProgram(ray_trace_programm);
 			glUniform3f(camera_pos_location, camera_pos.x(), camera_pos.y(), camera_pos.z());
 			glUniform2i(screen_size_location, window_width, window_height);
@@ -619,7 +619,7 @@ int main()
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 
-		double cam_sp = 0.8;
+		double cam_sp = 0.2;
 		if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
 			camera_pos.nums[0] += cam_sp;
 		if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
