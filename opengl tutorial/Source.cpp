@@ -548,7 +548,7 @@ int main()
 	Quat null_rotation = Quat(1, 0, 0, 0);
 	
 
-	auto obj = parse(readFile("examples/plates_with_cone_cut.txt"));
+	auto obj = parse(readFile("examples/box_with_windows.txt"));
 	
 
 	assert(obj != nullptr);
@@ -568,12 +568,12 @@ int main()
 		castRays(window_width, window_height, texture, camera_pos, obj.get());
 		std::cout << clock() - t1 << '\n';
 		loadTexture(window_width, window_height, &texture[0], false);*/
-		/* */{ // launch compute shaders!
+		/**/ { // launch compute shaders!
 			glUseProgram(ray_trace_programm);
 			glUniform3f(camera_pos_location, camera_pos.x(), camera_pos.y(), camera_pos.z());
 			glUniform2i(screen_size_location, window_width, window_height);
 			
-			glDispatchCompute((GLuint)window_width, (GLuint)window_width, 1);
+			glDispatchCompute((GLuint)window_width/8, (GLuint)window_width/4, 1);
 			//std::cout << glGetError() << '\n';;
 			glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 		}
@@ -610,8 +610,6 @@ int main()
 		//while (glfwGetTime() - cstart < counter * (1.0 / 60.0))
 		//{
 		//}
-		if (counter % 60 == 0)
-			std::cout << counter << std::endl;
 	}
 
 	glDeleteTextures(1, &texture_id);
