@@ -822,7 +822,7 @@ std::vector<ISR> Cylinder::_intersectLine(const Vector<3>& start, const Vector<3
 		}
 		return {};
 	}
-	auto shade_intersect = intersectLineWithCircle(start, normalize<2>(dir), rad);
+	auto shade_intersect = intersectLineWithCircle(start, dir, rad);
 
 	if (shade_intersect.first == 0)
 	{

@@ -71,7 +71,7 @@ layout(binding = 2, std430) buffer data_array
 {
 	vec2 base_points[];
 };
-layout(binding = 3, packed) buffer normals_array
+layout(binding = 3) buffer normals_array
 {
 	vec3 normals[];
 };
@@ -1257,13 +1257,10 @@ void subtractObjects(int current, int left, int right)
 			if (in_a)
 			{
 				pushBackToList(current, last_pushed, right_it);
-				//при этом last_pushed == right_it
 				intersections_stack[last_pushed].is_in = !intersections_stack[right_it].is_in;
 				intersections_stack[last_pushed].data.n = -1 * intersections_stack[right_it].data.n;
-				in_b = !intersections_stack[last_pushed].is_in;
 			}
-			else
-				in_b = intersections_stack[right_it].is_in;
+			in_b = intersections_stack[right_it].is_in;
 			right_it = intersections_stack[right_it].next_index;
 		}
 	}

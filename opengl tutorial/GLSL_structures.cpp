@@ -2,7 +2,8 @@
 #include <stdlib.h>
 #include <assert.h>
 #include "gl_utils.h"
-
+#include <fstream>
+void __savePrimitive(const std::unique_ptr<Object>& prim);
 GLSL_Primitive buildObject(const std::unique_ptr<Object>& obj, int data_index, int normals_index, int int_index);
 
 GLSL_Primitive buildSphere(float radius, GLSL_vec3 position, GLSL_Quat rotation)
@@ -174,6 +175,7 @@ void GlslSceneMemory::addObject(const std::unique_ptr<Object>& obj)
 {
 	if (obj->getId() == ObjectType::COMPOSED_OBJECT)
 		assert(false);
+	__savePrimitive(obj);
 
 	GLSL_Primitive primitive = buildObject(obj, this->vec2_buffer.size(), this->vec3_buffer.size(), this->int_buffer.size());
 	auto vec2_data = getVec2Data(obj);
@@ -193,6 +195,30 @@ void GlslSceneMemory::addObject(const std::unique_ptr<Object>& obj)
 		this->mat3_buffer.push_back(it);
 }
 
+static void writeBinaryFile(const char* data, int size, const std::string& name)
+{
+	std::ofstream out;
+	out.open(name, std::ios::out | std::ios::binary);
+	out.write(data, size);
+	out.close();
+}
+
+void GlslSceneMemory::dropToFiles(const std::string& dir) const
+{
+	if (this->primitives_buffer.size() > 0)
+		writeBinaryFile((char*)&this->primitives_buffer[0], sizeof(GLSL_Primitive) * this->primitives_buffer.size(), dir + "primitives.buf");
+	if (this->vec2_buffer.size() > 0)
+		writeBinaryFile((char*)&this->vec2_buffer[0], sizeof(GLSL_vec2) * this->vec2_buffer.size(), dir + "vec2.buf");
+	if (this->vec3_buffer.size() > 0)
+		writeBinaryFile((char*)&this->vec3_buffer[0], sizeof(Vec3Type) * this->vec3_buffer.size(), dir + "vec3.buf");
+	if (this->int_buffer.size() > 0)
+		writeBinaryFile((char*)&this->int_buffer[0], sizeof(int) * this->int_buffer.size(), dir + "int.buf");	
+	if (this->mat3_buffer.size() > 0)
+		writeBinaryFile((char*)&this->mat3_buffer[0], sizeof(GLSL_mat3) * this->mat3_buffer.size(), dir + "mat3.buf");
+	if (this->composed_object_nodes_buffer.size() > 0)
+		writeBinaryFile((char*)&this->composed_object_nodes_buffer[0], sizeof(GLSL_ComposedObject) * this->composed_object_nodes_buffer.size(), dir + "composed.buf");
+}
+
 void GlslSceneMemory::bind(int programm, int current_program)
 {
 	if (this->primitives_buffer.size() > 0)
@@ -200,7 +226,7 @@ void GlslSceneMemory::bind(int programm, int current_program)
 	if (this->vec2_buffer.size() > 0)
 		auto data_buf = createSharedBufferObject(&this->vec2_buffer[0], sizeof(GLSL_vec2)*this->vec2_buffer.size(), 2);
 	if (this->vec3_buffer.size() > 0)
-		auto normals_buf = createSharedBufferObject(&this->vec3_buffer[0], sizeof(GLSL_vec4)*this->vec3_buffer.size(), 3);
+		auto normals_buf = createSharedBufferObject(&this->vec3_buffer[0], sizeof(Vec3Type)*this->vec3_buffer.size(), 3);
 	if (this->int_buffer.size() > 0)
 		auto int_buf = createSharedBufferObject(&this->int_buffer[0], sizeof(int) * this->int_buffer.size(), 4);
 	if (this->mat3_buffer.size() > 0)
@@ -287,4 +313,343 @@ GLSL_mat3::GLSL_mat3(const Matrix<3>& m)
 	auto t = transpose(m);
 	for (int i = 0; i < 3; ++i)
 		this->mat[i] = t.mat[i];
+}
+
+
+
+
+
+
+
+/*репликация кода с шейдера для дебага*/
+
+//точки которые вылазят за стек будут отброшены.
+#define STACK_SIZE 200
+struct Intersection
+{
+	float t;
+	Vector<3> n;
+	Intersection() {}
+	Intersection(float t, Vector<3> n) : t(t), n(n) {}
+	Intersection(const ISR& s) : t(s.t), n(s.n) {}
+};
+struct IntersectionListUnit
+{
+	Intersection data;
+	int next_index;
+	bool is_in;
+	IntersectionListUnit() {}
+	IntersectionListUnit(Intersection data, int ni, bool in) : data(data), next_index(ni), is_in(in) {}
+};
+IntersectionListUnit intersections_stack[STACK_SIZE];
+//поскольку удаление не предусмотренно, мы просто идем вправо. То есть есть ограничение по в целом количеству пересечений на обьекте.
+int stack_index = 0;
+//листы по инлексу должны совпадать с нодами, которых они представляют. Это по сути просто отображение из нодов в начало листа с их данными
+int lists_stack[STACK_SIZE];
+std::vector<std::unique_ptr<Object>> primitives;
+
+void __savePrimitive(const std::unique_ptr<Object>& prim)
+{
+	primitives.resize(primitives.size() + 1);
+	primitives.back() = prim->copy();
+}
+std::vector<GLSL_ComposedObject> composed_objects;
+typedef std::vector<ISR> IRO;
+
+#define ComposedObjectNode_isPrimitive(X) (X.operation >= 0)
+#define ComposedObjectNode_getPrimitiveIndex(X) (X.operation)
+
+#define ComposedObjectNode_left(X, N) (2*((N)+1) - 1)
+#define ComposedObjectNode_right(X, N) (2*((N)+1))
+#define ComposedObjectNode_parent(X, N) (((N)+1)/2 - 1)
+
+const int OBJECTS_ADD = -1;
+const int OBJECTS_MULT = -2;
+const int OBJECTS_SUB = -3;
+
+void intersectWithPrimitiveAsNode(int node, Vector<3> camera_pos, Vector<3> dir)
+{
+	IRO inter_res = primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[node])]->intersectWithRayOnBothSides(camera_pos, dir);
+	switch (inter_res.size())
+	{
+	case 0:
+		lists_stack[node] = -1;
+		return;
+	case 1:
+		//это просто касание, и не стоит это рассматривать. Потому что тогда is_in всеравно кривоватое.
+		lists_stack[node] = -1;
+		return;
+		/*if (inter_res.first.t >= 0)
+		{
+			lists_stack[node] = stack_index;
+			intersections_stack[stack_index++] = IntersectionListUnit(inter_res.first, -1);
+			return;
+		}
+		lists_stack[node] = -1;
+		return;*/
+	case 2:
+		if (inter_res[0].t >= 0) //если .first >= 0 то и .second >= 0 точно
+		{
+			lists_stack[node] = stack_index;
+			intersections_stack[stack_index] = IntersectionListUnit(inter_res[0], stack_index + 1, true);
+			stack_index++;
+			intersections_stack[stack_index++] = IntersectionListUnit(inter_res[1], -1, false);
+			return;
+		}
+		//.second точно >= 0, иначе бы вернулось ZERO_IRO
+		lists_stack[node] = stack_index;
+		intersections_stack[stack_index++] = IntersectionListUnit(inter_res[1], -1, false); //вообще конечно вопрос как это повлияет на алгоритмы т-м операций но вроде бы должно быть нормально.
+		return;
+	}
+}
+
+void pushBackToList(int object, int& last_pushed, int to_push)
+{
+	if (last_pushed == -1)
+		lists_stack[object] = to_push;
+	else
+		intersections_stack[last_pushed].next_index = to_push;
+	last_pushed = to_push;
+}
+
+//при этом листы, относящиеся к дочерним нодам разрушаются.
+void uniteObjects(int current, int left, int right)
+{
+	int left_it = lists_stack[left];
+	int right_it = lists_stack[right];
+
+	bool in_a = false;
+	bool in_b = false;
+
+	int last_pushed = -1;
+
+	while (left_it != -1 && right_it != -1)
+	{
+		if (intersections_stack[left_it].data.t < intersections_stack[right_it].data.t)
+		{
+			if (!in_b)
+				pushBackToList(current, last_pushed, left_it);
+			in_a = intersections_stack[left_it].is_in;
+			left_it = intersections_stack[left_it].next_index;
+		}
+		else
+		{
+			if (!in_a)
+				pushBackToList(current, last_pushed, right_it);
+			in_b = intersections_stack[right_it].is_in;
+			right_it = intersections_stack[right_it].next_index;
+		}
+	}
+	//сейчас одно из них дошло точно до конца поэтому никаких ифов можно не делать
+	while (right_it != -1)
+	{
+		pushBackToList(current, last_pushed, right_it);
+		right_it = intersections_stack[right_it].next_index;
+	}
+	while (left_it != -1)
+	{
+		pushBackToList(current, last_pushed, left_it);
+		left_it = intersections_stack[left_it].next_index;
+	}
+	//это по сути закрытие листа, иначе финальный нод будет ссылаться на рандомный другой
+	pushBackToList(current, last_pushed, -1);
+}
+
+void intersectObjects(int current, int left, int right)
+{
+	bool in_a = false;
+	bool in_b = false;
+
+	int last_pushed = -1;
+	int left_it = lists_stack[left];
+	int right_it = lists_stack[right];
+
+	while (left_it != -1 && right_it != -1)
+	{
+		if (intersections_stack[left_it].data.t < intersections_stack[right_it].data.t)
+		{
+			if (in_b)
+				pushBackToList(current, last_pushed, left_it);
+			in_a = intersections_stack[left_it].is_in;
+			left_it = intersections_stack[left_it].next_index;
+		}
+		else
+		{
+			if (in_a)
+				pushBackToList(current, last_pushed, right_it);
+			in_b = intersections_stack[right_it].is_in;
+			right_it = intersections_stack[right_it].next_index;
+		}
+	}
+	pushBackToList(current, last_pushed, -1);
+}
+
+void subtractObjects(int current, int left, int right)
+{
+	bool in_a = false;
+	bool in_b = false;
+
+	int left_it = lists_stack[left];
+	int right_it = lists_stack[right];
+
+	int last_pushed = -1;
+	while (left_it != -1 && right_it != -1)
+	{
+		if (intersections_stack[left_it].data.t < intersections_stack[right_it].data.t - 1e-3 * (1 - 2 * int(in_a)))
+		{
+			if (!in_b)
+				pushBackToList(current, last_pushed, left_it);
+			in_a = intersections_stack[left_it].is_in;
+			left_it = intersections_stack[left_it].next_index;
+		}
+		else
+		{
+			if (in_a)
+			{
+				pushBackToList(current, last_pushed, right_it);
+				//при этом last_pushed == right_it
+				intersections_stack[last_pushed].is_in = !intersections_stack[right_it].is_in;
+				intersections_stack[last_pushed].data.n = -1 * intersections_stack[right_it].data.n;
+				in_b = !intersections_stack[last_pushed].is_in;
+			}
+			else
+				in_b = intersections_stack[right_it].is_in;
+			right_it = intersections_stack[right_it].next_index;
+		}
+	}
+	while (left_it != -1)
+	{
+		pushBackToList(current, last_pushed, left_it);
+		left_it = intersections_stack[left_it].next_index;
+	}
+	pushBackToList(current, last_pushed, -1);
+}
+
+void combineObjects(int current, int left, int right)
+{
+	switch (composed_objects[current].operation)
+	{
+	case OBJECTS_ADD:
+		uniteObjects(current, left, right);
+		return;
+	case OBJECTS_MULT:
+		intersectObjects(current, left, right);
+		return;
+	case OBJECTS_SUB:
+		subtractObjects(current, left, right);
+		return;
+	}
+}
+std::pair<bool, ISR> GlslSceneMemory::__intersectWithRay(const Vector<3>& start, const Vector<3>& dir) const
+{
+	composed_objects = this->composed_object_nodes_buffer;
+	stack_index = 0;
+
+	int current = 0;
+	int prev = -1;
+	if (ComposedObjectNode_isPrimitive(composed_objects[0]))
+	{
+		IRO inter_res = primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[0])]->intersectWithRayOnBothSides(start, dir);
+		bool has_intersection = (inter_res.size() > 0);
+		return { has_intersection, inter_res[0] };
+	}
+	//has_intersection = true;
+	while (current != -1)
+	{
+		if (prev == ComposedObjectNode_parent(composed_objects[current], current))
+		{
+			int left = ComposedObjectNode_left(composed_objects[current], current);
+			if (ComposedObjectNode_isPrimitive(composed_objects[left]))
+			{
+
+				intersectWithPrimitiveAsNode(left, start, dir);
+				//return MAGENTA_INTER;
+				prev = left;
+			}
+			else
+			{
+				prev = current;
+				current = left;
+				continue;
+			}
+		}
+		else if (prev == ComposedObjectNode_left(composed_objects[current], current))
+		{
+			int right = ComposedObjectNode_right(composed_objects[current], current);
+			if (ComposedObjectNode_isPrimitive(composed_objects[right]))
+			{
+				intersectWithPrimitiveAsNode(right, start, dir);
+				prev = right;
+			}
+			else
+			{
+				prev = current;
+				current = right;
+				continue;
+			}
+		}
+		else
+		{
+			int left = ComposedObjectNode_left(composed_objects[current], current);
+			int right = prev;
+			combineObjects(current, left, right);
+			prev = current;
+			current = ComposedObjectNode_parent(composed_objects[current], current);
+		}
+	}
+
+	if (lists_stack[0] == -1)
+	{
+		bool has_intersection = false;
+		Intersection res = { 0,{0,0,0} };
+		return { has_intersection, ISR(0,0,0,0,0) };
+	}
+	
+	return { true, ISR(intersections_stack[lists_stack[0]].data.t,  intersections_stack[lists_stack[0]].data.n, true)};
+}
+#include <iostream>
+static inline int at(int i, int j, int width)
+{
+	return (j * width + i) * 4;
+}
+struct Color
+{
+	unsigned char r, g, b, a;
+};
+static void setColor(int i, int j, int width, Color col, std::vector<unsigned char>& canvas)
+{
+	int ind = at(i, j, width);
+	memcpy(&canvas[ind], &col, 4);
+}
+static double sq(double x)
+{
+	return x * x;
+}
+void GLSL__castRays(int window_width, int window_height, std::vector<unsigned char>& canvas, const Vector<3>& camera_pos, GlslSceneMemory& memory)
+{
+	double horizontal_step = 2.0 / window_width;
+	double vertical_step = 2.0 / window_height;
+	for (int i = 0; i < window_width; ++i)
+	{
+		for (int j = 0; j < window_height; ++j)
+		{
+
+			//setColor(i, j, window_width, { 255, (unsigned char)(255 * double(i) / window_width), (unsigned char)(255 * double(j) / window_height), 255 }, canvas);
+			//continue;
+
+			if (i == 180 - 1 && j == window_height - (240 - 30))
+				std::cout << "A";
+			if (i == 167 && j == 100)
+				std::cout << "A";
+			Vector<3> ray_dir(-1 + i * horizontal_step, 1, -1 + j * vertical_step);
+			auto cast = memory.__intersectWithRay({ 2.8, camera_pos.y(), camera_pos.z() }, ray_dir);
+			//setColor(i, j, window_width, { (unsigned char)(254 * std::max(0., std::min(1., cast.second.n.x()))), (unsigned char)(254 * std::max(0., std::min(1., cast.second.n.y()))), (unsigned char)(254 * std::max(0., std::min(1., cast.second.n.z()))), 1 }, canvas);
+			//continue;
+			unsigned char r = 254 * sqrt((sq(dot(ray_dir, cast.second.n)) / dot(ray_dir, ray_dir)));
+			if (cast.first)
+				setColor(i, j, window_width, { r, r,r,255 }, canvas);
+			else
+				setColor(i, j, window_width, { 0,0,0,255 }, canvas);
+		}
+	}
 }

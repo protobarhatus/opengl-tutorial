@@ -1,0 +1,89 @@
+<?xml version="1.0"?>
+<project version="2">
+	<pipeline>
+		<pass name="sss" type="compute" active="true">
+			<shader type="cs" path="shaders\asdasd_sssCS.glsl" entry="main" />
+			<groupsize x="125" y="250" z="1" />
+			<variables>
+				<variable type="int" name="composed_object_nodes_count">
+					<row>
+						<value>0</value>
+					</row>
+				</variable>
+				<variable type="int2" name="screen_size">
+					<row>
+						<value>1000</value>
+						<value>1000</value>
+					</row>
+				</variable>
+				<variable type="float3" name="camera_pos">
+					<row>
+						<value>0</value>
+						<value>2</value>
+						<value>0</value>
+					</row>
+				</variable>
+				<variable type="int" name="primitives_count">
+					<row>
+						<value>8</value>
+					</row>
+				</variable>
+				<variable type="int" name="data_count">
+					<row>
+						<value>0</value>
+					</row>
+				</variable>
+				<variable type="int" name="normals_count">
+					<row>
+						<value>0</value>
+					</row>
+				</variable>
+			</variables>
+			<macros />
+		</pass>
+	</pipeline>
+	<objects>
+		<object type="image" name="img_output" width="1000" height="1000" format="R32G32B32A32_FLOAT">
+			<bind slot="0" name="sss" uav="1" />
+			<bind slot="0" name="sss" uav="0" />
+		</object>
+		<object type="buffer" name="primitives" size="256" format="float" pausedpreview="false">
+			<bind slot="1" name="sss" />
+		</object>
+		<object type="buffer" name="base_points" size="0" format="float" pausedpreview="false">
+			<bind slot="2" name="sss" />
+		</object>
+		<object type="buffer" name="normals" size="0" format="float" pausedpreview="false">
+			<bind slot="3" name="sss" />
+		</object>
+		<object type="buffer" name="int_data" size="0" format="float" pausedpreview="false">
+			<bind slot="4" name="sss" />
+		</object>
+		<object type="buffer" name="matrix_data" size="0" format="float" pausedpreview="false">
+			<bind slot="5" name="sss" />
+		</object>
+		<object type="buffer" name="composed_objects" size="44" format="int" pausedpreview="false">
+			<bind slot="6" name="sss" />
+		</object>
+	</objects>
+	<cameras />
+	<settings>
+		<entry type="property" name="sss" item="pipe" />
+		<entry type="file" name="sss" shader="cs" />
+		<entry type="pinned" name="composed_object_nodes_count" owner="sss" />
+		<entry type="pinned" name="primitives_count" owner="sss" />
+		<entry type="pinned" name="data_count" owner="sss" />
+		<entry type="pinned" name="normals_count" owner="sss" />
+		<entry type="pinned" name="screen_size" owner="sss" />
+		<entry type="pinned" name="camera_pos" owner="sss" />
+		<entry type="camera" fp="false">
+			<distance>4</distance>
+			<pitch>28</pitch>
+			<yaw>317</yaw>
+			<roll>360</roll>
+		</entry>
+		<entry type="clearcolor" r="0" g="0" b="0" a="0" />
+		<entry type="usealpha" val="false" />
+	</settings>
+	<plugindata />
+</project>

@@ -347,7 +347,7 @@ void setConvexPiramid(Vertex* buff, int& size, unsigned int* indicies, int& ind_
 	ind_size += elements.size();
 }
 
-inline int at(int i, int j, int width)
+static inline int at(int i, int j, int width)
 {
 	return (j * width + i)*4;
 }
@@ -355,7 +355,7 @@ struct Color
 {
 	unsigned char r, g, b, a;
 };
-void setColor(int i, int j, int width, Color col, std::vector<unsigned char>& canvas)
+static void setColor(int i, int j, int width, Color col, std::vector<unsigned char>& canvas)
 {
 	int ind = at(i, j, width);
 	memcpy(&canvas[ind], &col, 4);
@@ -402,7 +402,7 @@ void castRays(int window_width, int window_height, std::vector<unsigned char>& c
 			//setColor(i, j, window_width, { 255, (unsigned char)(255 * double(i) / window_width), (unsigned char)(255 * double(j) / window_height), 255 }, canvas);
 			//continue;
 
-			if (i == 683 - 1 && j == window_height-(530 - 30))
+			if (i == 180 - 1 && j == window_height-(240 - 30))
 				std::cout << "A";
 			if (i == 300 && j == 300)
 				std::cout << "A";
@@ -428,6 +428,7 @@ int main()
 	// -----------------------------------------
 	if (!glfwInit())
 		exit(EXIT_FAILURE);
+	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
 	//glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	//glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
 	//glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
@@ -548,16 +549,18 @@ int main()
 	Quat null_rotation = Quat(1, 0, 0, 0);
 	
 
-	auto obj = parse(readFile("examples/box_with_windows.txt"));
+	auto obj = parse(readFile("examples/thinq.txt"));
 	
 
 	assert(obj != nullptr);
-	obj->moveOn({ 0,5,0 });
-	obj->globalizeCoordinates();
+	obj->moveOn({ 0,9,0 });
+	/**/obj->globalizeCoordinates();
 
 	GlslSceneMemory shader_scene;
 	shader_scene.setSceneAsComposedObject(obj->copy());
+	shader_scene.dropToFiles("shadered\\");
 	shader_scene.bind(ray_trace_programm, prog);
+
 	camera_pos.nums[1] = 2;
 
 	while (!glfwWindowShouldClose(window)) // Main-Loop
@@ -565,7 +568,8 @@ int main()
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear the screen with... red, green, blue.
 
 		/*clock_t t1 = clock();
-		castRays(window_width, window_height, texture, camera_pos, obj.get());
+		GLSL__castRays(window_width, window_height, texture, camera_pos, shader_scene);
+		//castRays(window_width, window_height, texture, camera_pos, obj.get());
 		std::cout << clock() - t1 << '\n';
 		loadTexture(window_width, window_height, &texture[0], false);*/
 		/**/ { // launch compute shaders!

@@ -1,0 +1,11 @@
+R1 = Box(hsize: {2, 4, 3}; position: {0, 0, 0}; rotation: 1 + {0,0,0})
+R2 = Box(hsize: {2.01, 1.5, 2}; position: {0,-1.75,1.01}; rotation: 1 + {0,0,0})
+R3 = Box(hsize: {2.01, 1.5, 2}; position: {0, 1.75, 1.01}; rotation: 1 + {0,0,0})
+C1 = Cylinder(height: 8; radius: 2; position: {2, 0, 3}; rotation: 0.7 + {0.7, 0,0})
+C2 = Cylinder(height: 8; radius: 2; position: {-2, 0, 3}; rotation: 0.7 + {0.7, 0,0})
+C3 = Cylinder(height: 12; radius: 1; position: {0, 0, -0.2}; rotation: 0.7 + {0.7, 0, 0})
+C4 = Cylinder(height: 12; radius: 1; position: {0, 0, -0.7}; rotation: 0.7 + {0.7, 0, 0})
+Con = Cone(height: 2; radius: 2; position: {0, -6, -2}; rotation: 0.7 + {0.7, 0, 0})
+Plate = Box(hsize: {2, 1, 1}; position: {0, -5, -2}; rotation: 1 + {0,0,0})
+
+__obj__ = (((R1 \ (R2+R3)) \ (C1 + C2))+ (Plate*Con))  \ (C3*C4)

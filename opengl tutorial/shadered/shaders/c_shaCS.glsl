@@ -71,7 +71,7 @@ layout(binding = 2, std430) buffer data_array
 {
 	vec2 base_points[];
 };
-layout(binding = 3, packed) buffer normals_array
+layout(binding = 3) buffer normals_array
 {
 	vec3 normals[];
 };
@@ -1257,13 +1257,10 @@ void subtractObjects(int current, int left, int right)
 			if (in_a)
 			{
 				pushBackToList(current, last_pushed, right_it);
-				//при этом last_pushed == right_it
 				intersections_stack[last_pushed].is_in = !intersections_stack[right_it].is_in;
 				intersections_stack[last_pushed].data.n = -1 * intersections_stack[right_it].data.n;
-				in_b = !intersections_stack[last_pushed].is_in;
 			}
-			else
-				in_b = intersections_stack[right_it].is_in;
+			in_b = intersections_stack[right_it].is_in;
 			right_it = intersections_stack[right_it].next_index;
 		}
 	}
@@ -1365,8 +1362,10 @@ void main() {
 		imageStore(img_output, pixel_coords, vec4(abs(LIGHT_INTER.n), 1));
 		return;
 	}
+
     float horizontal_step = 2.0/screen_size.x;
     float vertical_step = 2.0/screen_size.y;
+    
     vec3 ray_dir = vec3(-1 + pixel_coords.x * horizontal_step, 1, -1 + pixel_coords.y * vertical_step);
 
     bool has_intersection;

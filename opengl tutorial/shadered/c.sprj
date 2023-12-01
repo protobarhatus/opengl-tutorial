@@ -1,0 +1,85 @@
+<?xml version="1.0"?>
+<project version="2">
+	<pipeline>
+		<pass name="sha" type="compute" active="true">
+			<shader type="cs" path="shaders\c_shaCS.glsl" entry="main" />
+			<groupsize x="250" y="250" z="1" />
+			<variables>
+				<variable type="int" name="composed_object_nodes_count">
+					<row>
+						<value>0</value>
+					</row>
+				</variable>
+				<variable type="int2" name="screen_size" system="ViewportSize" />
+				<variable type="float3" name="camera_pos">
+					<row>
+						<value>0</value>
+						<value>2</value>
+						<value>0</value>
+					</row>
+				</variable>
+				<variable type="int" name="primitives_count">
+					<row>
+						<value>8</value>
+					</row>
+				</variable>
+				<variable type="int" name="data_count">
+					<row>
+						<value>0</value>
+					</row>
+				</variable>
+				<variable type="int" name="normals_count">
+					<row>
+						<value>0</value>
+					</row>
+				</variable>
+			</variables>
+			<macros />
+		</pass>
+	</pipeline>
+	<objects>
+		<object type="buffer" name="primitives" size="256" format="Primitive" pausedpreview="false">
+			<bind slot="1" name="sha" />
+		</object>
+		<object type="buffer" name="composed_objects" size="44" format="int" pausedpreview="false">
+			<bind slot="6" name="sha" />
+		</object>
+		<object type="image" name="img_output" width="1000" height="1000" format="R32G32B32A32_FLOAT">
+			<bind slot="0" name="sha" uav="1" />
+			<bind slot="0" name="sha" uav="0" />
+		</object>
+		<object type="buffer" name="b0" size="0" format="float" pausedpreview="false" />
+		<object type="buffer" name="base_points" size="0" format="float" pausedpreview="false">
+			<bind slot="2" name="sha" />
+		</object>
+		<object type="buffer" name="normals" size="0" format="float" pausedpreview="false">
+			<bind slot="3" name="sha" />
+		</object>
+		<object type="buffer" name="int_data" size="0" format="float" pausedpreview="false">
+			<bind slot="4" name="sha" />
+		</object>
+		<object type="buffer" name="matrix_data" size="0" format="float" pausedpreview="false">
+			<bind slot="5" name="sha" />
+		</object>
+	</objects>
+	<cameras />
+	<settings>
+		<entry type="property" name="sha" item="pipe" />
+		<entry type="file" name="sha" shader="cs" />
+		<entry type="pinned" name="composed_object_nodes_count" owner="sha" />
+		<entry type="pinned" name="primitives_count" owner="sha" />
+		<entry type="pinned" name="data_count" owner="sha" />
+		<entry type="pinned" name="normals_count" owner="sha" />
+		<entry type="pinned" name="camera_pos" owner="sha" />
+		<entry type="camera" fp="false">
+			<distance>11</distance>
+			<pitch>16</pitch>
+			<yaw>165</yaw>
+			<roll>360</roll>
+		</entry>
+		<entry type="clearcolor" r="0" g="0" b="0" a="0" />
+		<entry type="usealpha" val="false" />
+		<entry type="vecwatch_expr" expr="pixel_coords" color_r="0.807843149" color_g="0.41568628" color_b="0.886274517" />
+	</settings>
+	<plugindata />
+</project>

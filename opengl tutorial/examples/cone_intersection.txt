@@ -1,0 +1,6 @@
+A = Cone(height: 3; radius: 1; position: {0.5, 0.5, 0}; rotation: 1 + {0,0,0})
+B = Cone(height: 3; radius: 1; position: {-0.5, 0.5, 0}; rotation: 1 + {0,0,0})
+C = Cone(height: 3; radius: 1; position: {0.5, -0.5, 0}; rotation: 1 + {0,0,0})
+D = Cone(height: 3; radius: 1; position: {-0.5, -0.5, 0}; rotation: 1 + {0,0,0})
+
+__obj__ = (A*B)*(C*D)

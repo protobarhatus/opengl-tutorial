@@ -1,5 +1,6 @@
 #pragma once
 #include <memory>
+#include <string>
 #include "ComposedObject.h"
 
 struct GLSL_Primitive;
@@ -9,6 +10,8 @@ struct GLSL_vec2
 	float x, y;
 	GLSL_vec2(const Vector<2>& v);
 	GLSL_vec2();
+	GLSL_vec2(const GLSL_vec2&) = default;
+	GLSL_vec2& operator=(const GLSL_vec2&) = default;
 };
 struct GLSL_vec3
 {
@@ -45,9 +48,10 @@ enum class OperationTypeInShader
 
 class GlslSceneMemory
 {
+	typedef GLSL_vec4 Vec3Type;
 	std::vector<GLSL_Primitive> primitives_buffer;
 	std::vector<GLSL_vec2> vec2_buffer;
-	std::vector<GLSL_vec4> vec3_buffer;
+	std::vector<Vec3Type> vec3_buffer;
 	std::vector<int> int_buffer;
 	std::vector<GLSL_mat3> mat3_buffer;
 
@@ -61,6 +65,9 @@ public:
 	void setSceneAsComposedObject(const std::unique_ptr<Object>& obj);
 	
 	void bind(int programm, int current_program);
+	void dropToFiles(const std::string& dir) const;
+	//репликация пересечения с сервера для дебага
+	std::pair<bool, ISR> __intersectWithRay(const Vector<3>& start, const Vector<3>& dir) const;
 };
 
 
@@ -101,3 +108,8 @@ GLSL_Primitive buildPrizm(const std::vector<Vector<2>>& base, const std::vector<
 
 GLSL_Primitive buildPiramid(const std::vector<Vector<2>>& base, const std::vector<Vector<3>>& normals, float height, GLSL_vec3 position, GLSL_Quat rotation, unsigned int data_index, unsigned int normal_index);
 GLSL_Primitive buildBox(GLSL_vec3 hsize, GLSL_vec3 position, GLSL_Quat rotation);
+
+
+
+
+void GLSL__castRays(int window_width, int window_height, std::vector<unsigned char>& canvas, const Vector<3>& camera_pos, GlslSceneMemory& memory);
