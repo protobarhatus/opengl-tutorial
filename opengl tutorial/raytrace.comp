@@ -1,6 +1,7 @@
 #version 430
 layout(local_size_x = 8, local_size_y = 4) in;
 layout(rgba32f, binding = 0) uniform image2D img_output;
+layout(r32f, binding = 1) uniform image2D depth_buffer;
 
 uniform vec3 camera_pos;
 uniform ivec2 screen_size;
@@ -33,6 +34,8 @@ struct Primitive
 	//для многогранника. Остальная информация для него будет идти в int_data. [0] это индекс в матричный массив, затем таблица, задающая грани:на каждую строчку идет [количество элементов в массиве] и сам массив.
 	//для многоугольников в собственных координатах это идет просто подряд без указания размера, поэтому итерироваться они обязаны одновременно с гранями.
 	uint int_data_index;
+	//пока что цвет потом может заменится на текстурную координату или типо того
+	vec4 color;
 };
 
 const int OBJECTS_ADD = -1;
@@ -1110,6 +1113,8 @@ struct IntersectionListUnit
 	Intersection data;
 	int next_index;
 	bool is_in;
+	//возможно хорошая идея переместить этот инт в Intersection. Хотя мне не нравится паддинг тогда ну и там оно бесполезно пока
+	int primitive_index;
 };
 IntersectionListUnit intersections_stack[STACK_SIZE];
 //поскольку удаление не предусмотренно, мы просто идем вправо. То есть есть ограничение по в целом количеству пересечений на обьекте.
@@ -1141,14 +1146,14 @@ void intersectWithPrimitiveAsNode(int node, vec3 camera_pos, vec3 dir)
 			if (inter_res.first.t >= 0) //если .first >= 0 то и .second >= 0 точно
 			{
 				lists_stack[node] = stack_index;
-				intersections_stack[stack_index] = IntersectionListUnit(inter_res.first, stack_index + 1, true);
+				intersections_stack[stack_index] = IntersectionListUnit(inter_res.first, stack_index + 1, true, ComposedObjectNode_getPrimitiveIndex(composed_objects[node]));
 				stack_index++;
-				intersections_stack[stack_index++] = IntersectionListUnit(inter_res.second, -1, false);
+				intersections_stack[stack_index++] = IntersectionListUnit(inter_res.second, -1, false, ComposedObjectNode_getPrimitiveIndex(composed_objects[node]));
 				return;
 			}
 			//.second точно >= 0, иначе бы вернулось ZERO_IRO
 			lists_stack[node] = stack_index;
-			intersections_stack[stack_index++] = IntersectionListUnit(inter_res.second, -1, false); //вообще конечно вопрос как это повлияет на алгоритмы т-м операций но вроде бы должно быть нормально.
+			intersections_stack[stack_index++] = IntersectionListUnit(inter_res.second, -1, false, ComposedObjectNode_getPrimitiveIndex(composed_objects[node])); //вообще конечно вопрос как это повлияет на алгоритмы т-м операций но вроде бы должно быть нормально.
 			return;
 	}
 }
@@ -1291,7 +1296,12 @@ void combineObjects(int current, int left, int right)
 	}
 }
 
-Intersection intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_intersection)
+struct FullIntersectionResult
+{
+	Intersection inter;
+	vec4 color;
+};
+FullIntersectionResult intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_intersection)
 {
 	int current = 0;
 	int prev = -1;
@@ -1299,7 +1309,8 @@ Intersection intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_intersecti
 	{
 		IRO inter_res = intersectWithRay(primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[0])], camera_pos, dir);
 		has_intersection = (inter_res.inters > 0);
-		return inter_res.first;
+		FullIntersectionResult res = {inter_res.first, primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[0])].color};
+		return res;
 	}
 	//has_intersection = true;
 	while (current != -1)
@@ -1349,11 +1360,24 @@ Intersection intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_intersecti
 	if (lists_stack[0] == -1)
 	{
 		has_intersection = false;
-		Intersection res = {{0,0,0},0};
+		FullIntersectionResult res = { {{0,0,0},0}, {0,0,0,0}};
 		return res;
 	}
 	has_intersection = true;
-	return intersections_stack[lists_stack[0]].data;
+
+	vec4 color = primitives[intersections_stack[lists_stack[0]].primitive_index].color;
+	float passed_alph = 1 - color.a;
+	int current_node = intersections_stack[lists_stack[0]].next_index;
+	while (current_node != -1 && passed_alph > 0.01)
+	{
+	//TODO использовать нормали на всем пути
+		color.rgb = mix(color.xyz, primitives[intersections_stack[current_node].primitive_index].color.rgb, passed_alph);
+		passed_alph *= (1 - primitives[intersections_stack[current_node].primitive_index].color.a);
+		current_node = intersections_stack[current_node].next_index;
+	}
+	color.a = 1 - passed_alph;
+	FullIntersectionResult res = {intersections_stack[lists_stack[0]].data, color};
+	return res;
 }
 
 
@@ -1370,14 +1394,18 @@ void main() {
     vec3 ray_dir = vec3(-1 + pixel_coords.x * horizontal_step, 1, -1 + pixel_coords.y * vertical_step);
 
     bool has_intersection;
-    Intersection inter = intersectWithRay(camera_pos, ray_dir, has_intersection);
+    FullIntersectionResult inter = intersectWithRay(camera_pos, ray_dir, has_intersection);
+
 
     if (!has_intersection)
-	    imageStore(img_output, pixel_coords, vec4(0,0,0,1));
+	{
+		imageStore(img_output, pixel_coords, vec4(0,0,0,1));
+		//imageStore(depth_buffer, pixel_coords, 1.0);
+	}
     else
     {
-		float r = (0.99 * sqrt((sq(dot(ray_dir, inter.n)) / dot(ray_dir, ray_dir))));
-		imageStore(img_output, pixel_coords, vec4(r,r,r,1));
+		float r = (0.99 * sqrt((sq(dot(ray_dir, inter.inter.n)) / dot(ray_dir, ray_dir))));
+		imageStore(img_output, pixel_coords, vec4(r * inter.color.rgb, 1));
 		//imageStore(img_output, pixel_coords, vec4(abs(inter.n),1));
     }
 
@@ -1411,4 +1439,3 @@ void main() {
 //1) нижнее isInsidePolygon действительно ли можно спокойно убрать и почему там проблемы если его включить
 //2) в polyhedronе маленькая полоска
 //3) небольшое мерцание на границе пирамиды
-//4) box_with_windows точка по центру

@@ -95,6 +95,8 @@ struct GLSL_Primitive
 	//радиус для цилиндра
 	float sc2;
 	unsigned int int_index;
+
+	GLSL_vec4 color;
 };
 
 

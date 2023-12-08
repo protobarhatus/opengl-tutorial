@@ -40,6 +40,7 @@ protected:
 	
 	//оно переопределяется в пирамиде и конусе т к там центр смещен по вертикали
 	virtual bool lineIntersectsBoundingBox(const Vector<3>& start, const Vector<3>& dir) const;
+	Vector<4> color = { 1,1,1,1 };
 public:
 	virtual ObjectType getId() const = 0;
 	virtual std::unique_ptr<Object> copy() const = 0;
@@ -65,6 +66,10 @@ public:
 	Quat getRotation() const;
 	//служит только для ComposedObject
 	virtual void globalizeCoordinates();
+
+	void setColor(const Vector<3>& col);
+	void setAlpha(double a);
+	Vector<4> getColor() const;
 };
 
 class Box : public Object

@@ -21,10 +21,11 @@
 #include "GLSL_structures.h"
 
 
-void loadTexture(int width, int height, const unsigned char* buffer, bool first_time=false)
+void loadTexture(int width, int height, const unsigned char* buffer, bool first_time=false, GLuint texture_slot = GL_TEXTURE0, GLuint internal_format = GL_RGBA8, GLuint format = GL_RGBA)
 {
 	if (first_time)
 	{
+		glActiveTexture(texture_slot);
 		// Создаем одну OpenGL текстуру
 		GLuint textureID;
 		glGenTextures(1, &textureID);
@@ -40,10 +41,11 @@ void loadTexture(int width, int height, const unsigned char* buffer, bool first_
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 		glGenerateMipmap(GL_TEXTURE_2D);
 
-		glActiveTexture(GL_TEXTURE0);
+		glActiveTexture(texture_slot);
 	}
 	else
 	{
+		glActiveTexture(texture_slot);
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
 		glGenerateMipmap(GL_TEXTURE_2D);
 
@@ -52,9 +54,9 @@ void loadTexture(int width, int height, const unsigned char* buffer, bool first_
 	//glBindTexture(GL_TEXTURE_2D, 0);
 
 	// Возвращаем идентификатор текстуры который мы создали
-
-
 }
+
+
 
 GLuint loadTGA_glfw(const char* imagepath) {
 
@@ -89,19 +91,21 @@ GLuint loadTGA_glfw(const char* imagepath) {
 	return textureID;
 }
 
-GLuint createTexImage(int width, int height) {
+GLuint createTexImage(int width, int height, GLuint texture_slot = GL_TEXTURE0, GLuint internal_format = GL_RGBA32F, GLuint format = GL_RGBA, GLuint type = GL_UNSIGNED_BYTE) {
 
 	// Создаем одну OpenGL текстуру
+	glActiveTexture(texture_slot);
 	GLuint textureID;
 	glGenTextures(1, &textureID);
 
+	
 	// "Привязываем" только что созданную текстуру и таким образом все последующие операции будут производиться с ней
 	glBindTexture(GL_TEXTURE_2D, textureID);
 
 	// Читаем файл и вызываем glTexImage2D с необходимыми параметрами
 	//stbi_set_flip_vertically_on_load(1);
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+	glTexImage2D(GL_TEXTURE_2D, 0, internal_format, width, height, 0, format, type, nullptr);
 
 
 	// Трилинейная фильтрация.
@@ -111,12 +115,11 @@ GLuint createTexImage(int width, int height) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 	glGenerateMipmap(GL_TEXTURE_2D);
 
-	glActiveTexture(GL_TEXTURE0);
 	//glBindTexture(GL_TEXTURE_2D, 0);
 
 	// Возвращаем идентификатор текстуры который мы создали
 
-	glBindImageTexture(0, textureID, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
+	glBindImageTexture(0 + (texture_slot - GL_TEXTURE0), textureID, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
 	return textureID;
 	
 }
@@ -540,6 +543,8 @@ int main()
 	std::vector<unsigned char> texture(window_width * window_height * 4, 255);
 	
 	createTexImage(window_width, window_height);
+	createTexImage(window_width, window_height, GL_TEXTURE1, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT);
+	glActiveTexture(GL_TEXTURE0);
 
 	int camera_pos_location = glGetUniformLocation(ray_trace_programm, "camera_pos");
 	int screen_size_location = glGetUniformLocation(ray_trace_programm, "screen_size");
@@ -549,7 +554,7 @@ int main()
 	Quat null_rotation = Quat(1, 0, 0, 0);
 	
 
-	auto obj = parse(readFile("examples/thinq.txt"));
+	auto obj = parse(readFile("examples/transparent_box.txt"));
 	
 
 	assert(obj != nullptr);

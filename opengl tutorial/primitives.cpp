@@ -322,6 +322,20 @@ bool Cylinder::isPointInside(const Vector<3>& p) const
 Cylinder::Cylinder(const Vector<3>& pos, double height, double rad, const Quat& rotation) : Object(pos, rotation), half_height(height/2), rad(rad) { bounding_box = countBoundingBox();  }
 
 
+void Object::setColor(const Vector<3>& col)
+{
+	color = Vector<4>(col.x(), col.y(), col.z(), color.t());
+}
+void Object::setAlpha(double a)
+{
+	color.nums[3] = a;
+}
+Vector<4> Object::getColor() const
+{
+	return color;
+}
+
+
 std::vector<ISR> Object::intersectWithRayOnBothSides(const Vector<3>& ray_start, const Vector<3>& direction) const
 {
 
