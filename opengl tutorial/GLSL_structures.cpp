@@ -427,14 +427,14 @@ void uniteObjects(int current, int left, int right)
 	{
 		if (intersections_stack[left_it].data.t < intersections_stack[right_it].data.t)
 		{
-			if (!in_b)
+			//if (!in_b)
 				pushBackToList(current, last_pushed, left_it);
 			in_a = intersections_stack[left_it].is_in;
 			left_it = intersections_stack[left_it].next_index;
 		}
 		else
 		{
-			if (!in_a)
+			//if (!in_a)
 				pushBackToList(current, last_pushed, right_it);
 			in_b = intersections_stack[right_it].is_in;
 			right_it = intersections_stack[right_it].next_index;
@@ -637,12 +637,12 @@ void GLSL__castRays(int window_width, int window_height, std::vector<unsigned ch
 			//setColor(i, j, window_width, { 255, (unsigned char)(255 * double(i) / window_width), (unsigned char)(255 * double(j) / window_height), 255 }, canvas);
 			//continue;
 
-			if (i == 180 - 1 && j == window_height - (240 - 30))
+			if (i == 430 - 1 && j == window_height - (530 - 30))
 				std::cout << "A";
 			if (i == 167 && j == 100)
 				std::cout << "A";
 			Vector<3> ray_dir(-1 + i * horizontal_step, 1, -1 + j * vertical_step);
-			auto cast = memory.__intersectWithRay({ 2.8, camera_pos.y(), camera_pos.z() }, ray_dir);
+			auto cast = memory.__intersectWithRay(camera_pos, ray_dir);
 			//setColor(i, j, window_width, { (unsigned char)(254 * std::max(0., std::min(1., cast.second.n.x()))), (unsigned char)(254 * std::max(0., std::min(1., cast.second.n.y()))), (unsigned char)(254 * std::max(0., std::min(1., cast.second.n.z()))), 1 }, canvas);
 			//continue;
 			unsigned char r = 254 * sqrt((sq(dot(ray_dir, cast.second.n)) / dot(ray_dir, ray_dir)));

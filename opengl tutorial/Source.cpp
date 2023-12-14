@@ -554,7 +554,7 @@ int main()
 	Quat null_rotation = Quat(1, 0, 0, 0);
 	
 
-	auto obj = parse(readFile("examples/box_with_windows.txt"));
+	auto obj = parse(readFile("examples/box_in_box.txt"));
 	
 
 	assert(obj != nullptr);

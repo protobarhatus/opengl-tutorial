@@ -1182,14 +1182,15 @@ void uniteObjects(int current, int left, int right)
 	{
 		if (intersections_stack[left_it].data.t < intersections_stack[right_it].data.t)
 		{
-			if (!in_b)
+		// точки не выбрасываем, потому что даже если обьект не прозрачный, то потом при вычитании из него дырки нужно все равно хранить внутренние обьекты
+			//if (!in_b)
 				pushBackToList(current, last_pushed, left_it);
 			in_a = intersections_stack[left_it].is_in;
 			left_it = intersections_stack[left_it].next_index;
 		}
 		else
 		{
-			if (!in_a)
+			//if (!in_a)
 				pushBackToList(current, last_pushed, right_it);
 			in_b = intersections_stack[right_it].is_in;
 			right_it = intersections_stack[right_it].next_index;
@@ -1212,8 +1213,8 @@ void uniteObjects(int current, int left, int right)
 
 void intersectObjects(int current, int left, int right)
 {
-	bool in_a = false;
-	bool in_b = false;
+	int in_a = 0;
+	int in_b = 0;
 	
 	int last_pushed = -1;
 	int left_it = lists_stack[left];
@@ -1223,16 +1224,16 @@ void intersectObjects(int current, int left, int right)
 	{
 		if (intersections_stack[left_it].data.t < intersections_stack[right_it].data.t)
 		{
-			if (in_b)
+			if (in_b > 0)
 				pushBackToList(current, last_pushed, left_it);
-			in_a = intersections_stack[left_it].is_in;
+			in_a += 2*int(intersections_stack[left_it].is_in) - 1;
 			left_it = intersections_stack[left_it].next_index;
 		}
 		else
 		{
-			if (in_a)
+			if (in_a > 0)
 				pushBackToList(current, last_pushed, right_it);
-			in_b = intersections_stack[right_it].is_in;
+			in_b += 2*int(intersections_stack[right_it].is_in) - 1;
 			right_it = intersections_stack[right_it].next_index;
 		}
 	}
@@ -1241,34 +1242,42 @@ void intersectObjects(int current, int left, int right)
 
 void subtractObjects(int current, int left, int right)
 {
-	bool in_a = false;
-	bool in_b = false;
+	int in_a = 0;
+	int in_b = 0;
 
 	int left_it = lists_stack[left];
 	int right_it = lists_stack[right];
 
 	int last_pushed = -1;
+	//это для того, чтобы при вычитании обьектов на стенках отображалась правильная текстура, т е текстура самого внутреннего обьекта. но глубина такого запоминания ограничена
+	#define MAX_SUB_DEPTH 10
+	int left_rememb[MAX_SUB_DEPTH];
 	while (left_it != -1 && right_it != -1)
 	{
 		if (intersections_stack[left_it].data.t < intersections_stack[right_it].data.t - 1e-3 * (1 - 2*int(in_a)))
 		{
-			if (!in_b)
+			if (in_b == 0)
+			{
 				pushBackToList(current, last_pushed, left_it);
-			in_a = intersections_stack[left_it].is_in;
+				
+			}
+			left_rememb[in_a] = intersections_stack[left_it].primitive_index;
+			in_a += 2*int(intersections_stack[left_it].is_in) - 1;
 			left_it = intersections_stack[left_it].next_index;
 		}
 		else
 		{
-			if (in_a)
+			if (in_a > 0)
 			{
 				pushBackToList(current, last_pushed, right_it);
 				//при этом last_pushed == right_it
 				intersections_stack[last_pushed].is_in = !intersections_stack[right_it].is_in;
 				intersections_stack[last_pushed].data.n = -1 * intersections_stack[right_it].data.n;
-				in_b = !intersections_stack[last_pushed].is_in;
+				intersections_stack[last_pushed].primitive_index = left_rememb[min(in_a - 1, MAX_SUB_DEPTH)];
+				in_b += 2*int(!intersections_stack[last_pushed].is_in) - 1;
 			}
 			else
-				in_b = intersections_stack[right_it].is_in;
+				in_b += 2*int(intersections_stack[right_it].is_in) - 1;
 			right_it = intersections_stack[right_it].next_index;
 		}
 	}
@@ -1373,7 +1382,6 @@ FullIntersectionResult intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_
 	int current_node = intersections_stack[lists_stack[0]].next_index;
 	while (current_node != -1 && passed_alph > 0.01 )
 	{
-	//TODO использовать нормали на всем пути
 		color.rgb = mix(color.xyz, primitives[intersections_stack[current_node].primitive_index].color.rgb * abs(dot(normalized_ray_dir, intersections_stack[current_node].data.n)), passed_alph);
 		passed_alph *= (1 - primitives[intersections_stack[current_node].primitive_index].color.a);
 		current_node = intersections_stack[current_node].next_index;

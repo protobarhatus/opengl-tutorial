@@ -1,4 +1,4 @@
-Box1 = Box(hsize: {2, 0.2, 2}, position: {0,0,0}, rotation: 1 + {0,0,0}, alpha=0.3)
-Box2 = Box(hsize: {1, 1, 1}, position: {0,1.5,0}, rotation: 1 + {0,0,0}, color={1,0,0})
+B1 = Box(hsize: {2, 2, 2}; position: {0,0,0}, rotation:1+{0,0,0}; alpha=0.3)
+B2 = Box(hsize: {1, 1, 1}; position: {0,0,0}, rotation:1+{0,0,0}; color={1,0,0})
 
-__obj__ = Box1 + Box2
+__obj__ = B1 + B2

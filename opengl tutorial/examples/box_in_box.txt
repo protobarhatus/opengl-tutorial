@@ -1,0 +1,6 @@
+
+B1 = Box(hsize:{2,2,2}; position:{0,0,0}; rotation:1+{0,0,0})
+B2 = Box(hsize: {1.5,1.5,1.5}; position: {0,0,0}; rotation:1+{0,0,0}; color={1,0,0})
+H = Box(hsize:{1, 2.05, 1}; position:{0,0,0}; rotation:1+{0,0,0})
+
+__obj__ = (B1 + B2) \ H
