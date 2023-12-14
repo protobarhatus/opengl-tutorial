@@ -1364,18 +1364,23 @@ FullIntersectionResult intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_
 		return res;
 	}
 	has_intersection = true;
-
+	
+	vec3 normalized_ray_dir = normalize(dir);
 	vec4 color = primitives[intersections_stack[lists_stack[0]].primitive_index].color;
+	color.rgb *= -dot(normalized_ray_dir, intersections_stack[lists_stack[0]].data.n);
+	
 	float passed_alph = 1 - color.a;
 	int current_node = intersections_stack[lists_stack[0]].next_index;
-	while (current_node != -1 && passed_alph > 0.01)
+	while (current_node != -1 && passed_alph > 0.01 )
 	{
 	//TODO использовать нормали на всем пути
-		color.rgb = mix(color.xyz, primitives[intersections_stack[current_node].primitive_index].color.rgb, passed_alph);
+		color.rgb = mix(color.xyz, primitives[intersections_stack[current_node].primitive_index].color.rgb * abs(dot(normalized_ray_dir, intersections_stack[current_node].data.n)), passed_alph);
 		passed_alph *= (1 - primitives[intersections_stack[current_node].primitive_index].color.a);
 		current_node = intersections_stack[current_node].next_index;
 	}
+	
 	color.a = 1 - passed_alph;
+	
 	FullIntersectionResult res = {intersections_stack[lists_stack[0]].data, color};
 	return res;
 }
@@ -1404,8 +1409,8 @@ void main() {
 	}
     else
     {
-		float r = (0.99 * sqrt((sq(dot(ray_dir, inter.inter.n)) / dot(ray_dir, ray_dir))));
-		imageStore(img_output, pixel_coords, vec4(r * inter.color.rgb, 1));
+		float r =   0.99*(-dot(ray_dir, inter.inter.n) / length(ray_dir));
+		imageStore(img_output, pixel_coords, vec4(inter.color.rgb, 1));
 		//imageStore(img_output, pixel_coords, vec4(abs(inter.n),1));
     }
 

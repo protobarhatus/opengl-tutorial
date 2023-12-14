@@ -166,7 +166,6 @@ namespace Parser
 	template<typename T, typename U, typename ... Args>
 	std::tuple<T, U, Args...> makeTupleOfArguments(int arg_num, const std::vector<std::pair<std::string, DataType>>& arg_list, const std::map<std::string, ArgumentData>& provided)
 	{
-		
 		return std::tuple_cat(makeTupleOfArguments<T>(arg_num, arg_list , provided), makeTupleOfArguments<U, Args...>(arg_num + 1, arg_list, provided));
 	}
 	template<typename T>
