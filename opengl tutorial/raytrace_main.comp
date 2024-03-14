@@ -1,0 +1,32 @@
+
+
+
+void main() {
+    ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+    if (composed_object_nodes_count > STACK_SIZE)
+	{
+		imageStore(img_output, pixel_coords, vec4(abs(LIGHT_INTER.n), 1));
+		return;
+	}
+    float horizontal_step = 2.0/screen_size.x;
+    float vertical_step = 2.0/screen_size.y;
+    vec3 ray_dir = vec3(-1 + pixel_coords.x * horizontal_step, 1, -1 + pixel_coords.y * vertical_step);
+
+    bool has_intersection;
+	FullIntersectionResult inter = intersectWithRay(camera_pos, ray_dir, has_intersection);
+		
+
+    if (!has_intersection)
+	{
+		imageStore(img_output, pixel_coords, vec4(0,0,0,1));
+		//imageStore(depth_buffer, pixel_coords, 1.0);
+	}
+    else
+    {
+		float r =   0.99*(-dot(ray_dir, inter.inter.n) / length(ray_dir));
+		imageStore(img_output, pixel_coords, vec4(inter.color.rgb, 1));
+		//imageStore(img_output, pixel_coords, vec4(abs(inter.n),1));
+    }
+
+  
+}

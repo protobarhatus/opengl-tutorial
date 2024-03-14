@@ -1,0 +1,88 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Исходные файлы">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;cppm;ixx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Файлы заголовков">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Файлы ресурсов">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\ComposedObject.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\glad.c">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\GLSL_structures.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\gl_utils.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\linear_algebra.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\objects_fabric.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\parser.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\primitives.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\Scene.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="Source.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\ComposedObject.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\GLSL_structures.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\gl_utils.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\intersection.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\linear_algebra.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\objects_fabric.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\parser.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\primitives.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\Scene.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\stb_image.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\raytrace.comp" />
+    <None Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\raytrace_main.comp" />
+    <None Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\shader.frag" />
+    <None Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\shader.vert" />
+    <None Include="..\opengl tutorial\visibility_detection_main.comp" />
+  </ItemGroup>
+</Project>

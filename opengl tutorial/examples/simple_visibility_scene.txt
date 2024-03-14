@@ -1,0 +1,5 @@
+A = Box(hsize: {0.5,0.5,0.5}, position: {10.6, 20.4, 2.7}, rotation: 1 + {0,0,0}, id=1)
+B = Box(hsize: {0.5, 0.5, 0.5}, position: {10.5, 9.7, 2.9}, rotation: 1 + {0,0,0}, id=2)
+C = Box(hsize: {100, 0.1, 100}, position: {0, 15, 0}, rotation: 1 + {0,0,0})
+
+__obj__ = (A+B) + C

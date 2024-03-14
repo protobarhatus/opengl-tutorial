@@ -133,7 +133,7 @@ Vector<3> ComposedObject::countBoundingBox() const
 	return max(left->getPosition() + left->rotateBoundingBox(), right->getPosition() + right->rotateBoundingBox());
 }
 
-ObjectType ComposedObject::getId() const
+ObjectType ComposedObject::getType() const
 {
 	return ObjectType::COMPOSED_OBJECT;
 }
@@ -177,6 +177,17 @@ void ComposedObject::globalizeCoordinates()
 	this->right->moveOn(this->position);
 	this->right->globalizeCoordinates();
 	this->position = { 0,0,0 };
+	Matrix<4> transposition(Vector<4>(1, 0, 0, 0), Vector<4>(0, 1, 0, 0), Vector<4>(0, 0, 1,0), Vector<4>(0, 0, 0, 1));
+	transformation_mat = rotation_mat * transposition;
+}
+
+const Object* ComposedObject::getObjectOfId(int id) const
+{
+	if (this->id == id)
+		return this;
+	if (this->left->getObjectOfId(id) != nullptr)
+		return this->left->getObjectOfId(id);
+	return this->right->getObjectOfId(id);
 }
 
 std::unique_ptr<Object> objectsCombination(std::unique_ptr<Object>&& left, std::unique_ptr<Object>&& right, ComposedObject::Operation oper, const Vector<3>& comm_pos, const Quat& comm_rot)

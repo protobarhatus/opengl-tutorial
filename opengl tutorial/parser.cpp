@@ -67,6 +67,7 @@ namespace Parser
 	enum class DataType
 	{
 		ERR,
+		INT,
 		DOUBLE,
 		VEC_2,
 		VEC_3,
@@ -83,6 +84,7 @@ namespace Parser
 
 #define DATA_TYPE_ASSOSIATE(cpp_type, data_type) template<> DataType getType<cpp_type>() { return DataType::data_type; }
 
+	DATA_TYPE_ASSOSIATE(int, INT);
 	DATA_TYPE_ASSOSIATE(double, DOUBLE);
 	DATA_TYPE_ASSOSIATE(Vector<2>, VEC_2);
 	DATA_TYPE_ASSOSIATE(Vector<3>, VEC_3);
@@ -108,14 +110,16 @@ namespace Parser
 		ArgumentData() : data(nullptr), _type(DataType::ERR), data_size(0) {}
 		~ArgumentData() { delete data; }
 		DataType type() const { return _type; }
-		ArgumentData(const ArgumentData& cop) = delete;
+		ArgumentData(const ArgumentData& cop) :data_size(cop.data_size), _type(cop._type) {this->data = malloc(data_size); memcpy(data, cop.data, data_size); };
 		ArgumentData(ArgumentData&& mov) : data(mov.data), _type(mov._type), data_size(mov.data_size) { mov.data = nullptr; }
 		template <typename T>
 		const T& getData() const { return *((T*)data); }
 	};
 
+	x3::real_parser<double, x3::strict_real_policies<double>> strict_double;
+
 	x3::rule<class data_obj, ArgumentData> value_rule;
-	auto value_rule_def = vec2 | vec3 | vec4 | vector_vec2 | vector_vec3 | vector_vec4 | vector_int | vec_vec_int | quat_rule | x3::double_;
+	auto value_rule_def = vec2 | vec3 | vec4 | vector_vec2 | vector_vec3 | vector_vec4 | vector_int | vec_vec_int | quat_rule | strict_double | x3::int_;
 	BOOST_SPIRIT_DEFINE(value_rule);
 
 	x3::rule<class func_argument, std::tuple<std::string, ArgumentData>> argument_rule;
@@ -137,12 +141,14 @@ namespace Parser
 
 	// хз на самом деле вместо того чтобы городить вот это где по разному об€зательные и опциональные аргументы считаютс€ мб нужно было уже просто все в формате фабрики делать
 
-#define OPTIONAL_ARGUMENT_SETTER(lc_name, uc_name, Type) {#lc_name, [](std::unique_ptr<Object>& obj, const ArgumentData& data) { if (data.type() != getType<Type>()) throw "Provided optional argument " + std::string(#lc_name) + " with wrong type"; \
+#define OPTIONAL_ARGUMENT_SETTER(lc_name, uc_name, Type) {#lc_name, [](std::unique_ptr<Object>& obj, ArgumentData data) { if (data.type() == DataType::INT && getType<Type>() == DataType::DOUBLE) data = ArgumentData::ArgumentData(double(data.getData<int>()));\
+if (data.type() != getType<Type>()) throw "Provided optional argument " + std::string(#lc_name) + " with wrong type"; \
 	obj->set##uc_name (data.getData<Type>());}}
 
-	const std::map<std::string, std::function<void(std::unique_ptr<Object>&, const ArgumentData&)>> optional_arguments_setter{
+	const std::map<std::string, std::function<void(std::unique_ptr<Object>&, ArgumentData)>> optional_arguments_setter{
 		OPTIONAL_ARGUMENT_SETTER(color, Color, Vector<3>),
-		OPTIONAL_ARGUMENT_SETTER(alpha, Alpha, double)
+		OPTIONAL_ARGUMENT_SETTER(alpha, Alpha, double),
+		OPTIONAL_ARGUMENT_SETTER(id, Id, int)
 	};
 
 	void checkProvidedArguments(std::vector<std::pair<std::string, DataType>>& acceptable, const std::map<std::string, ArgumentData>& provided)
@@ -154,7 +160,7 @@ namespace Parser
 			{
 				throw "Missing argument " + it.first;
 			}
-			else if (it.second != pr_it->second.type())
+			else if (it.second != pr_it->second.type() && !(it.second == DataType::DOUBLE && pr_it->second.type() == DataType::INT))
 					throw "Provided argument " + it.first + " with wrong type";
 		}
 	}
@@ -183,11 +189,19 @@ namespace Parser
 
 
 	template<typename Primitive, typename ... Args>
-	std::unique_ptr<Object> makePrimitiveFromArguments(const std::vector<std::string>& arguments, const std::map<std::string, ArgumentData>& provided_args)
+	std::unique_ptr<Object> makePrimitiveFromArguments(const std::vector<std::string>& arguments, std::map<std::string, ArgumentData> provided_args)
 	{
 		std::vector<std::pair<std::string, DataType>> args_with_types(arguments.size());
 		addDataTypeToArgList<Args...>(0, arguments, args_with_types);
 		checkProvidedArguments(args_with_types, provided_args);
+		//recast int to double
+		for (auto& it : args_with_types)
+		{
+			if (it.second == DataType::DOUBLE && provided_args[it.first].type() == DataType::INT)
+				provided_args[it.first] = ArgumentData::ArgumentData(double(provided_args[it.first].getData<int>()));
+		}
+
+
 		auto tuple = makeTupleOfArguments<Args...>(0, args_with_types, provided_args);
 		auto res = std::apply(makeObject<Primitive, Args...>::get, tuple);
 		for (auto& it : provided_args)
@@ -201,6 +215,17 @@ namespace Parser
 			}
 		}
 		return std::move(res);
+	}
+
+	void setUpOnlyOptionalArgumentsList(std::unique_ptr<Object>& object, const std::map<std::string, ArgumentData>& provided_args)
+	{
+		for (auto& it : provided_args)
+		{
+			auto opt_it = optional_arguments_setter.find(it.first);
+			if (opt_it == optional_arguments_setter.end())
+				throw "Uknown argument " + it.first;
+			opt_it->second(object, it.second);
+		}
 	}
 
 
@@ -224,11 +249,25 @@ namespace Parser
 		DEFINE_PRIMITIVE_RULE(Sphere, sphere, ({ "radius", "position" }), double, Vector<3>);
 		DEFINE_PRIMITIVE_RULE(Polyhedron, polyhedron, ({ "points", "edges", "position", "rotation" }), std::vector<Vector<3>>, std::vector<std::vector<int>>, Vector<3>, Quat);
 
+	x3::rule<class expr, std::unique_ptr<Object>> expression_rule;
+
+
+
+
+	x3::rule<class composed_tuple, std::tuple<std::unique_ptr<Object>, std::map<std::string, ArgumentData>>> composed_object_tuple_rule;
+	auto composed_object_tuple_rule_def = x3::lit("Obj") >> '(' >> expression_rule >> (x3::lit(";") | x3::lit(",")) >> arguments_list_rule >> x3::lit(')');
+	BOOST_SPIRIT_DEFINE(composed_object_tuple_rule);
+	auto make_primitive_composed_func = [](auto& ctx) {
+		x3::_val(ctx) = std::move(std::get<0>(x3::_attr(ctx))); setUpOnlyOptionalArgumentsList(x3::_val(ctx), std::get<1>(x3::_attr(ctx)));
+	};
+	x3::rule<class composed, std::unique_ptr<Object>> composed_object_rule;
+	auto composed_object_rule_def = composed_object_tuple_rule[make_primitive_composed_func];
+	BOOST_SPIRIT_DEFINE(composed_object_rule);
 
 
 
 	x3::rule<class primitive, std::unique_ptr<Object>> primitive_rule;
-	auto primitive_rule_def = box_rule | prizm_rule | cone_rule | piramid_rule | cylinder_rule | sphere_rule | polyhedron_rule;
+	auto primitive_rule_def = box_rule | prizm_rule | cone_rule | piramid_rule | cylinder_rule | sphere_rule | polyhedron_rule | composed_object_rule;
 	
 	BOOST_SPIRIT_DEFINE(primitive_rule);
 	//ƒќЋ∆Ќј ќ„»ўј“№—я ѕ≈–≈ƒ па–—»Ќќ√ќћ
@@ -237,13 +276,15 @@ namespace Parser
 	
 
 	x3::rule<class assign_tuple, std::tuple<std::string, std::unique_ptr<Object>>> tuple_assignation_rule;
-	auto tuple_assignation_rule_def = liter_rule >> '=' >> primitive_rule;
+	auto tuple_assignation_rule_def = liter_rule >> '=' >> (primitive_rule | expression_rule);
 	void assignVariable(const std::string& str, std::unique_ptr<Object>&& prim) { __vars_map.insert({ str, std::move(prim) }); }
 	BOOST_SPIRIT_DEFINE(tuple_assignation_rule);
 
 	x3::rule<class assign, x3::unused_type> assignation_rule;
 	auto assignation_rule_def = tuple_assignation_rule[([](auto& ctx)
-		{ assignVariable(std::get<0>(x3::_attr(ctx)), std::move(std::get<1>(x3::_attr(ctx)))); })];
+		{
+			assignVariable(std::get<0>(x3::_attr(ctx)), std::move(std::get<1>(x3::_attr(ctx)))); 
+		})];
 	BOOST_SPIRIT_DEFINE(assignation_rule);
 
 	x3::rule<class var, std::unique_ptr<Object>> variable_rule;
@@ -253,7 +294,7 @@ namespace Parser
 
 
 
-	x3::rule<class expr, std::unique_ptr<Object>> expression_rule;
+	
 
 	x3::rule<class group, std::unique_ptr<Object>> group_rule;
 	auto group_rule_def = x3::lit("(") >> expression_rule >> ')';

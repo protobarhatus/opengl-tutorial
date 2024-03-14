@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -21,7 +21,7 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{bf21cd61-d942-4341-83b3-a03c86fabfa9}</ProjectGuid>
+    <ProjectGuid>{42AE8438-4DF5-464B-A475-BA187AC98767}</ProjectGuid>
     <RootNamespace>opengltutorial</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
@@ -72,22 +72,22 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>C:\Users\super\source\repos\opengl tutorial sol\Includes;$(SolutionDir)Includes;$(IncludePath)</IncludePath>
+    <IncludePath>C:\Users\super\source\repos\opengl tutorial sol\Includes;$(SolutionDir)Includes;$(SolutionDir)opengl tutorial;$(IncludePath)</IncludePath>
     <LibraryPath>C:\Users\super\source\repos\opengl tutorial sol\Libraries;$(SolutionDir)Libraries;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>C:\Users\super\source\repos\opengl tutorial sol\Includes;$(SolutionDir)Includes;$(IncludePath)</IncludePath>
+    <IncludePath>C:\Users\super\source\repos\opengl tutorial sol\Includes;$(SolutionDir)Includes;$(SolutionDir)opengl tutorial;$(IncludePath)</IncludePath>
     <LibraryPath>C:\Users\super\source\repos\opengl tutorial sol\Libraries;$(SolutionDir)Libraries;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>$(SolutionDir)Includes;$(IncludePath)</IncludePath>
+    <IncludePath>$(SolutionDir)Includes;$(SolutionDir)opengl tutorial;$(IncludePath)</IncludePath>
     <LibraryPath>$(SolutionDir)Libraries;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>C:\Users\super\source\repos\opengl tutorial sol\Includes;$(SolutionDir)Includes;$(IncludePath)</IncludePath>
+    <IncludePath>C:\Users\super\source\repos\opengl tutorial sol\Includes;$(SolutionDir)opengl tutorial;$(SolutionDir)Includes;$(IncludePath)</IncludePath>
     <LibraryPath>C:\Users\super\source\repos\opengl tutorial sol\Libraries;$(SolutionDir)Libraries;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -155,35 +155,40 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="ComposedObject.cpp" />
-    <ClCompile Include="glad.c" />
-    <ClCompile Include="GLSL_structures.cpp" />
-    <ClCompile Include="gl_utils.cpp" />
-    <ClCompile Include="linear_algebra.cpp" />
-    <ClCompile Include="objects_fabric.cpp" />
-    <ClCompile Include="parser.cpp" />
-    <ClCompile Include="primitives.cpp" />
-    <ClCompile Include="Scene.cpp" />
+    <ClCompile Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\ComposedObject.cpp" />
+    <ClCompile Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\glad.c" />
+    <ClCompile Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\GLSL_structures.cpp" />
+    <ClCompile Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\gl_utils.cpp" />
+    <ClCompile Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\linear_algebra.cpp" />
+    <ClCompile Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\objects_fabric.cpp" />
+    <ClCompile Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\parser.cpp">
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <ClCompile Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\primitives.cpp" />
+    <ClCompile Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\Scene.cpp" />
     <ClCompile Include="Source.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="raytrace.comp" />
-    <None Include="raytrace_main.comp" />
-    <None Include="shader.frag" />
-    <None Include="shader.vert" />
-    <None Include="visibility_detection_main.comp" />
+    <None Include="..\opengl tutorial\visibility_detection_main.comp" />
+    <None Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\raytrace.comp" />
+    <None Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\raytrace_main.comp" />
+    <None Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\shader.frag" />
+    <None Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\shader.vert" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="ComposedObject.h" />
-    <ClInclude Include="GLSL_structures.h" />
-    <ClInclude Include="gl_utils.h" />
-    <ClInclude Include="intersection.h" />
-    <ClInclude Include="linear_algebra.h" />
-    <ClInclude Include="objects_fabric.h" />
-    <ClInclude Include="parser.h" />
-    <ClInclude Include="primitives.h" />
-    <ClInclude Include="Scene.h" />
-    <ClInclude Include="stb_image.h" />
+    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\ComposedObject.h" />
+    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\GLSL_structures.h" />
+    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\gl_utils.h" />
+    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\intersection.h" />
+    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\linear_algebra.h" />
+    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\objects_fabric.h" />
+    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\parser.h" />
+    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\primitives.h" />
+    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\Scene.h" />
+    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\stb_image.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

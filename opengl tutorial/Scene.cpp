@@ -13,7 +13,7 @@ void Scene::subtractObject(const std::shared_ptr<Object>& obj, int ind)
 
 std::pair<bool, ISR> Scene::intersection(const Vector<3>& start, const Vector<3>& dir) const
 {
-    ISR nearest = { 1e20, {0,0,0}, false };
+    ISR nearest = { 1e20, {0,0,0}, false, -1 };
     for (auto& it : objs)
     {
         //вообще summ должно работать как пересечение но сейчас это не так так что мда
@@ -79,6 +79,6 @@ std::pair<bool, ISR> Scene::intersection(const Vector<3>& start, const Vector<3>
         }
     }
     if (nearest.t == 1e20)
-        return { false, {0,0,0,0,0} };
+        return { false, {0,0,0,0,0, -1} };
     return { true, nearest };
 }

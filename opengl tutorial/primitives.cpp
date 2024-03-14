@@ -192,11 +192,31 @@ Vector<3> Object::rotateBoundingBox() const
 	return max(a, max(b, max(c, max(d, max(e, max(f, max(g, h)))))));
 }
 
+
 Object::Object(const Vector<3>& pos, const Quat& rot) : position(pos), rotation(rot) {
 	Matrix<4> transposition(Vector<4>(1, 0, 0, -position.x()), Vector<4>(0, 1, 0, -position.y()), Vector<4>(0, 0, 1, -position.z()), Vector<4>(0, 0, 0, 1));
 	rotation_mat = inverseRot(this->rotation).rotation();
 	transformation_mat = rotation_mat * transposition;
 	back_rotation_mat = this->rotation.rotation();
+
+
+}
+#include <assert.h>
+const Object* Object::getObjectOfId(int id) const
+{
+	assert(this->getType() != ObjectType::COMPOSED_OBJECT);
+	if (this->id == id)
+		return this;
+	return nullptr;
+}
+
+int Object::getId() const {
+	return id;
+}
+
+void Object::setId(int i)
+{
+	id = i;
 }
 
 static int sign(double d)
@@ -250,7 +270,7 @@ std::vector<ISR> Sphere::_intersectLine(const Vector<3>& start, const Vector<3>&
 	double t1 = (-B_half - D_sq) / A;
 	double t2 = (-B_half + D_sq) / A;
 
-	return { ISR{t1, (start + dir * t1) * (1.0 / rad), true},  ISR{t2, (start + dir * t2) * (1.0 / rad), false } };
+	return { ISR{t1, (start + dir * t1) * (1.0 / rad), true, this->id},  ISR{t2, (start + dir * t2) * (1.0 / rad), false , this->id} };
 }
 
 Vector<3> Sphere::countBoundingBox() const
@@ -341,8 +361,8 @@ std::vector<ISR> Object::intersectWithRayOnBothSides(const Vector<3>& ray_start,
 
 	Vector<3> start = transformation_mat * Vector<4>(ray_start);
 	Vector<3> dir = rotation_mat * Vector<4>(direction);
-	if (!lineIntersectsBoundingBox(start, dir))
-		return { false, {0,0,0,0,0} };
+	//if (!lineIntersectsBoundingBox(start, dir))
+	//	return { false, {0,0,0,0,0} };
 
 	auto intersect = _intersectLine(start, dir);
 
@@ -395,7 +415,7 @@ std::pair<bool, ISR> Object::intersectWithRay(const Vector<3>& ray_start, const 
 	auto inter = intersectWithRayOnBothSides(ray_start, direction);
 	if (inter.size() > 0)
 		return { true, *inter.begin() };
-	return { false, {0,0,0,0,0} };
+	return { false, {0,0,0,0,0, this->id} };
 	//Matrix<4> back_transposition(Vector<4>(1, 0, 0, position.x()), Vector<4>(0, 1, 0, position.y()), Vector<4>(0, 0, 1, position.z()), Vector<4>(0, 0, 0, 1));
 	//Matrix<4> back_rotation = this->rotation.rotation();
 
@@ -457,7 +477,7 @@ std::pair<bool,double> rayIntersectsSegment(const Vector<2>& p, const Vector<2>&
 
 
 
-std::pair<int, std::pair<ISR, ISR>> rayIntersectsPolygon(const Vector<2>& p, const Vector<2>& n, const std::vector<Vector<2>>& polygon, const std::vector<Vector<3>>& normals)
+std::pair<int, std::pair<ISR, ISR>> rayIntersectsPolygon(const Vector<2>& p, const Vector<2>& n, const std::vector<Vector<2>>& polygon, const std::vector<Vector<3>>& normals, int id)
 {
 	int c = 0;
 	ISR res[2];
@@ -472,7 +492,7 @@ std::pair<int, std::pair<ISR, ISR>> rayIntersectsPolygon(const Vector<2>& p, con
 		//	continue;
 		if (c == 1 && equal(int_res.second, res[0].t))
 			continue;
-		res[c++] = { int_res.second, normals[i], false };
+		res[c++] = { int_res.second, normals[i], false, id };
 		if (c == 2)
 			break;
 	}
@@ -528,13 +548,13 @@ std::vector<ISR> Prizm::_intersectLine(const Vector<3>& start, const Vector<3>& 
 			double t_up = (half_height - start.z()) / dir.z();
 			double t_down = (-half_height - start.z()) / dir.z();
 			if (t_up < t_down)
-				return { {t_up, {0,0,1}, true}, {t_down, {0,0,-1}, false} };
+				return std::vector<ISR>{ {t_up, {0,0,1}, true, this->id}, {t_down, {0,0,-1}, false, this->id} };
 			else
-				return { {t_down, {0,0,-1}, true} , {t_up, {0,0,1}, false} };
+				return { {t_down, {0,0,-1}, true, this->id} , {t_up, {0,0,1}, false, this->id} };
 		}
 		return {};
 	}
-	auto shade_intersect = rayIntersectsPolygon(start, (dir), base, normals);
+	auto shade_intersect = rayIntersectsPolygon(start, (dir), base, normals, this->id);
 
 	if (shade_intersect.first == 0)
 	{
@@ -583,12 +603,12 @@ std::vector<ISR> Prizm::_intersectLine(const Vector<3>& start, const Vector<3>& 
 			if (t1.t < t_out)
 			{
 				t1.in = true;
-				return { t1, {t_out, {0, 0, 1}, false } };
+				return { t1, {t_out, {0, 0, 1}, false, this->id } };
 			}
 			else
 			{
 				t1.in = false;
-				return {  {t_out, {0, 0, 1}, true }, t1 };
+				return {  {t_out, {0, 0, 1}, true, this->id }, t1 };
 			}
 			//невозможная ситуация, т к если он не выходит в стене то должен выходить наверху но мало ли
 			return { t1, t1 };
@@ -602,12 +622,12 @@ std::vector<ISR> Prizm::_intersectLine(const Vector<3>& start, const Vector<3>& 
 			if (t1.t < t_out)
 			{
 				t1.in = true;
-				return { t1, {t_out, {0, 0, -1}, false } };
+				return { t1, {t_out, {0, 0, -1}, false, this->id } };
 			}
 			else
 			{
 				t1.in = false;
-				return { {t_out, {0, 0, -1}, true }, t1 };
+				return { {t_out, {0, 0, -1}, true, this->id }, t1 };
 			}
 			return { t1, t1 };
 		}
@@ -623,9 +643,9 @@ std::vector<ISR> Prizm::_intersectLine(const Vector<3>& start, const Vector<3>& 
 	{
 		double t_bot = (-half_height - start.z()) / dir.z();
 		if (t_out < t_bot)
-			return { {t_out, {0,0,1}, true},  {t_bot, {0,0,-1}, false} };
+			return { {t_out, {0,0,1}, true, this->id},  {t_bot, {0,0,-1}, false, this->id} };
 		else
-			return { {t_bot, {0,0,-1}, true},  {t_out, {0,0,1}, false} };
+			return { {t_bot, {0,0,-1}, true, this->id},  {t_out, {0,0,1}, false, this->id} };
 	}
 
 	return {};
@@ -660,7 +680,7 @@ std::vector<ISR> Cone::_intersectLine(const Vector<3>& start, const Vector<3>& d
 
 		double zn1 = -dot(p1, p1) / z1;
 		double zn2 = -dot(p2, p2) / z2;
-		return { {t1, normalize(Vector<3>{p1, zn1}), true}, {t2, normalize(Vector<3>{p2, zn2}), false} };
+		return { {t1, normalize(Vector<3>{p1, zn1}), true, this->id}, {t2, normalize(Vector<3>{p2, zn2}), false, this->id} };
 	}
 	if (!z1_good && !z2_good)
 		return {};
@@ -675,8 +695,8 @@ std::vector<ISR> Cone::_intersectLine(const Vector<3>& start, const Vector<3>& d
 
 	double t_base = (-height - start.z()) / dir.z();
 	if (t_base < t1)
-		return { {t_base, {0,0,-1}, true}, {t1, normalize(Vector<3>{p1, zn1}), false} };
-	return { {t1, normalize(Vector<3>{p1, zn1}), true}, {t_base, {0,0,-1}, false} };
+		return { {t_base, {0,0,-1}, true, this->id}, {t1, normalize(Vector<3>{p1, zn1}), false, this->id} };
+	return { {t1, normalize(Vector<3>{p1, zn1}), true, this->id}, {t_base, {0,0,-1}, false, this->id} };
 
 }
 
@@ -755,13 +775,13 @@ std::vector<ISR> Piramid::_intersectLine(const Vector<3>& start, const Vector<3>
 		double t_lev = (-height - start.z()) / dir.z();
 		Vector<2> base_inter = start + dir * t_lev;
 		if (isPointInsidePolygon(base_inter, base) != PointPolygonRelation::OUTSIDE)
-			t[count++] = { t_lev, {0,0,-1}, false };
+			t[count++] = { t_lev, {0,0,-1}, false, this->id };
 	}
 	for (int i = 0; i < base.size(); ++i)
 	{
 		auto inter = intersectLineWithTriangle(start, dir, Vector<3>(base[i], -height), Vector<3>(base[i < base.size() - 1 ? i + 1 : 0], -height), { 0,0,0 });
 		if (inter.first)
-			t[count++] = { inter.second, normals[i], false };
+			t[count++] = { inter.second, normals[i], false, this->id };
 		if (count == 2)
 			break;
 	}
@@ -796,14 +816,14 @@ Vector<3> Piramid::countBoundingBox() const
 
 
 
-std::pair<int, std::pair<ISR, ISR>> intersectLineWithCircle(const Vector<2>& p, const Vector<2> dir, double rad)
+std::pair<int, std::pair<ISR, ISR>> intersectLineWithCircle(const Vector<2>& p, const Vector<2> dir, double rad, int id)
 {
 	double A = (dir.x() * dir.x() + dir.y() * dir.y());
 	double B_half = p.x() * dir.x() + p.y() * dir.y();
 	double C = p.x() * p.x() + p.y() * p.y() - rad * rad;
 	double D = B_half * B_half - A * C;
 	if (D < 0)
-		return { false, {{0,0,0,0, 0}, {0,0,0,0, 0} } };
+		return { false, {{0,0,0,0, 0, id}, {0,0,0,0, 0, id} } };
 	double D_sq = sqrt(D);
 	
 	//if (equal(D_sq, 0))
@@ -816,7 +836,7 @@ std::pair<int, std::pair<ISR, ISR>> intersectLineWithCircle(const Vector<2>& p, 
 	double t2 = (-B_half + D_sq) / A;
 	Vector<2> p1 = (p + dir * t1) * (1.0/rad);
 	Vector<2> p2 = (p + dir * t2) * (1.0/rad);
-	return { 2, {{t1, {p1,0}, true}, {t2, {p2, 0}, false}} };
+	return { 2, {{t1, {p1,0}, true, id}, {t2, {p2, 0}, false, id}} };
 }
 
 
@@ -831,12 +851,12 @@ std::vector<ISR> Cylinder::_intersectLine(const Vector<3>& start, const Vector<3
 			double t_up = (half_height - start.z()) / dir.z();
 			double t_down = (-half_height - start.z()) / dir.z();
 			if (t_up < t_down)
-				return { {t_up, {0,0,1}, true}, {t_down,{0,0,-1}, false} };
-			return { {t_down,{0,0,-1}, true}, {t_up, {0,0,1}, false} };
+				return { {t_up, {0,0,1}, true, this->id}, {t_down,{0,0,-1}, false, this->id} };
+			return { {t_down,{0,0,-1}, true, this->id}, {t_up, {0,0,1}, false, this->id} };
 		}
 		return {};
 	}
-	auto shade_intersect = intersectLineWithCircle(start, dir, rad);
+	auto shade_intersect = intersectLineWithCircle(start, dir, rad, id);
 
 	if (shade_intersect.first == 0)
 	{
@@ -874,18 +894,18 @@ std::vector<ISR> Cylinder::_intersectLine(const Vector<3>& start, const Vector<3
 		{
 			double t_out = (half_height - start.z()) / dir.z();
 			if (t1.t < t_out)
-				return { t1, {t_out, {0,0,1}, false} };
+				return { t1, {t_out, {0,0,1}, false, this->id} };
 			else
-				return { {t_out, {0,0,1}, true}, t1 };
+				return { {t_out, {0,0,1}, true, this->id}, t1 };
 
 		}
 		if (point_z2 < -half_height)
 		{
 			double t_out = (-half_height - start.z()) / dir.z();
 			if (t1.t < t_out)
-				return { t1, {t_out, {0,0,-1}, false} };
+				return { t1, {t_out, {0,0,-1}, false, this->id} };
 			else
-				return { {t_out, {0,0,-1}, true}, t1 };
+				return { {t_out, {0,0,-1}, true, this->id}, t1 };
 
 		}
 	}
@@ -900,9 +920,9 @@ std::vector<ISR> Cylinder::_intersectLine(const Vector<3>& start, const Vector<3
 	{
 		double t_bot = (-half_height - start.z()) / dir.z();
 		if (t_out < t_bot)
-			return { {t_out, {0, 0, 1}, true}, {t_bot, {0, 0, -1}, false} };
+			return { {t_out, {0, 0, 1}, true, this->id}, {t_bot, {0, 0, -1}, false, this->id} };
 		else
-			return {{t_bot, {0, 0, -1}, true},  {t_out, {0, 0, 1}, false} };
+			return {{t_bot, {0, 0, -1}, true, this->id},  {t_out, {0, 0, 1}, false, this->id} };
 	}
 	return {};
 }
@@ -917,12 +937,12 @@ Vector<3> Cylinder::countBoundingBox() const
 
 
 
-IntersectionResult::IntersectionResult(double t, double x, double y, double z, bool in) : t(t), n(x, y, z), in(in)
+IntersectionResult::IntersectionResult(double t, double x, double y, double z, bool in, int id) : t(t), n(x, y, z), in(in), obj_id(id)
 {
 	
 }
 
-IntersectionResult::IntersectionResult(double t, const Vector<3>& n, bool in) : t(t),n(n), in(in)
+IntersectionResult::IntersectionResult(double t, const Vector<3>& n, bool in, int id) : t(t),n(n), in(in), obj_id(id)
 {
 }
 
@@ -946,7 +966,7 @@ Vector<3> Box::countBoundingBox() const
 	//return this->bounding_box;
 }
 
-std::pair<bool, ISR> intersectLineWithBoxOnSide(int sig, int dir_c, int c1, int c2, const Vector<3>& bounding_box, const Vector<3>& start, const Vector<3>& dir)
+std::pair<bool, ISR> intersectLineWithBoxOnSide(int sig, int dir_c, int c1, int c2, const Vector<3>& bounding_box, const Vector<3>& start, const Vector<3>& dir, int id)
 {
 	double xpT = (sig*bounding_box.nums[dir_c] - start.nums[dir_c]) / dir.nums[dir_c];
 	double yatx = start.nums[c1] + dir.nums[c1] * xpT;
@@ -957,16 +977,16 @@ std::pair<bool, ISR> intersectLineWithBoxOnSide(int sig, int dir_c, int c1, int 
 		n.nums[dir_c] = sig;
 		n.nums[c1] = 0;
 		n.nums[c2] = 0;
-		return { true, ISR(xpT, n, sig * sign(dir.nums[dir_c]) < 0) };
+		return { true, ISR(xpT, n, sig * sign(dir.nums[dir_c]) < 0, id) };
 	}
-	return { false, {0, 0,0,0,0} };
+	return { false, {0, 0,0,0,0, id} };
 
 }
 std::vector<ISR> Box::_intersectLine(const Vector<3>& start, const Vector<3>& dir) const
 {
 	int c = 0;
 	static std::vector<ISR> res(2);
-	auto intres = intersectLineWithBoxOnSide(1, 0, 1, 2, size, start, dir);
+	auto intres = intersectLineWithBoxOnSide(1, 0, 1, 2, size, start, dir, this->id);
 	int previn = -1;
 	if (intres.first)
 	{
@@ -974,7 +994,7 @@ std::vector<ISR> Box::_intersectLine(const Vector<3>& start, const Vector<3>& di
 		previn = intres.second.in;
 		++c;
 	}
-	intres = intersectLineWithBoxOnSide(-1, 0, 1, 2, size, start, dir);
+	intres = intersectLineWithBoxOnSide(-1, 0, 1, 2, size, start, dir, this->id);
 	if (intres.first && intres.second.in != previn)
 	{
 		res[1 - intres.second.in] = intres.second;
@@ -983,7 +1003,7 @@ std::vector<ISR> Box::_intersectLine(const Vector<3>& start, const Vector<3>& di
 	}
 	if (c == 2)
 		return res;
-	intres = intersectLineWithBoxOnSide(1, 1, 0, 2, size, start, dir);
+	intres = intersectLineWithBoxOnSide(1, 1, 0, 2, size, start, dir, this->id);
 	if (intres.first && intres.second.in != previn)
 	{
 		res[1 - intres.second.in] = intres.second;
@@ -992,7 +1012,7 @@ std::vector<ISR> Box::_intersectLine(const Vector<3>& start, const Vector<3>& di
 	}
 	if (c == 2)
 		return res;
-	intres = intersectLineWithBoxOnSide(-1, 1, 0, 2, size, start, dir);
+	intres = intersectLineWithBoxOnSide(-1, 1, 0, 2, size, start, dir, this->id);
 	if (intres.first && intres.second.in != previn)
 	{
 		res[1 - intres.second.in] = intres.second;
@@ -1001,7 +1021,7 @@ std::vector<ISR> Box::_intersectLine(const Vector<3>& start, const Vector<3>& di
 	}
 	if (c == 2)
 		return res;
-	intres = intersectLineWithBoxOnSide(1, 2, 1, 0, size, start, dir);
+	intres = intersectLineWithBoxOnSide(1, 2, 1, 0, size, start, dir, this->id);
 	if (intres.first && intres.second.in != previn)
 	{
 		res[1 - intres.second.in] = intres.second;
@@ -1010,7 +1030,7 @@ std::vector<ISR> Box::_intersectLine(const Vector<3>& start, const Vector<3>& di
 	}
 	if (c == 2)
 		return res;
-	intres = intersectLineWithBoxOnSide(-1, 2, 1, 0, size, start, dir);
+	intres = intersectLineWithBoxOnSide(-1, 2, 1, 0, size, start, dir, this->id);
 	if (intres.first && intres.second.in != previn)
 	{
 		res[1 - intres.second.in] = intres.second;
@@ -1029,10 +1049,10 @@ std::vector<ISR> Box::intersectWithRayOnBothSides(const Vector<3>& ray_start, co
 	Vector<3> dir = rotation_mat * Vector<4>(direction);
 	//я не понимаю почему но с этим так получается быстрее чем без этого
 	if (!lineIntersectsBoundingBox(start, dir))
-		return { false, {0,0,0,0,0} };
+		return { false, {0,0,0,0,0, this->id} };
 	auto intersect = _intersectLine(start, dir);
 	if (intersect.size() == 0)
-		return { false, {0,0,0,0,0} };
+		return { false, {0,0,0,0,0, this->id} };
 
 	for (auto it = intersect.begin(); it != intersect.end(); )
 	{
@@ -1141,7 +1161,7 @@ std::vector<ISR> Polyhedron::_intersectLine(const Vector<3>& start, const Vector
 				if (already_counted)
 					continue;
 			}
-			res.push_back( { t, normals[i], dot(normals[i], dir)<0 });
+			res.push_back( { t, normals[i], dot(normals[i], dir)<0, this->id });
 			++c;
 			if (this->convex && c == 2)
 				break;
@@ -1165,31 +1185,31 @@ bool Polyhedron::isPointInside(const Vector<3>& p) const
 }
 
 
-ObjectType Box::getId() const
+ObjectType Box::getType() const
 {
 	return ObjectType::BOX;
 }
-ObjectType Prizm::getId() const
+ObjectType Prizm::getType() const
 {
 	return ObjectType::PRIZM;
 }
-ObjectType Cone::getId() const
+ObjectType Cone::getType() const
 {
 	return ObjectType::CONE;
 }
-ObjectType Piramid::getId() const
+ObjectType Piramid::getType() const
 {
 	return ObjectType::PIRAMID;
 }
-ObjectType Cylinder::getId() const
+ObjectType Cylinder::getType() const
 {
 	return ObjectType::CYLINDER;
 }
-ObjectType Sphere::getId() const
+ObjectType Sphere::getType() const
 {
 	return ObjectType::SPHERE;
 }
-ObjectType Polyhedron::getId() const
+ObjectType Polyhedron::getType() const
 {
 	return ObjectType::POLYHEDRON;
 }

@@ -511,7 +511,7 @@ int main()
 	loadShader(prog, "shader.frag", GL_FRAGMENT_SHADER);
 
 	int ray_trace_programm = glCreateProgram();
-	loadShader(ray_trace_programm, "raytrace.comp", GL_COMPUTE_SHADER);
+	loadShader(ray_trace_programm, std::vector<std::string>{ "raytrace.comp", "raytrace_main.comp" }, GL_COMPUTE_SHADER);
 
 	glEnable(GL_DEPTH_TEST);
 	glLinkProgram(prog);
@@ -540,7 +540,7 @@ int main()
 	auto cstart = glfwGetTime();
 	int counter = 0;
 
-	std::vector<unsigned char> texture(window_width * window_height * 4, 255);
+	//std::vector<unsigned char> texture(window_width * window_height * 4, 255);
 	
 	createTexImage(window_width, window_height);
 	createTexImage(window_width, window_height, GL_TEXTURE1, GL_DEPTH_COMPONENT, GL_DEPTH_COMPONENT, GL_FLOAT);
@@ -554,19 +554,24 @@ int main()
 	Quat null_rotation = Quat(1, 0, 0, 0);
 	
 
-	auto obj = parse(readFile("examples/box_in_box.txt"));
+	auto obj = parse(readFile("examples/visibility_scene.txt"));
 	
 
 	assert(obj != nullptr);
 	obj->moveOn({ 0,9,0 });
 	/**/obj->globalizeCoordinates();
 
+
+
+
 	GlslSceneMemory shader_scene;
 	shader_scene.setSceneAsComposedObject(obj->copy());
-	shader_scene.dropToFiles("shadered\\");
+	//shader_scene.dropToFiles("shadered\\");
 	shader_scene.bind(ray_trace_programm, prog);
 
 	camera_pos.nums[1] = 2;
+
+	
 
 	while (!glfwWindowShouldClose(window)) // Main-Loop
 	{
@@ -615,6 +620,8 @@ int main()
 		if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS)
 			camera_pos.nums[1] -= cam_sp;
 
+
+
 		++counter;
 		//while (glfwGetTime() - cstart < counter * (1.0 / 60.0))
 		//{
@@ -627,3 +634,87 @@ int main()
 
 	exit(EXIT_SUCCESS); // Function call: exit() is a C/C++ function that performs various tasks to help clean up resources.
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*//для демки обнаружения видимости
+auto cbox = makeBox({ 0.5, 0.5, 0.5 }, { 10.6, 20.4, 2.7 }, null_rotation);
+Object* cboxp = cbox.get();
+auto tbox = makeSphere(0.5, { 10.5, 9.7, 2.9 });
+Object* tboxp = tbox.get();
+int tbox_id = tbox->getId();
+auto object = parse(readFile("examples/visibility_scene.txt"));
+object = objectsUnion(objectsUnion(std::move(cbox), std::move(tbox), { 0,0,0 }, null_rotation), std::move(object), { 0,0,0 }, null_rotation);
+object->moveOn({ 0, 5, 0 });
+object->globalizeCoordinates();
+cboxp->setColor({ 1, 0, 0 });
+
+
+const double DENSITY = length(cboxp->getPosition() - tboxp->getPosition()) * 2.0 / window_width * 1;
+
+Vector<3> step_obj1 = { 0.5 * 2. , 0.5 * 2., 0.5 * 2. };
+Vector<3> step_obj2 = { 0.5 * 2., 0.5  * 2., 0.5 * 2. };
+auto checkVisibility = [&object, tbox_id, cboxp, tboxp, DENSITY, step_obj1, step_obj2](const Vector<3>& c1, const Vector<3>& c2)->bool {
+	std::vector<Vector<3>> dirs = { {1,0,0}, {0, 1, 0}, {0, 0, 1}, {-1, 0, 0}, {0, -1, 0}, {0, 0, -1} };
+	std::vector<std::pair<Vector<3>, Vector<3>>> oct_dirs = { {{0, 1, 0}, {0,0,1}}, {{1,0,0},{0,0,1}}, {{1,0,0},{0,1,0}}, {{0, 1, 0}, {0,0,1}}, {{1,0,0},{0,0,1}}, {{1,0,0},{0,1,0}} };
+
+
+	for (int i = 0; i < dirs.size(); ++i)
+	{
+		const int LIN_SIZE1 = 1.0 / DENSITY;
+		double step_x = dot(step_obj1, oct_dirs[i].first) / (LIN_SIZE1 - 1);
+		double step_y = dot(step_obj1, oct_dirs[i].second) / (LIN_SIZE1 - 1);
+		Vector<3> edg_cen = c1 + dirs[i] * dot(step_obj1, dirs[i]) * 1.01 * 0.5;
+		for (int x1 = 0; x1 < LIN_SIZE1; ++x1)
+		{
+			for (int y1 = 0; y1 < LIN_SIZE1; ++y1)
+			{
+				Vector<3> p1 = edg_cen + oct_dirs[i].first * (dot(step_obj1, oct_dirs[i].first) * 0.5 - step_x * x1) + oct_dirs[i].second * (dot(step_obj1, oct_dirs[i].second) * 0.5 - step_y * y1);
+
+				for (int j = 0; j < dirs.size(); ++j)
+				{
+					const int LIN_SIZE2 = 1.0 / DENSITY;
+					double step_x2 = dot(step_obj2, oct_dirs[j].first) / (LIN_SIZE2 - 1);
+					double step_y2 = dot(step_obj2, oct_dirs[j].second) / (LIN_SIZE2 - 1);
+					Vector<3> edg_cen2 = c2 + dirs[j] * dot(step_obj2, dirs[j]) * 1.01 * 0.5;
+					for (int x2 = 0; x2 < LIN_SIZE2; ++x2)
+					{
+						for (int y2 = 0; y2 < LIN_SIZE2; ++y2)
+						{
+							Vector<3> p2 = edg_cen2 + oct_dirs[j].first * (dot(step_obj2, oct_dirs[j].first) * 0.5 - step_x2 * x2) + oct_dirs[j].second * (dot(step_obj2, oct_dirs[j].second) * 0.5 - step_y2 * y2);
+
+							auto isr = object->intersectWithRay(p1, p2 - p1);
+							if (isr.first && length((p1 + (p2 - p1) * isr.second.t) - tboxp->getPosition()) < 0.51)
+							{
+								printf("{%f, %f, %f}; {%f, %f, %f}", p1.x(), p1.y(), p1.z(), (p1 + (p2 - p1) * isr.second.t).x(), (p1 + (p2 - p1) * isr.second.t).y(), (p1 + (p2 - p1) * isr.second.t).z());
+								return true;
+							}
+
+						}
+					}
+					std::cout << (double(i) / dirs.size() + 1.0 / dirs.size() * double(x1) / LIN_SIZE1 + 1.0 / dirs.size() * 1.0 / LIN_SIZE1 * double(y1) / LIN_SIZE1 + 1.0 / dirs.size() * 1.0 / LIN_SIZE1 * 1.0 / LIN_SIZE1 * double(j) / dirs.size()) * 100 << "%\n";
+				}
+			}
+		}
+	}
+	return false;
+};
+
+//if (checkVisibility(cboxp->getPosition(), tboxp->getPosition()))
+//	std::cout << "VISIBLE\n";
+//else
+//	std::cout << "NOT VISIBLE\n";
+//system("pause");
+
+bool visibility = false;*/

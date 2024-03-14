@@ -2,6 +2,8 @@
 #include <memory>
 #include <string>
 #include "ComposedObject.h"
+#include <map>
+#include <set>
 
 struct GLSL_Primitive;
 
@@ -59,10 +61,11 @@ class GlslSceneMemory
 	typedef int ComposedObjectRepresentation;
 	std::vector<GLSL_ComposedObject> composed_object_nodes_buffer;
 	
-	void setComposedObject(const std::unique_ptr<Object>& obj, int buffer_position);
+	void setComposedObject(const std::unique_ptr<Object>& obj, int buffer_position, std::map<int, int>* map_of_ids, const std::set<int>& important_ids);
 public:
 	GlslSceneMemory();
 	void setSceneAsComposedObject(const std::unique_ptr<Object>& obj);
+	void setSceneAsComposedObject(const std::unique_ptr<Object>& obj, const std::set<int>& important_ids, std::map<int, int>& map_of_ids);
 	
 	void bind(int programm, int current_program);
 	void dropToFiles(const std::string& dir) const;

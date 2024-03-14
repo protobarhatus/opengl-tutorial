@@ -54,7 +54,7 @@ GlslSceneMemory::GlslSceneMemory()
 
 std::vector<Vector<2>> getVec2Data(const std::unique_ptr<Object>& obj)
 {
-	switch (obj->getId())
+	switch (obj->getType())
 	{
 	case ObjectType::PRIZM:
 		return ((Prizm*)obj.get())->getBase();
@@ -86,18 +86,20 @@ OperationTypeInShader mapOperations(ComposedObject::Operation op)
 	}
 }
 
-void GlslSceneMemory::setComposedObject(const std::unique_ptr<Object>& obj, int buffer_position)
+void GlslSceneMemory::setComposedObject(const std::unique_ptr<Object>& obj, int buffer_position, std::map<int, int>* map_of_ids, const std::set<int>& important_ids)
 {
 	if (this->composed_object_nodes_buffer.size() <= buffer_position)
 		this->composed_object_nodes_buffer.resize(buffer_position + 1);
-	if (obj->getId() == ObjectType::COMPOSED_OBJECT)
+	if (important_ids.find(obj->getId()) != important_ids.end() && map_of_ids != nullptr)
+		map_of_ids->insert({ obj->getId(), buffer_position });
+	if (obj->getType() == ObjectType::COMPOSED_OBJECT)
 	{
 		const ComposedObject* obj_p = (const ComposedObject*)obj.get();
 		assert(equal(obj_p->getPosition(), { 0,0,0 }));
 		assert(equal(obj_p->getRotation(), Quat(1, 0, 0, 0)));
 		this->composed_object_nodes_buffer[buffer_position] = { (int)mapOperations(obj_p->getOperation()) };
-		setComposedObject(obj_p->getLeft(), 2 * (buffer_position + 1) - 1);
-		setComposedObject(obj_p->getRight(), 2 * (buffer_position + 1));
+		setComposedObject(obj_p->getLeft(), 2 * (buffer_position + 1) - 1, map_of_ids, important_ids);
+		setComposedObject(obj_p->getRight(), 2 * (buffer_position + 1), map_of_ids, important_ids);
 	}
 	else
 	{
@@ -108,12 +110,17 @@ void GlslSceneMemory::setComposedObject(const std::unique_ptr<Object>& obj, int 
 
 void GlslSceneMemory::setSceneAsComposedObject(const std::unique_ptr<Object>& obj)
 {
-	setComposedObject(obj, 0);
+	setComposedObject(obj, 0, nullptr, std::set<int>());
+}
+
+void GlslSceneMemory::setSceneAsComposedObject(const std::unique_ptr<Object>& obj, const std::set<int>& important_ids, std::map<int, int>& map_of_ids)
+{
+	setComposedObject(obj, 0, &map_of_ids, important_ids);
 }
 
 std::vector<Vector<3>> getVec3Data(const std::unique_ptr<Object>& obj)
 {
-	switch (obj->getId())
+	switch (obj->getType())
 	{
 	case ObjectType::PRIZM:
 		return ((Prizm*)obj.get())->getNormals();
@@ -133,7 +140,7 @@ std::vector<Vector<3>> getVec3Data(const std::unique_ptr<Object>& obj)
 
 std::vector<int> getIntData(const std::unique_ptr<Object>& obj, int matrix_buffer_count)
 {
-	switch (obj->getId())
+	switch (obj->getType())
 	{
 	case ObjectType::POLYHEDRON:
 	{
@@ -156,7 +163,7 @@ std::vector<int> getIntData(const std::unique_ptr<Object>& obj, int matrix_buffe
 
 std::vector<GLSL_mat3> getMat3Data(const std::unique_ptr<Object>& obj)
 {
-	switch (obj->getId())
+	switch (obj->getType())
 	{
 	case ObjectType::POLYHEDRON:
 	{
@@ -173,7 +180,7 @@ std::vector<GLSL_mat3> getMat3Data(const std::unique_ptr<Object>& obj)
 
 void GlslSceneMemory::addObject(const std::unique_ptr<Object>& obj)
 {
-	if (obj->getId() == ObjectType::COMPOSED_OBJECT)
+	if (obj->getType() == ObjectType::COMPOSED_OBJECT)
 		assert(false);
 	__savePrimitive(obj);
 
@@ -252,7 +259,7 @@ void GlslSceneMemory::bind(int programm, int current_program)
 
 GLSL_Primitive buildObject(const std::unique_ptr<Object>& obj, int data_index, int normals_index, int int_index)
 {
-	switch (obj->getId())
+	switch (obj->getType())
 	{
 	case ObjectType::SPHERE:
 		return buildSphere(((Sphere*)obj.get())->getRadius(), obj->getPosition(), obj->getRotation(), obj->getColor());
@@ -602,10 +609,10 @@ std::pair<bool, ISR> GlslSceneMemory::__intersectWithRay(const Vector<3>& start,
 	{
 		bool has_intersection = false;
 		Intersection res = { 0,{0,0,0} };
-		return { has_intersection, ISR(0,0,0,0,0) };
+		return { has_intersection, ISR(0,0,0,0,0, -1) };
 	}
 	
-	return { true, ISR(intersections_stack[lists_stack[0]].data.t,  intersections_stack[lists_stack[0]].data.n, true)};
+	return { true, ISR(intersections_stack[lists_stack[0]].data.t,  intersections_stack[lists_stack[0]].data.n, true, -1)};
 }
 #include <iostream>
 static inline int at(int i, int j, int width)

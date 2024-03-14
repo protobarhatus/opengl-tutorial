@@ -50,6 +50,24 @@ bool checkCompilation(int shader)
 	return false;
 }
 
+void loadShader(int prog, const std::vector<std::string> & names, GLuint type)
+{
+	unsigned int vert = glCreateShader(type);
+	std::string src = "";
+	for (auto& it : names)
+		src += readFile(it);
+	const char* vert_src = src.c_str();
+	glShaderSource(vert, 1, &vert_src, NULL);
+	glCompileShader(vert);
+
+	if (!checkCompilation(vert))
+	{
+		system("pause");
+		glDeleteShader(vert);
+	}
+	glAttachShader(prog, vert);
+}
+
 void loadShader(int prog, const std::string& name, GLuint type)
 {
 	unsigned int vert = glCreateShader(type);

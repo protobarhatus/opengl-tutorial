@@ -16,7 +16,7 @@ private:
 	virtual std::vector<ISR> _intersectLine(const Vector<3>& pos, const Vector<3>& dir) const override;
 	virtual Vector<3> countBoundingBox() const override;
 public:
-	virtual ObjectType getId() const override;
+	virtual ObjectType getType() const override;
 	virtual std::unique_ptr<Object> copy() const override;
 	virtual bool isPointInside(const Vector<3>& p) const override;
 	ComposedObject(std::unique_ptr<Object>&& left, std::unique_ptr<Object>&& right, Operation oper, const Vector<3>& pos, const Quat& rot);
@@ -26,6 +26,7 @@ public:
 	const std::unique_ptr<Object>& getRight() const;
 	//сецчас не учитывает вращение
 	virtual void globalizeCoordinates();
+	const Object* getObjectOfId(int id) const override;
 };
 
 std::unique_ptr<Object> objectsCombination(std::unique_ptr<Object>&& left, std::unique_ptr<Object>&& right, ComposedObject::Operation oper, const Vector<3>& comm_pos, const Quat& comm_rot);
