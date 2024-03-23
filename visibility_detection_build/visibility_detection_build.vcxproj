@@ -87,8 +87,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>C:\Users\super\source\repos\opengl tutorial sol\Includes;$(SolutionDir)opengl tutorial;$(SolutionDir)Includes;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\Users\super\source\repos\opengl tutorial sol\Libraries;$(SolutionDir)Libraries;$(LibraryPath)</LibraryPath>
+    <IncludePath>($SolutionDir)Includes;$(SolutionDir)opengl tutorial;$(SolutionDir)Includes;$(IncludePath)</IncludePath>
+    <LibraryPath>($SolutionDir)Libraries;$(SolutionDir)Libraries;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -155,40 +155,40 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\ComposedObject.cpp" />
-    <ClCompile Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\glad.c" />
-    <ClCompile Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\GLSL_structures.cpp" />
-    <ClCompile Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\gl_utils.cpp" />
-    <ClCompile Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\linear_algebra.cpp" />
-    <ClCompile Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\objects_fabric.cpp" />
-    <ClCompile Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\parser.cpp">
+    <ClCompile Include="$(SolutionDir)opengl tutorial\ComposedObject.cpp" />
+    <ClCompile Include="$(SolutionDir)opengl tutorial\glad.c" />
+    <ClCompile Include="$(SolutionDir)opengl tutorial\GLSL_structures.cpp" />
+    <ClCompile Include="$(SolutionDir)opengl tutorial\gl_utils.cpp" />
+    <ClCompile Include="$(SolutionDir)opengl tutorial\linear_algebra.cpp" />
+    <ClCompile Include="$(SolutionDir)opengl tutorial\objects_fabric.cpp" />
+    <ClCompile Include="$(SolutionDir)opengl tutorial\parser.cpp">
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
-    <ClCompile Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\primitives.cpp" />
-    <ClCompile Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\Scene.cpp" />
+    <ClCompile Include="$(SolutionDir)opengl tutorial\primitives.cpp" />
+    <ClCompile Include="$(SolutionDir)opengl tutorial\Scene.cpp" />
     <ClCompile Include="Source.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\opengl tutorial\visibility_detection_main.comp" />
-    <None Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\raytrace.comp" />
-    <None Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\raytrace_main.comp" />
-    <None Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\shader.frag" />
-    <None Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\shader.vert" />
+    <None Include="$(SolutionDir)opengl tutorial\raytrace.comp" />
+    <None Include="$(SolutionDir)opengl tutorial\raytrace_main.comp" />
+    <None Include="$(SolutionDir)opengl tutorial\shader.frag" />
+    <None Include="$(SolutionDir)opengl tutorial\shader.vert" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\ComposedObject.h" />
-    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\GLSL_structures.h" />
-    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\gl_utils.h" />
-    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\intersection.h" />
-    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\linear_algebra.h" />
-    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\objects_fabric.h" />
-    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\parser.h" />
-    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\primitives.h" />
-    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\Scene.h" />
-    <ClInclude Include="C:\Users\super\source\repos\opengl tutorial sol\opengl tutorial\stb_image.h" />
+    <ClInclude Include="$(SolutionDir)opengl tutorial\ComposedObject.h" />
+    <ClInclude Include="$(SolutionDir)opengl tutorial\GLSL_structures.h" />
+    <ClInclude Include="$(SolutionDir)opengl tutorial\gl_utils.h" />
+    <ClInclude Include="$(SolutionDir)opengl tutorial\intersection.h" />
+    <ClInclude Include="$(SolutionDir)opengl tutorial\linear_algebra.h" />
+    <ClInclude Include="$(SolutionDir)opengl tutorial\objects_fabric.h" />
+    <ClInclude Include="$(SolutionDir)opengl tutorial\parser.h" />
+    <ClInclude Include="$(SolutionDir)opengl tutorial\primitives.h" />
+    <ClInclude Include="$(SolutionDir)opengl tutorial\Scene.h" />
+    <ClInclude Include="$(SolutionDir)opengl tutorial\stb_image.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

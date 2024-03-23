@@ -8,6 +8,7 @@
 #include <functional>
 #include <algorithm>
 #include <random>
+#include <execution>
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 #include "linear_algebra.h"
@@ -134,8 +135,17 @@ struct Vertex
 };
 
 
-
-bool checkVisibilityOnGpu(const std::unique_ptr<Object>& obj, int from_id, int on_id, int SCREEN_SIZE, int PIXEL_ACCURACY)
+/// <summary>
+/// проверяет видны ли обьекты друг из друга запуская шейдер на видеокарте
+/// </summary>
+/// <param name="obj">сцена прочитанная через parse из файла</param>
+/// <param name="from_id">id обьекта из которого смотрят указанное в виде опционального параметра в файле</param>
+/// <param name="on_id">id обьекта на который смотрят</param>
+/// <param name="SCREEN_SIZE">характеристический размер экрана в пикселях, используется как множитель для количества лучей в связке с
+/// PIXEL_ACCURACY</param>
+/// <param name="PIXEL_ACCURACY">точность поиска видимости в пикселях при заданном SCREEN_SIZE</param>
+/// <returns></returns>
+bool checkVisibilityOnGpu(const std::unique_ptr<Object>& obj, int from_id, int on_id, int SCREEN_SIZE=1000, int PIXEL_ACCURACY=1)
 {
 	Vector<3> from_pos = obj->getObjectOfId(from_id)->getPosition();
 	Vector<3> on_pos = obj->getObjectOfId(on_id)->getPosition();
@@ -241,8 +251,17 @@ bool checkVisibilityOnGpu(const std::unique_ptr<Object>& obj, int from_id, int o
 
 
 
-
-bool checkVisibilityCpu(const std::unique_ptr<Object>& obj, int from_id, int on_id, int SCREEN_SIZE, int PIXEL_ACCURACY)
+/// <summary>
+/// проверяет видны ли обьекты друг из друга на цпу
+/// </summary>
+/// <param name="obj">сцена прочитанная через parse из файла</param>
+/// <param name="from_id">id обьекта из которого смотрят указанное в виде опционального параметра в файле</param>
+/// <param name="on_id">id обьекта на который смотрят</param>
+/// <param name="SCREEN_SIZE">характеристический размер экрана в пикселях, используется как множитель для количества лучей в связке с
+/// PIXEL_ACCURACY</param>
+/// <param name="PIXEL_ACCURACY">точность поиска видимости в пикселях при заданном SCREEN_SIZE</param>
+/// <returns></returns>
+bool checkVisibilityCpu(const std::unique_ptr<Object>& obj, int from_id, int on_id, int SCREEN_SIZE=1000, int PIXEL_ACCURACY=1)
 {
 	Vector<3> from_pos = obj->getObjectOfId(from_id)->getPosition();
 	Vector<3> on_pos = obj->getObjectOfId(on_id)->getPosition();
@@ -263,37 +282,49 @@ bool checkVisibilityCpu(const std::unique_ptr<Object>& obj, int from_id, int on_
 	int lin_size2_x = int(2 * on_bb.x() / DENSITY) + 1;
 	int lin_size2_y = int(2 * on_bb.y() / DENSITY) + 1;
 
-	Vector<3> dirs[6] = { {1,0,0}, {0, 1, 0}, {0, 0, 1}, {-1, 0, 0}, {0, -1, 0}, {0, 0, -1} };
+	std::vector<Vector<3>> dirs = { {1,0,0}, {0, 1, 0}, {0, 0, 1}, {-1, 0, 0}, {0, -1, 0}, {0, 0, -1} };
 	std::pair<Vector<3>, Vector<3>> oct_dirs[6] = { {{0, 1, 0}, {0,0,1}}, {{1,0,0},{0,0,1}}, {{1,0,0},{0,1,0}}, {{0, 1, 0}, {0,0,1}}, {{1,0,0},{0,0,1}}, {{1,0,0},{0,1,0}} };
-	for (int i = 0; i < 6; ++i)
-	{
-		Vector<3> edg_cen = from_pos + dirs[i] * abs(dot(from_bb, dirs[i])) * 1.01;
-		for (int x1 = 0; x1 < lin_size1_x; ++x1)
+	std::vector<int> indexes = { 0, 1, 2, 3, 4, 5 };
+	bool visible = false;
+	std::for_each(std::execution::par_unseq, indexes.begin(), indexes.end(), [&visible, &obj, from_pos, on_pos, from_bb, on_bb, dist, DENSITY, lin_size1_x, lin_size1_y, lin_size2_x, lin_size2_y, oct_dirs, dirs, from_id, on_id](int i)
 		{
-			for (int y1 = 0; y1 < lin_size1_y; ++y1)
+			Vector<3> edg_cen = from_pos + dirs[i] * abs(dot(from_bb, dirs[i])) * 1.01;
+			for (int x1 = 0; x1 < lin_size1_x; ++x1)
 			{
-				Vector<3> p1 = edg_cen + oct_dirs[i].first * float(dot(from_bb, oct_dirs[i].first) - DENSITY * x1) + oct_dirs[i].second * float(dot(from_bb, oct_dirs[i].second) - DENSITY * y1);
-				for (int j = 0; j < 6; ++j)
+				for (int y1 = 0; y1 < lin_size1_y; ++y1)
 				{
-					Vector<3> edg_cen2 = on_pos + dirs[j] * dot(on_bb, dirs[j]) * 1.01;
-					for (int x2 = 0; x2 < lin_size2_x; ++x2)
+					Vector<3> p1 = edg_cen + oct_dirs[i].first * float(dot(from_bb, oct_dirs[i].first) - DENSITY * x1) + oct_dirs[i].second * float(dot(from_bb, oct_dirs[i].second) - DENSITY * y1);
+					for (int j = 0; j < 6; ++j)
 					{
-						for (int y2 = 0; y2 < lin_size2_y; ++y2)
+						if (visible)
+							return;
+						Vector<3> edg_cen2 = on_pos + dirs[j] * dot(on_bb, dirs[j]) * 1.01;
+						for (int x2 = 0; x2 < lin_size2_x; ++x2)
 						{
-							Vector<3> p2 = edg_cen2 + oct_dirs[j].first * float(dot(on_bb, oct_dirs[j].first) - DENSITY * x2) + oct_dirs[j].second * float(dot(on_bb, oct_dirs[j].second) - DENSITY * y2);
-							auto isr = obj->intersectWithRay(p1, p2 - p1);
-							if (isr.first && isr.second.obj_id == on_id)
+							for (int y2 = 0; y2 < lin_size2_y; ++y2)
 							{
-								return true;
+								Vector<3> p2 = edg_cen2 + oct_dirs[j].first * float(dot(on_bb, oct_dirs[j].first) - DENSITY * x2) + oct_dirs[j].second * float(dot(on_bb, oct_dirs[j].second) - DENSITY * y2);
+								auto isr = obj->intersectWithRay(p1, p2 - p1);
+								if (isr.first && isr.second.obj_id == on_id)
+								{
+									//нужно выпустить обратный луч, потому что возможно он идет из угла баундинг бокса первого обьекта, но
+									//сам обьект не пересекает
+									auto isr2 = obj->intersectWithRay(p2, p1 - p2);
+									if (isr2.first && isr2.second.obj_id == from_id)
+									{
+										visible = true;
+										return;
+									}
+									
+								}
 							}
 						}
+						//std::cout << (double(i) / 6 + 1.0 / 6 * double(x1) / lin_size1_x + 1.0 / 6 * 1.0 / lin_size1_x * double(y1) / lin_size1_y + 1.0 / 6 * 1.0 / lin_size1_x * 1.0 / lin_size1_y * double(j) / 6) * 100 << "%\n";
 					}
-					std::cout << (double(i) / 6 + 1.0 / 6 * double(x1) / lin_size1_x + 1.0 / 6 * 1.0 / lin_size1_x * double(y1) / lin_size1_y + 1.0 / 6 * 1.0 / lin_size1_x * 1.0 / lin_size1_y * double(j) / 6) * 100 << "%\n";
 				}
 			}
-		}
-	}
-	return false;
+		});
+	return visible;
 
 }
 
@@ -318,7 +349,7 @@ int main()
 
 	bool res = ON_GPU ? checkVisibilityOnGpu(obj, from_id, on_id, SCREEN_SIZE, PIXEL_ACCURACY) : checkVisibilityCpu(obj, from_id, on_id, SCREEN_SIZE, PIXEL_ACCURACY);
 	if (res)
-		std::cout << "VISIBLIE\n";
+		std::cout << "VISIBLE\n";
 	else
 		std::cout << "NOT VISIBLE\n";
 	system("pause");
