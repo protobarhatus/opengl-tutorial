@@ -57,14 +57,8 @@ bool checkVisibility()
 
 	bool has_intersection = false;
 	FullIntersectionResult isr = intersectWithRay(p1, p2 - p1, has_intersection);
-	if (has_intersection && isr.object_index == object_on_what_look)
-	{
-		//нужно выпустить обратный луч, потому что возможно он идет из угла баундинг бокса первого обьекта, но
-		//сам обьект не пересекает
-		FullIntersectionResult isr2 = intersectWithRay(p2, p1 - p2, has_intersection);
-		if (has_intersection && isr2.object_index == object_from_which_look)
-			return true;
-	}
+	if (has_intersection && isItObjectOrItsChild(isr.object_index, object_on_what_look))
+		return true;
 
 	return false;
 }

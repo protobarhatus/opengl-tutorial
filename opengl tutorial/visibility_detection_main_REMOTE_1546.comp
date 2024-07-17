@@ -19,16 +19,6 @@ struct VecPair
 	vec3 second;
 };
 
-bool isItObjectOrItsChild(int checking_index, int target_index)
-{
-	while (checking_index > 0)
-	{
-		if (checking_index == target_index)
-			return true;
-		checking_index = ComposedObjectNode_parent(unused_arg, checking_index);
-	}
-	return false;
-}
 
 bool checkVisibility()
 {
