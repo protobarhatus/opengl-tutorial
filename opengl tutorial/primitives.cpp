@@ -423,6 +423,17 @@ std::pair<bool, ISR> Object::intersectWithRay(const Vector<3>& ray_start, const 
 	//	return { true, (back_transposition * back_rotation) * Vector<4>(start + dir * intersect.second) };
 	//return { true, (back_transposition * back_rotation) * Vector<4>(start + dir * intersect.first) };
 }
+
+bool Object::isItIdOfObjectOrItsParent(int id_to_check) const
+{
+	if (this->id == id_to_check)
+		return true;
+	return this->parent != nullptr && this->parent->isItIdOfObjectOrItsParent(id_to_check);
+}
+void Object::setParent(const Object* parent)
+{
+	this->parent = parent;
+}
 double getParamOnShade(const Vector<3>& st, const Vector<3>& dir, const Vector<2>& p)
 {
 	if (equal(dir.x(), 0))

@@ -17,5 +17,7 @@ public:
 	int addObject(const std::shared_ptr<Object>& obj);
 	void subtractObject(const std::shared_ptr<Object>& obj, int ind);
 	std::pair<bool, ISR> intersection(const Vector<3>& start, const Vector<3>& dir) const;
+
+	
 };
 

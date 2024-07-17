@@ -1,0 +1,17 @@
+B1 = Box(hsize: {0.5, 0.2, 5}; position: {0,0,0}, rotation: 1+{0,0,0}; color={1,0,0})
+B2 = Box(hsize: {0.5,0.2, 5}; position: {1.5, 0, 0}; rotation: 1+{0,0,0}; color={0,1,0})
+B3 = Box(hsize: {0.5, 0.2, 5}; position: {-1.5,0,0}; rotation: 1+{0,0,0}; color={0,0,1})
+B4 = Box(hsize: {0.5, 0.2, 5}; position: {3, 0, 0}; rotation: 1+{0,0,0})
+
+F1 = Box(hsize: {5, 0.05, 0.5}; position: {0, -1, 0}, rotation:1+{0,0,0}; alpha=0.5)
+F2 = Box(hsize: {5, 0.05, 0.5}; position: {0, -1, 1.5}, rotation:1+{0,0,0}; color={1,0,0};alpha=0.5)
+F3 = Box(hsize: {5, 0.05, 0.5}; position: {0, -1, -1.5}, rotation:1+{0,0,0}; color={0,1,0};alpha=0.5)
+F4 = Box(hsize: {5, 0.05, 0.5}; position: {0, -1, 3}, rotation:1+{0,0,0}; color={0,0,1};alpha=0.5)
+F5 = Box(hsize: {5, 0.05, 0.5}; position: {0, -1, -3}, rotation:1+{0,0,0}; alpha=0.1)
+
+A1 = Box(hsize: {1, 0.01, 1}; position: {7, 0.9, 0}, rotation:1+{0,0,0};alpha=0.9)
+A2 = Box(hsize: {1, 0.01, 1}; position: {7, 0.6, 0}, rotation:1+{0,0,0};color={1,0,0}, alpha=0.3)
+A3 = Box(hsize: {1, 0.01, 1}; position: {7, 0.3, 0}, rotation:1+{0,0,0};color={0,1,0}, alpha=0.1)
+A4 = Box(hsize: {1, 0.01, 1}; position: {7, 0, 0}, rotation:1+{0,0,0};color={0,0,1}, alpha=0.6)
+
+__obj__ = (((B1+B2)+(B3+B4))+(((F1+F2)+(F3+F4))+F5)) + ((A1+A2)+(A3+A4))

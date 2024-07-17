@@ -50,6 +50,7 @@ enum class OperationTypeInShader
 
 class GlslSceneMemory
 {
+	friend class VulkanApp;
 	typedef GLSL_vec4 Vec3Type;
 	std::vector<GLSL_Primitive> primitives_buffer;
 	std::vector<GLSL_vec2> vec2_buffer;
@@ -71,6 +72,11 @@ public:
 	void dropToFiles(const std::string& dir) const;
 	//репликация пересечения с сервера для дебага
 	std::pair<bool, ISR> __intersectWithRay(const Vector<3>& start, const Vector<3>& dir) const;
+
+	int getPrimitivesCount();
+	int getDataCount();
+	int getNormalsCount();
+	int getComposedObjectNodesCount();
 };
 
 

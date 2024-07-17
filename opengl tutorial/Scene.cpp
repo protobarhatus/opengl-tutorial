@@ -82,3 +82,5 @@ std::pair<bool, ISR> Scene::intersection(const Vector<3>& start, const Vector<3>
         return { false, {0,0,0,0,0, -1} };
     return { true, nearest };
 }
+
+

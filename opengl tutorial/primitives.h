@@ -32,6 +32,8 @@ enum class ObjectType
 class Object
 {
 protected:
+	//parent is composed object
+	const Object* parent = nullptr;
 	Vector<3> position;
 	Quat rotation;
 	Matrix<4> transformation_mat;
@@ -78,6 +80,8 @@ public:
 	void setId(int id);
 
 	virtual const Object* getObjectOfId(int id) const;
+	void setParent(const Object* parent);
+	bool isItIdOfObjectOrItsParent(int id_to_check) const;
 };
 
 

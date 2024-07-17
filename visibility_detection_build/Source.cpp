@@ -224,19 +224,19 @@ bool checkVisibilityOnGpu(const std::unique_ptr<Object>& obj, int from_id, int o
 
 
 	glUseProgram(ray_trace_programm);
-
+	std::cout << "Launched shader\n";
 	glDispatchCompute(ceil(lin_size1_x * lin_size2_x / 8), ceil(lin_size1_x * lin_size2_y / 4), 36);
 	//std::cout << glGetError() << '\n';;
 	glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
 
 	float res[4] = { 0,0,0,0 };
 	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT, res);
-	std::cout << res[0];
-	system("pause");
+	
 
 	glfwTerminate();
-
+	return res[0] > 0.5;
 	exit(EXIT_SUCCESS);
+	
 }
 
 
@@ -282,7 +282,7 @@ bool checkVisibilityCpu(const std::unique_ptr<Object>& obj, int from_id, int on_
 						{
 							Vector<3> p2 = edg_cen2 + oct_dirs[j].first * float(dot(on_bb, oct_dirs[j].first) - DENSITY * x2) + oct_dirs[j].second * float(dot(on_bb, oct_dirs[j].second) - DENSITY * y2);
 							auto isr = obj->intersectWithRay(p1, p2 - p1);
-							if (isr.first && isr.second.obj_id == on_id)
+							if (isr.first && obj->getObjectOfId(isr.second.obj_id)->isItIdOfObjectOrItsParent(on_id))
 							{
 								return true;
 							}
@@ -305,7 +305,7 @@ int main()
 	int SCREEN_SIZE = 1000;
 	int PIXEL_ACCURACY = 1;
 
-	bool ON_GPU = false;
+	bool ON_GPU = true;
 
 	auto obj = parse(readFile("..\\opengl tutorial\\examples/visibility_scene.txt"));
 	assert(obj != nullptr);

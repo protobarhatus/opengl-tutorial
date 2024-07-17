@@ -1,40 +1,44 @@
 #version 430
 layout(local_size_x = 8, local_size_y = 4) in;
 layout(rgba32f, binding = 0) uniform image2D img_output;
-layout(r32f, binding = 1) uniform image2D depth_buffer;
 
-uniform vec3 camera_pos;
-uniform ivec2 screen_size;
-
+layout(binding = 7) uniform u_obj_obj {
+	vec3 camera_pos;
+	ivec2 screen_size;
+	int primitives_count;
+	int data_count;
+	int normals_count;
+	int composed_object_nodes_count;
+} ubo;
 
 struct Quat
 {
 //a.x - a0, a - a.yzw
-//к сожалению придется так из за padding
+//Рє СЃРѕР¶Р°Р»РµРЅРёСЋ РїСЂРёРґРµС‚СЃСЏ С‚Р°Рє РёР· Р·Р° padding
 	vec4 a;
 };
 struct Primitive
 {
 	uint type;
 	uint data_index;
-	//сколько элементов в data_array она занимает. Кроме многогранника, для которого это количество вершин
+	//СЃРєРѕР»СЊРєРѕ СЌР»РµРјРµРЅС‚РѕРІ РІ data_array РѕРЅР° Р·Р°РЅРёРјР°РµС‚. РљСЂРѕРјРµ РјРЅРѕРіРѕРіСЂР°РЅРЅРёРєР°, РґР»СЏ РєРѕС‚РѕСЂРѕРіРѕ СЌС‚Рѕ РєРѕР»РёС‡РµСЃС‚РІРѕ РІРµСЂС€РёРЅ
 	uint data_count;
-	//для многогранника сначала пойдут точки а потом сразу нормали
+	//РґР»СЏ РјРЅРѕРіРѕРіСЂР°РЅРЅРёРєР° СЃРЅР°С‡Р°Р»Р° РїРѕР№РґСѓС‚ С‚РѕС‡РєРё Р° РїРѕС‚РѕРј СЃСЂР°Р·Сѓ РЅРѕСЂРјР°Р»Рё
 	uint normals_index;
 	vec3 position;
-	//rdivh для конуса
+	//rdivh РґР»СЏ РєРѕРЅСѓСЃР°
 	float sc3;
 	Quat rotation;
-	//для многогранника это количество граней
+	//РґР»СЏ РјРЅРѕРіРѕРіСЂР°РЅРЅРёРєР° СЌС‚Рѕ РєРѕР»РёС‡РµСЃС‚РІРѕ РіСЂР°РЅРµР№
 	uint normals_count;
-	//половина высоты для призмы и цилиндра, высота для пирамиды и конуса, радиус для сферы, 
+	//РїРѕР»РѕРІРёРЅР° РІС‹СЃРѕС‚С‹ РґР»СЏ РїСЂРёР·РјС‹ Рё С†РёР»РёРЅРґСЂР°, РІС‹СЃРѕС‚Р° РґР»СЏ РїРёСЂР°РјРёРґС‹ Рё РєРѕРЅСѓСЃР°, СЂР°РґРёСѓСЃ РґР»СЏ СЃС„РµСЂС‹, 
 	float sc1;
-	//радиус для цилиндра и конуса
+	//СЂР°РґРёСѓСЃ РґР»СЏ С†РёР»РёРЅРґСЂР° Рё РєРѕРЅСѓСЃР°
 	float sc2;
-	//для многогранника. Остальная информация для него будет идти в int_data. [0] это индекс в матричный массив, затем таблица, задающая грани:на каждую строчку идет [количество элементов в массиве] и сам массив.
-	//для многоугольников в собственных координатах это идет просто подряд без указания размера, поэтому итерироваться они обязаны одновременно с гранями.
+	//РґР»СЏ РјРЅРѕРіРѕРіСЂР°РЅРЅРёРєР°. РћСЃС‚Р°Р»СЊРЅР°СЏ РёРЅС„РѕСЂРјР°С†РёСЏ РґР»СЏ РЅРµРіРѕ Р±СѓРґРµС‚ РёРґС‚Рё РІ int_data. [0] СЌС‚Рѕ РёРЅРґРµРєСЃ РІ РјР°С‚СЂРёС‡РЅС‹Р№ РјР°СЃСЃРёРІ, Р·Р°С‚РµРј С‚Р°Р±Р»РёС†Р°, Р·Р°РґР°СЋС‰Р°СЏ РіСЂР°РЅРё:РЅР° РєР°Р¶РґСѓСЋ СЃС‚СЂРѕС‡РєСѓ РёРґРµС‚ [РєРѕР»РёС‡РµСЃС‚РІРѕ СЌР»РµРјРµРЅС‚РѕРІ РІ РјР°СЃСЃРёРІРµ] Рё СЃР°Рј РјР°СЃСЃРёРІ.
+	//РґР»СЏ РјРЅРѕРіРѕСѓРіРѕР»СЊРЅРёРєРѕРІ РІ СЃРѕР±СЃС‚РІРµРЅРЅС‹С… РєРѕРѕСЂРґРёРЅР°С‚Р°С… СЌС‚Рѕ РёРґРµС‚ РїСЂРѕСЃС‚Рѕ РїРѕРґСЂСЏРґ Р±РµР· СѓРєР°Р·Р°РЅРёСЏ СЂР°Р·РјРµСЂР°, РїРѕСЌС‚РѕРјСѓ РёС‚РµСЂРёСЂРѕРІР°С‚СЊСЃСЏ РѕРЅРё РѕР±СЏР·Р°РЅС‹ РѕРґРЅРѕРІСЂРµРјРµРЅРЅРѕ СЃ РіСЂР°РЅСЏРјРё.
 	uint int_data_index;
-	//пока что цвет потом может заменится на текстурную координату или типо того
+	//РїРѕРєР° С‡С‚Рѕ С†РІРµС‚ РїРѕС‚РѕРј РјРѕР¶РµС‚ Р·Р°РјРµРЅРёС‚СЃСЏ РЅР° С‚РµРєСЃС‚СѓСЂРЅСѓСЋ РєРѕРѕСЂРґРёРЅР°С‚Сѓ РёР»Рё С‚РёРїРѕ С‚РѕРіРѕ
 	vec4 color;
 };
 
@@ -44,7 +48,7 @@ const int OBJECTS_SUB = -3;
 
 struct ComposedObjectNode
 {
-//положительный означает примитив. Отрицательный - операцию. 
+//РїРѕР»РѕР¶РёС‚РµР»СЊРЅС‹Р№ РѕР·РЅР°С‡Р°РµС‚ РїСЂРёРјРёС‚РёРІ. РћС‚СЂРёС†Р°С‚РµР»СЊРЅС‹Р№ - РѕРїРµСЂР°С†РёСЋ. 
 	int operation;
 };
 
@@ -61,10 +65,7 @@ layout(binding = 6) buffer composed_objects_array
 #define ComposedObjectNode_parent(X, N) (((N)+1)/2 - 1)
 
 
-uniform int primitives_count;
-uniform int data_count;
-uniform int normals_count;
-uniform int composed_object_nodes_count;
+
 
 layout(binding = 1) buffer primitives_array
 {
@@ -74,7 +75,7 @@ layout(binding = 2, std430) buffer data_array
 {
 	vec2 base_points[];
 };
-layout(binding = 3, packed) buffer normals_array
+layout(binding = 3, std430) buffer normals_array
 {
 	vec3 normals[];
 };
@@ -88,7 +89,7 @@ layout(binding = 5) buffer matrix_array
 };
 
 
-//Возможно стоит сделать эти вещи дефайнами
+//Р’РѕР·РјРѕР¶РЅРѕ СЃС‚РѕРёС‚ СЃРґРµР»Р°С‚СЊ СЌС‚Рё РІРµС‰Рё РґРµС„Р°Р№РЅР°РјРё
 uint Polyhedron_vertexAmount(Primitive obj)
 {
 	return obj.data_count;
@@ -142,7 +143,7 @@ const uint SPHERE = 5;
 const uint POLYHEDRON = 6;
 const uint COMPOSED_OBJECT = 7;
 
-//некоторая инкапсуляция для примитивов. sc1, sc2 - это еще ладно но обращение к буферам точно надо
+//РЅРµРєРѕС‚РѕСЂР°СЏ РёРЅРєР°РїСЃСѓР»СЏС†РёСЏ РґР»СЏ РїСЂРёРјРёС‚РёРІРѕРІ. sc1, sc2 - СЌС‚Рѕ РµС‰Рµ Р»Р°РґРЅРѕ РЅРѕ РѕР±СЂР°С‰РµРЅРёРµ Рє Р±СѓС„РµСЂР°Рј С‚РѕС‡РЅРѕ РЅР°РґРѕ
 uint Prizm_polygonStart(Primitive obj)
 {
 	return obj.data_index;
@@ -249,7 +250,7 @@ IRO intersectLineWithCircle(in vec2 p, in vec2 dir, float rad)
 	if (D < 0)
 		return ZERO_IRO;
 	float D_sq = sqrt(D);
-	//не уверен что это нужно и полезно
+	//РЅРµ СѓРІРµСЂРµРЅ С‡С‚Рѕ СЌС‚Рѕ РЅСѓР¶РЅРѕ Рё РїРѕР»РµР·РЅРѕ
 	if (equal(D_sq, 0))
 	{
 		float t = -B_half / A;
@@ -322,7 +323,7 @@ IRO intersectCylinderWithLine(in Primitive obj, in vec3 start, in vec3 dir)
 	{
 		if (point_z2 >= -half_height && point_z2 <= half_height)
 			return shade_intersect;
-		//z != 0 т к произошел подьем
+		//z != 0 С‚ Рє РїСЂРѕРёР·РѕС€РµР» РїРѕРґСЊРµРј
 
 		if (point_z2 > half_height)
 		{
@@ -338,7 +339,7 @@ IRO intersectCylinderWithLine(in Primitive obj, in vec3 start, in vec3 dir)
 
 		}
 	}
-	//осталось возможна только ситуация когда линия проходит через оба основания либо вообще не проходит
+	//РѕСЃС‚Р°Р»РѕСЃСЊ РІРѕР·РјРѕР¶РЅР° С‚РѕР»СЊРєРѕ СЃРёС‚СѓР°С†РёСЏ РєРѕРіРґР° Р»РёРЅРёСЏ РїСЂРѕС…РѕРґРёС‚ С‡РµСЂРµР· РѕР±Р° РѕСЃРЅРѕРІР°РЅРёСЏ Р»РёР±Рѕ РІРѕРѕР±С‰Рµ РЅРµ РїСЂРѕС…РѕРґРёС‚
 	if (equal(dir.z, 0))
 	{
 		return ZERO_IRO;
@@ -358,8 +359,8 @@ uint POINT_ON_BOUNDARY = 0;
 uint POINT_IN_POLYGON = 1;
 uint POINT_OUT_OF_POLYGON = 2;
 
-//специфичное сравнение для проверки на принадлежность многоугольнику
-int compareDouble(double a, double b, double eps)
+//СЃРїРµС†РёС„РёС‡РЅРѕРµ СЃСЂР°РІРЅРµРЅРёРµ РґР»СЏ РїСЂРѕРІРµСЂРєРё РЅР° РїСЂРёРЅР°РґР»РµР¶РЅРѕСЃС‚СЊ РјРЅРѕРіРѕСѓРіРѕР»СЊРЅРёРєСѓ
+int compareDouble(float a, float b, float eps)
 {
 	if (abs(a - b) < eps)
 		return 0;
@@ -530,7 +531,7 @@ BF_pair rayIntersectsSegment(vec2 p, vec2 dir, vec2 a, vec2 b)
 		float t = num / div;
 		//t /= 10;
 		vec2 point = p + dir * t;
-		//это место все еще может давать артефакты, в зависимости от числа в сравнении. 1e-6 работает вроде хорошо. Возможно стоит сделать проверку если point в окрестности a или b но это будет занимать время
+		//СЌС‚Рѕ РјРµСЃС‚Рѕ РІСЃРµ РµС‰Рµ РјРѕР¶РµС‚ РґР°РІР°С‚СЊ Р°СЂС‚РµС„Р°РєС‚С‹, РІ Р·Р°РІРёСЃРёРјРѕСЃС‚Рё РѕС‚ С‡РёСЃР»Р° РІ СЃСЂР°РІРЅРµРЅРёРё. 1e-6 СЂР°Р±РѕС‚Р°РµС‚ РІСЂРѕРґРµ С…РѕСЂРѕС€Рѕ. Р’РѕР·РјРѕР¶РЅРѕ СЃС‚РѕРёС‚ СЃРґРµР»Р°С‚СЊ РїСЂРѕРІРµСЂРєСѓ РµСЃР»Рё point РІ РѕРєСЂРµСЃС‚РЅРѕСЃС‚Рё a РёР»Рё b РЅРѕ СЌС‚Рѕ Р±СѓРґРµС‚ Р·Р°РЅРёРјР°С‚СЊ РІСЂРµРјСЏ
 		if (dot(b - point, a - point) <= 1e-6)
 		{
 			BF_pair res = {true, t};
@@ -606,7 +607,7 @@ float indic(float x)
 		return 0;
 	return 1;
 }
-//только выпуклые
+//С‚РѕР»СЊРєРѕ РІС‹РїСѓРєР»С‹Рµ
 IRO intersectPrizmWithLine(Primitive obj, in vec3 start, in vec3 dir)
 {
 	float EPSILON = 1e-6;
@@ -645,11 +646,11 @@ IRO intersectPrizmWithLine(Primitive obj, in vec3 start, in vec3 dir)
 
 	if (shade_intersect.inters == 1)
 	{
-		//если токо одно пересечение то пока не рисуем
+		//РµСЃР»Рё С‚РѕРєРѕ РѕРґРЅРѕ РїРµСЂРµСЃРµС‡РµРЅРёРµ С‚Рѕ РїРѕРєР° РЅРµ СЂРёСЃСѓРµРј
 		return ZERO_IRO;
 		if (point_z >= -half_height - EPSILON && point_z <= half_height + EPSILON)
 		{
-			//если все же вернусь сюда то надо не забыть проставить нормально in и out
+			//РµСЃР»Рё РІСЃРµ Р¶Рµ РІРµСЂРЅСѓСЃСЊ СЃСЋРґР° С‚Рѕ РЅР°РґРѕ РЅРµ Р·Р°Р±С‹С‚СЊ РїСЂРѕСЃС‚Р°РІРёС‚СЊ РЅРѕСЂРјР°Р»СЊРЅРѕ in Рё out
 			IRO res = { 1, t1, t1 };
 			return res;
 		}
@@ -681,7 +682,7 @@ IRO intersectPrizmWithLine(Primitive obj, in vec3 start, in vec3 dir)
 			}
 		}
 		
-		//z != 0 т к произошел подьем
+		//z != 0 С‚ Рє РїСЂРѕРёР·РѕС€РµР» РїРѕРґСЊРµРј
 		if (point_z2 > half_height + EPSILON)
 		{
 			float t_out = (half_height - start.z) / dir.z;
@@ -695,7 +696,7 @@ IRO intersectPrizmWithLine(Primitive obj, in vec3 start, in vec3 dir)
 				IRO res = {2,  { {0, 0, 1},t_out }, t1 };
 				return res;
 			}
-			//невозможная ситуация, т к если он не выходит в стене то должен выходить наверху но мало ли
+			//РЅРµРІРѕР·РјРѕР¶РЅР°СЏ СЃРёС‚СѓР°С†РёСЏ, С‚ Рє РµСЃР»Рё РѕРЅ РЅРµ РІС‹С…РѕРґРёС‚ РІ СЃС‚РµРЅРµ С‚Рѕ РґРѕР»Р¶РµРЅ РІС‹С…РѕРґРёС‚СЊ РЅР°РІРµСЂС…Сѓ РЅРѕ РјР°Р»Рѕ Р»Рё
 			IRO res = {2, t1, t1 };
 			return res;
 		}
@@ -722,7 +723,7 @@ IRO intersectPrizmWithLine(Primitive obj, in vec3 start, in vec3 dir)
 		
 	}
 	
-	//осталось возможна только ситуация когда линия проходит через оба основания, через верхнее/нижнее ребро, либо вообще не проходит
+	//РѕСЃС‚Р°Р»РѕСЃСЊ РІРѕР·РјРѕР¶РЅР° С‚РѕР»СЊРєРѕ СЃРёС‚СѓР°С†РёСЏ РєРѕРіРґР° Р»РёРЅРёСЏ РїСЂРѕС…РѕРґРёС‚ С‡РµСЂРµР· РѕР±Р° РѕСЃРЅРѕРІР°РЅРёСЏ, С‡РµСЂРµР· РІРµСЂС…РЅРµРµ/РЅРёР¶РЅРµРµ СЂРµР±СЂРѕ, Р»РёР±Рѕ РІРѕРѕР±С‰Рµ РЅРµ РїСЂРѕС…РѕРґРёС‚
 	if (equal(dir.z, 0))
 	{
 		return ZERO_IRO;
@@ -793,7 +794,7 @@ IRO intersectConeWithLine(in Primitive object, in vec3 start, in vec3 dir)
 		swap(t1, t2);
 		swap(z1, z2);
 	}
-	//если линия пересекает усеченный конус в одном месте и не выходит в другом, то она гарантированно пройдет через основание
+	//РµСЃР»Рё Р»РёРЅРёСЏ РїРµСЂРµСЃРµРєР°РµС‚ СѓСЃРµС‡РµРЅРЅС‹Р№ РєРѕРЅСѓСЃ РІ РѕРґРЅРѕРј РјРµСЃС‚Рµ Рё РЅРµ РІС‹С…РѕРґРёС‚ РІ РґСЂСѓРіРѕРј, С‚Рѕ РѕРЅР° РіР°СЂР°РЅС‚РёСЂРѕРІР°РЅРЅРѕ РїСЂРѕР№РґРµС‚ С‡РµСЂРµР· РѕСЃРЅРѕРІР°РЅРёРµ
 	vec2 p1 = start.xy + dir.xy * t1;
 	float zn1 = -dot(p1, p1) / z1;
 
@@ -998,12 +999,12 @@ IRO intersectPolyhedronWithLine(Primitive obj, vec3 start,vec3 dir)
 		{
 			if (c == 1 && equal(t, res[0].t))
 				continue;
-			//СЧИТАЕМ ВЫПУКЛЫМ
+			//РЎР§РРўРђР•Рњ Р’Р«РџРЈРљР›Р«Рњ
 			/*else
 			{
-				//если границы входят в многоугольники то точка на ребрах может быть учитана несколько раз. Это немного сломает алгоритмы операций над множествами хотя модификацией это можно устранить. Но где будет больше потеря производительности здесь
-				//или там если учитывать точки несколько раз.
-				//если же границы исключать из многоугольников то будут черные линии с которыми особо ничего не сделаешь
+				//РµСЃР»Рё РіСЂР°РЅРёС†С‹ РІС…РѕРґСЏС‚ РІ РјРЅРѕРіРѕСѓРіРѕР»СЊРЅРёРєРё С‚Рѕ С‚РѕС‡РєР° РЅР° СЂРµР±СЂР°С… РјРѕР¶РµС‚ Р±С‹С‚СЊ СѓС‡РёС‚Р°РЅР° РЅРµСЃРєРѕР»СЊРєРѕ СЂР°Р·. Р­С‚Рѕ РЅРµРјРЅРѕРіРѕ СЃР»РѕРјР°РµС‚ Р°Р»РіРѕСЂРёС‚РјС‹ РѕРїРµСЂР°С†РёР№ РЅР°Рґ РјРЅРѕР¶РµСЃС‚РІР°РјРё С…РѕС‚СЏ РјРѕРґРёС„РёРєР°С†РёРµР№ СЌС‚Рѕ РјРѕР¶РЅРѕ СѓСЃС‚СЂР°РЅРёС‚СЊ. РќРѕ РіРґРµ Р±СѓРґРµС‚ Р±РѕР»СЊС€Рµ РїРѕС‚РµСЂСЏ РїСЂРѕРёР·РІРѕРґРёС‚РµР»СЊРЅРѕСЃС‚Рё Р·РґРµСЃСЊ
+				//РёР»Рё С‚Р°Рј РµСЃР»Рё СѓС‡РёС‚С‹РІР°С‚СЊ С‚РѕС‡РєРё РЅРµСЃРєРѕР»СЊРєРѕ СЂР°Р·.
+				//РµСЃР»Рё Р¶Рµ РіСЂР°РЅРёС†С‹ РёСЃРєР»СЋС‡Р°С‚СЊ РёР· РјРЅРѕРіРѕСѓРіРѕР»СЊРЅРёРєРѕРІ С‚Рѕ Р±СѓРґСѓС‚ С‡РµСЂРЅС‹Рµ Р»РёРЅРёРё СЃ РєРѕС‚РѕСЂС‹РјРё РѕСЃРѕР±Рѕ РЅРёС‡РµРіРѕ РЅРµ СЃРґРµР»Р°РµС€СЊ
 				bool already_counted = false;
 				for (auto& it : res)
 				{
@@ -1092,7 +1093,7 @@ IRO intersectWithRay(in Primitive object, in vec3 ray_start, in vec3 direction)
 		inter_res.inters = 1;
 	}
 	
-	//.first может быть < 0
+	//.first РјРѕР¶РµС‚ Р±С‹С‚СЊ < 0
 	mat4 back_rotation = rotation(object.rotation);
 	inter_res.first.n = (back_rotation * vec4(inter_res.first.n, 1)).xyz;
 	inter_res.second.n = (back_rotation * vec4(inter_res.second.n, 1)).xyz;
@@ -1105,7 +1106,7 @@ float sq(float x)
 }
 
 
-//точки которые вылазят за стек будут отброшены.
+//С‚РѕС‡РєРё РєРѕС‚РѕСЂС‹Рµ РІС‹Р»Р°Р·СЏС‚ Р·Р° СЃС‚РµРє Р±СѓРґСѓС‚ РѕС‚Р±СЂРѕС€РµРЅС‹.
 #define STACK_SIZE 200
 
 struct IntersectionListUnit
@@ -1113,26 +1114,26 @@ struct IntersectionListUnit
 	Intersection data;
 	int next_index;
 	bool is_in;
-	//возможно хорошая идея переместить этот инт в Intersection. Хотя мне не нравится паддинг тогда ну и там оно бесполезно пока
-	//здесь индекс обьекта с чем пересекся луч в виде индекса в дереве composed_objects. Таким образом, индекс примитива, это composed_object[object_index].operation (или лучше ComposedObjectNode_getPrimitiveIndex(object_index) )
+	//РІРѕР·РјРѕР¶РЅРѕ С…РѕСЂРѕС€Р°СЏ РёРґРµСЏ РїРµСЂРµРјРµСЃС‚РёС‚СЊ СЌС‚РѕС‚ РёРЅС‚ РІ Intersection. РҐРѕС‚СЏ РјРЅРµ РЅРµ РЅСЂР°РІРёС‚СЃСЏ РїР°РґРґРёРЅРі С‚РѕРіРґР° РЅСѓ Рё С‚Р°Рј РѕРЅРѕ Р±РµСЃРїРѕР»РµР·РЅРѕ РїРѕРєР°
+	//Р·РґРµСЃСЊ РёРЅРґРµРєСЃ РѕР±СЊРµРєС‚Р° СЃ С‡РµРј РїРµСЂРµСЃРµРєСЃСЏ Р»СѓС‡ РІ РІРёРґРµ РёРЅРґРµРєСЃР° РІ РґРµСЂРµРІРµ composed_objects. РўР°РєРёРј РѕР±СЂР°Р·РѕРј, РёРЅРґРµРєСЃ РїСЂРёРјРёС‚РёРІР°, СЌС‚Рѕ composed_object[object_index].operation (РёР»Рё Р»СѓС‡С€Рµ ComposedObjectNode_getPrimitiveIndex(object_index) )
 	int object_index;
 };
 IntersectionListUnit intersections_stack[STACK_SIZE];
-//поскольку удаление не предусмотренно, мы просто идем вправо. То есть есть ограничение по в целом количеству пересечений на обьекте.
+//РїРѕСЃРєРѕР»СЊРєСѓ СѓРґР°Р»РµРЅРёРµ РЅРµ РїСЂРµРґСѓСЃРјРѕС‚СЂРµРЅРЅРѕ, РјС‹ РїСЂРѕСЃС‚Рѕ РёРґРµРј РІРїСЂР°РІРѕ. РўРѕ РµСЃС‚СЊ РµСЃС‚СЊ РѕРіСЂР°РЅРёС‡РµРЅРёРµ РїРѕ РІ С†РµР»РѕРј РєРѕР»РёС‡РµСЃС‚РІСѓ РїРµСЂРµСЃРµС‡РµРЅРёР№ РЅР° РѕР±СЊРµРєС‚Рµ.
 int stack_index = 0;
-//листы по инлексу должны совпадать с нодами, которых они представляют. Это по сути просто отображение из нодов в начало листа с их данными
+//Р»РёСЃС‚С‹ РїРѕ РёРЅР»РµРєСЃСѓ РґРѕР»Р¶РЅС‹ СЃРѕРІРїР°РґР°С‚СЊ СЃ РЅРѕРґР°РјРё, РєРѕС‚РѕСЂС‹С… РѕРЅРё РїСЂРµРґСЃС‚Р°РІР»СЏСЋС‚. Р­С‚Рѕ РїРѕ СЃСѓС‚Рё РїСЂРѕСЃС‚Рѕ РѕС‚РѕР±СЂР°Р¶РµРЅРёРµ РёР· РЅРѕРґРѕРІ РІ РЅР°С‡Р°Р»Рѕ Р»РёСЃС‚Р° СЃ РёС… РґР°РЅРЅС‹РјРё
 int lists_stack[STACK_SIZE];
 
 void intersectWithPrimitiveAsNode(int node, vec3 camera_pos, vec3 dir)
 {
-	IRO inter_res = intersectWithRay(primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[node])], camera_pos, dir);
+	IRO inter_res = intersectWithRay(primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[node])], ubo.camera_pos, dir);
 	switch(inter_res.inters)
 	{
 		case 0:
 			lists_stack[node] = -1;
 			return;
 		case 1:
-			//это просто касание, и не стоит это рассматривать. Потому что тогда is_in всеравно кривоватое.
+			//СЌС‚Рѕ РїСЂРѕСЃС‚Рѕ РєР°СЃР°РЅРёРµ, Рё РЅРµ СЃС‚РѕРёС‚ СЌС‚Рѕ СЂР°СЃСЃРјР°С‚СЂРёРІР°С‚СЊ. РџРѕС‚РѕРјСѓ С‡С‚Рѕ С‚РѕРіРґР° is_in РІСЃРµСЂР°РІРЅРѕ РєСЂРёРІРѕРІР°С‚РѕРµ.
 			lists_stack[node] = -1;
 			return;
 			/*if (inter_res.first.t >= 0)
@@ -1144,7 +1145,7 @@ void intersectWithPrimitiveAsNode(int node, vec3 camera_pos, vec3 dir)
 			lists_stack[node] = -1;
 			return;*/
 		case 2:
-			if (inter_res.first.t >= 0) //если .first >= 0 то и .second >= 0 точно
+			if (inter_res.first.t >= 0) //РµСЃР»Рё .first >= 0 С‚Рѕ Рё .second >= 0 С‚РѕС‡РЅРѕ
 			{
 				lists_stack[node] = stack_index;
 				intersections_stack[stack_index] = IntersectionListUnit(inter_res.first, stack_index + 1, true, node);
@@ -1152,9 +1153,9 @@ void intersectWithPrimitiveAsNode(int node, vec3 camera_pos, vec3 dir)
 				intersections_stack[stack_index++] = IntersectionListUnit(inter_res.second, -1, false, node);
 				return;
 			}
-			//.second точно >= 0, иначе бы вернулось ZERO_IRO
+			//.second С‚РѕС‡РЅРѕ >= 0, РёРЅР°С‡Рµ Р±С‹ РІРµСЂРЅСѓР»РѕСЃСЊ ZERO_IRO
 			lists_stack[node] = stack_index;
-			intersections_stack[stack_index++] = IntersectionListUnit(inter_res.second, -1, false, node); //вообще конечно вопрос как это повлияет на алгоритмы т-м операций но вроде бы должно быть нормально.
+			intersections_stack[stack_index++] = IntersectionListUnit(inter_res.second, -1, false, node); //РІРѕРѕР±С‰Рµ РєРѕРЅРµС‡РЅРѕ РІРѕРїСЂРѕСЃ РєР°Рє СЌС‚Рѕ РїРѕРІР»РёСЏРµС‚ РЅР° Р°Р»РіРѕСЂРёС‚РјС‹ С‚-Рј РѕРїРµСЂР°С†РёР№ РЅРѕ РІСЂРѕРґРµ Р±С‹ РґРѕР»Р¶РЅРѕ Р±С‹С‚СЊ РЅРѕСЂРјР°Р»СЊРЅРѕ.
 			return;
 	}
 }
@@ -1168,7 +1169,7 @@ void pushBackToList(int object, inout int last_pushed, int to_push)
 	last_pushed = to_push;
 }
 
-//при этом листы, относящиеся к дочерним нодам разрушаются.
+//РїСЂРё СЌС‚РѕРј Р»РёСЃС‚С‹, РѕС‚РЅРѕСЃСЏС‰РёРµСЃСЏ Рє РґРѕС‡РµСЂРЅРёРј РЅРѕРґР°Рј СЂР°Р·СЂСѓС€Р°СЋС‚СЃСЏ.
 void uniteObjects(int current, int left, int right)
 {
 	int left_it = lists_stack[left];
@@ -1183,7 +1184,7 @@ void uniteObjects(int current, int left, int right)
 	{
 		if (intersections_stack[left_it].data.t < intersections_stack[right_it].data.t)
 		{
-		// точки не выбрасываем, потому что даже если обьект не прозрачный, то потом при вычитании из него дырки нужно все равно хранить внутренние обьекты
+		// С‚РѕС‡РєРё РЅРµ РІС‹Р±СЂР°СЃС‹РІР°РµРј, РїРѕС‚РѕРјСѓ С‡С‚Рѕ РґР°Р¶Рµ РµСЃР»Рё РѕР±СЊРµРєС‚ РЅРµ РїСЂРѕР·СЂР°С‡РЅС‹Р№, С‚Рѕ РїРѕС‚РѕРј РїСЂРё РІС‹С‡РёС‚Р°РЅРёРё РёР· РЅРµРіРѕ РґС‹СЂРєРё РЅСѓР¶РЅРѕ РІСЃРµ СЂР°РІРЅРѕ С…СЂР°РЅРёС‚СЊ РІРЅСѓС‚СЂРµРЅРЅРёРµ РѕР±СЊРµРєС‚С‹
 			//if (!in_b)
 				pushBackToList(current, last_pushed, left_it);
 			in_a = intersections_stack[left_it].is_in;
@@ -1197,7 +1198,7 @@ void uniteObjects(int current, int left, int right)
 			right_it = intersections_stack[right_it].next_index;
 		}
 	}
-	//сейчас одно из них дошло точно до конца поэтому никаких ифов можно не делать
+	//СЃРµР№С‡Р°СЃ РѕРґРЅРѕ РёР· РЅРёС… РґРѕС€Р»Рѕ С‚РѕС‡РЅРѕ РґРѕ РєРѕРЅС†Р° РїРѕСЌС‚РѕРјСѓ РЅРёРєР°РєРёС… РёС„РѕРІ РјРѕР¶РЅРѕ РЅРµ РґРµР»Р°С‚СЊ
 	while (right_it != -1)
 	{
 		pushBackToList(current, last_pushed, right_it);
@@ -1208,7 +1209,7 @@ void uniteObjects(int current, int left, int right)
 		pushBackToList(current, last_pushed, left_it);
 		left_it = intersections_stack[left_it].next_index;
 	}
-	//это по сути закрытие листа, иначе финальный нод будет ссылаться на рандомный другой
+	//СЌС‚Рѕ РїРѕ СЃСѓС‚Рё Р·Р°РєСЂС‹С‚РёРµ Р»РёСЃС‚Р°, РёРЅР°С‡Рµ С„РёРЅР°Р»СЊРЅС‹Р№ РЅРѕРґ Р±СѓРґРµС‚ СЃСЃС‹Р»Р°С‚СЊСЃСЏ РЅР° СЂР°РЅРґРѕРјРЅС‹Р№ РґСЂСѓРіРѕР№
 	pushBackToList(current, last_pushed, -1);
 }
 
@@ -1250,7 +1251,7 @@ void subtractObjects(int current, int left, int right)
 	int right_it = lists_stack[right];
 
 	int last_pushed = -1;
-	//это для того, чтобы при вычитании обьектов на стенках отображалась правильная текстура, т е текстура самого внутреннего обьекта. но глубина такого запоминания ограничена
+	//СЌС‚Рѕ РґР»СЏ С‚РѕРіРѕ, С‡С‚РѕР±С‹ РїСЂРё РІС‹С‡РёС‚Р°РЅРёРё РѕР±СЊРµРєС‚РѕРІ РЅР° СЃС‚РµРЅРєР°С… РѕС‚РѕР±СЂР°Р¶Р°Р»Р°СЃСЊ РїСЂР°РІРёР»СЊРЅР°СЏ С‚РµРєСЃС‚СѓСЂР°, С‚ Рµ С‚РµРєСЃС‚СѓСЂР° СЃР°РјРѕРіРѕ РІРЅСѓС‚СЂРµРЅРЅРµРіРѕ РѕР±СЊРµРєС‚Р°. РЅРѕ РіР»СѓР±РёРЅР° С‚Р°РєРѕРіРѕ Р·Р°РїРѕРјРёРЅР°РЅРёСЏ РѕРіСЂР°РЅРёС‡РµРЅР°
 	#define MAX_SUB_DEPTH 10
 	int left_rememb[MAX_SUB_DEPTH];
 	while (left_it != -1 && right_it != -1)
@@ -1271,7 +1272,7 @@ void subtractObjects(int current, int left, int right)
 			if (in_a > 0)
 			{
 				pushBackToList(current, last_pushed, right_it);
-				//при этом last_pushed == right_it
+				//РїСЂРё СЌС‚РѕРј last_pushed == right_it
 				intersections_stack[last_pushed].is_in = !intersections_stack[right_it].is_in;
 				intersections_stack[last_pushed].data.n = -1 * intersections_stack[right_it].data.n;
 				intersections_stack[last_pushed].object_index = left_rememb[min(in_a - 1, MAX_SUB_DEPTH)];
@@ -1310,7 +1311,7 @@ struct FullIntersectionResult
 {
 	Intersection inter;
 	vec4 color;
-	//индекс примитива в дереве composed_objects с которым произошло первое пересечение. Для получения его индекса как примитива следует вызвать ComposedObjectNode_getPrimitiveIndex(composed_objects[object_index])
+	//РёРЅРґРµРєСЃ РїСЂРёРјРёС‚РёРІР° РІ РґРµСЂРµРІРµ composed_objects СЃ РєРѕС‚РѕСЂС‹Рј РїСЂРѕРёР·РѕС€Р»Рѕ РїРµСЂРІРѕРµ РїРµСЂРµСЃРµС‡РµРЅРёРµ. Р”Р»СЏ РїРѕР»СѓС‡РµРЅРёСЏ РµРіРѕ РёРЅРґРµРєСЃР° РєР°Рє РїСЂРёРјРёС‚РёРІР° СЃР»РµРґСѓРµС‚ РІС‹Р·РІР°С‚СЊ ComposedObjectNode_getPrimitiveIndex(composed_objects[object_index])
 	int object_index;
 };
 FullIntersectionResult intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_intersection)
@@ -1319,7 +1320,7 @@ FullIntersectionResult intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_
 	int prev = -1;
 	if (ComposedObjectNode_isPrimitive(composed_objects[0]))
 	{
-		IRO inter_res = intersectWithRay(primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[0])], camera_pos, dir);
+		IRO inter_res = intersectWithRay(primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[0])], ubo.camera_pos, dir);
 		has_intersection = (inter_res.inters > 0);
 		FullIntersectionResult res = {inter_res.first, primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[0])].color, 0};
 		return res;
@@ -1333,7 +1334,7 @@ FullIntersectionResult intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_
 			if (ComposedObjectNode_isPrimitive(composed_objects[left]))
 			{
 				
-				intersectWithPrimitiveAsNode(left, camera_pos, dir);
+				intersectWithPrimitiveAsNode(left, ubo.camera_pos, dir);
 				//return MAGENTA_INTER;
 				prev = left;
 			}
@@ -1349,7 +1350,7 @@ FullIntersectionResult intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_
 			int right = ComposedObjectNode_right(composed_objects[current], current);
 			if (ComposedObjectNode_isPrimitive(composed_objects[right]))
 			{
-				intersectWithPrimitiveAsNode(right, camera_pos, dir);
+				intersectWithPrimitiveAsNode(right, ubo.camera_pos, dir);
 				prev = right;
 			}
 			else
@@ -1395,7 +1396,7 @@ FullIntersectionResult intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_
 	
 	color.a = 1 - passed_alph;*/
 
-	//Meshkin’s Method
+	//MeshkinвЂ™s Method
 	/*vec4 color = primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[intersections_stack[lists_stack[0]].object_index])].color;
 	color.rgb *= -dot(normalized_ray_dir, intersections_stack[lists_stack[0]].data.n);
 	color.rgb *= color.a;
@@ -1412,7 +1413,7 @@ FullIntersectionResult intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_
 	}
 	color.a = 1;*/
 
-	//Bavoil and Myers’ Method
+	//Bavoil and MyersвЂ™ Method
 	vec4 color = primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[intersections_stack[lists_stack[0]].object_index])].color;
 	color.rgb *= -dot(normalized_ray_dir, intersections_stack[lists_stack[0]].data.n);
 	int current_node = intersections_stack[lists_stack[0]].next_index;
@@ -1491,7 +1492,43 @@ FullIntersectionResult intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_
 
 
 
+
+void main() {
+    ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
+    if (composed_objects[0].operation == -3)
+	imageStore(img_output, pixel_coords, vec4(1,0,0,1));
+    else
+	imageStore(img_output, pixel_coords, vec4(0,1,0,1));
+    return;
+    if (ubo.composed_object_nodes_count > STACK_SIZE)
+	{
+		imageStore(img_output, pixel_coords, vec4(abs(LIGHT_INTER.n), 1));
+		return;
+	}
+    float horizontal_step = 2.0/ubo.screen_size.x;
+    float vertical_step = 2.0/ubo.screen_size.y;
+    vec3 ray_dir = vec3(-1 + pixel_coords.x * horizontal_step, 1, -1 + pixel_coords.y * vertical_step);
+
+    bool has_intersection;
+	FullIntersectionResult inter = intersectWithRay(ubo.camera_pos, ray_dir, has_intersection);
+		
+
+    if (!has_intersection)
+	{
+		imageStore(img_output, pixel_coords, vec4(0,0,0,1));
+		//imageStore(depth_buffer, pixel_coords, 1.0);
+	}
+    else
+    {
+		float r =   0.99*(-dot(ray_dir, inter.inter.n) / length(ray_dir));
+		imageStore(img_output, pixel_coords, vec4(inter.color.rgb, 1));
+		//imageStore(img_output, pixel_coords, vec4(abs(inter.n),1));
+    }
+
+  
+}
+
 //Problems:
-//1) нижнее isInsidePolygon действительно ли можно спокойно убрать и почему там проблемы если его включить
-//2) в polyhedronе маленькая полоска
-//3) небольшое мерцание на границе пирамиды
+//1) РЅРёР¶РЅРµРµ isInsidePolygon РґРµР№СЃС‚РІРёС‚РµР»СЊРЅРѕ Р»Рё РјРѕР¶РЅРѕ СЃРїРѕРєРѕР№РЅРѕ СѓР±СЂР°С‚СЊ Рё РїРѕС‡РµРјСѓ С‚Р°Рј РїСЂРѕР±Р»РµРјС‹ РµСЃР»Рё РµРіРѕ РІРєР»СЋС‡РёС‚СЊ
+//2) РІ polyhedronРµ РјР°Р»РµРЅСЊРєР°СЏ РїРѕР»РѕСЃРєР°
+//3) РЅРµР±РѕР»СЊС€РѕРµ РјРµСЂС†Р°РЅРёРµ РЅР° РіСЂР°РЅРёС†Рµ РїРёСЂР°РјРёРґС‹

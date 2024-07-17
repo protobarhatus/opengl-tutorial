@@ -19,6 +19,16 @@ struct VecPair
 	vec3 second;
 };
 
+bool isItObjectOrItsChild(int checking_index, int target_index)
+{
+	while (checking_index > 0)
+	{
+		if (checking_index == target_index)
+			return true;
+		checking_index = ComposedObjectNode_parent(unused_arg, checking_index);
+	}
+	return false;
+}
 
 bool checkVisibility()
 {
@@ -47,7 +57,7 @@ bool checkVisibility()
 
 	bool has_intersection = false;
 	FullIntersectionResult isr = intersectWithRay(p1, p2 - p1, has_intersection);
-	if (has_intersection && isr.object_index == object_on_what_look)
+	if (has_intersection && isItObjectOrItsChild(isr.object_index, object_on_what_look))
 		return true;
 
 	return false;

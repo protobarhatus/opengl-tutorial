@@ -1,0 +1,4 @@
+A = Box(hsize: {1,1,1}; position: {-2, 0, 0}; rotation: 1+{0,0,0})
+B = Box(hsize: {1,1,1}; position: {2, 0, 0}; rotation: 0.3+{0.5, 0.81, 0})
+
+__obj__ = A + B

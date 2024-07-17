@@ -257,6 +257,28 @@ void GlslSceneMemory::bind(int programm, int current_program)
 }
 
 
+int GlslSceneMemory::getPrimitivesCount()
+{
+	return this->primitives_buffer.size();
+}
+
+int GlslSceneMemory::getDataCount()
+{
+	return vec2_buffer.size();
+}
+
+int GlslSceneMemory::getNormalsCount()
+{
+	return this->vec3_buffer.size();
+}
+
+int GlslSceneMemory::getComposedObjectNodesCount()
+{
+	return this->composed_object_nodes_buffer.size();
+}
+
+
+
 GLSL_Primitive buildObject(const std::unique_ptr<Object>& obj, int data_index, int normals_index, int int_index)
 {
 	switch (obj->getType())

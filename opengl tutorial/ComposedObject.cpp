@@ -153,6 +153,8 @@ bool ComposedObject::isPointInside(const Vector<3>& p) const
 ComposedObject::ComposedObject(std::unique_ptr<Object>&& left, std::unique_ptr<Object>&& right, Operation oper, const Vector<3>& pos, const Quat& rot) : left(std::move(left)), right(std::move(right)), operation(oper), Object(pos, rot)
 {
 	bounding_box = countBoundingBox();
+	this->left->setParent(this);
+	this->right->setParent(this);
 }
 
 ComposedObject::Operation ComposedObject::getOperation() const
@@ -189,6 +191,8 @@ const Object* ComposedObject::getObjectOfId(int id) const
 		return this->left->getObjectOfId(id);
 	return this->right->getObjectOfId(id);
 }
+
+
 
 std::unique_ptr<Object> objectsCombination(std::unique_ptr<Object>&& left, std::unique_ptr<Object>&& right, ComposedObject::Operation oper, const Vector<3>& comm_pos, const Quat& comm_rot)
 {

@@ -19,6 +19,7 @@
 #include "parser.h"
 #include "gl_utils.h"
 #include "GLSL_structures.h"
+#include "vulkan_code.h"
 
 
 void loadTexture(int width, int height, const unsigned char* buffer, bool first_time=false, GLuint texture_slot = GL_TEXTURE0, GLuint internal_format = GL_RGBA8, GLuint format = GL_RGBA)
@@ -422,29 +423,29 @@ void castRays(int window_width, int window_height, std::vector<unsigned char>& c
 	}
 }
 
-
-
-int main()
+GLFWwindow* createGlfwWindow(int window_width, int window_height, bool vulkan=false)
 {
-	
 	// (1) GLFW: Initialise & Configure
 	// -----------------------------------------
 	if (!glfwInit())
 		exit(EXIT_FAILURE);
-	glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
+	if (!vulkan)
+		glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, true);
 	//glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
 	//glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
 	//glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 	//glfwWindowHint(GLFW_DOUBLEBUFFER, 1);
 
+	if (vulkan)
+		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+
 	const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
 
 	int monitor_width = mode->width; // Monitor's width.
 	int monitor_height = mode->height;
 
-	int window_width = 1000;
-	int window_height = 1000;
+	
 
 	GLFWwindow* window = glfwCreateWindow(window_width, window_height, "GLFW Test Window – Changing Colours", NULL, NULL);
 	// GLFWwindow* window = glfwCreateWindow(window_width, window_height, "Drawing Basic Shapes - Buffer Objects & Shaders", glfwGetPrimaryMonitor(), NULL); // Full Screen Mode ("Alt" + "F4" to Exit!)
@@ -462,11 +463,19 @@ int main()
 
 	 //(2) GLAD: Load OpenGL Function Pointers
 	// -------------------------------------------------------
-	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) // For GLAD 2 use the following instead: gladLoadGL(glfwGetProcAddress)
+	if (!vulkan && !gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) // For GLAD 2 use the following instead: gladLoadGL(glfwGetProcAddress)
 	{
 		glfwTerminate();
 		exit(EXIT_FAILURE);
 	}
+	return window;
+}
+
+int openGlCode()
+{
+	int window_width = 1000;
+	int window_height = 1000;
+	GLFWwindow* window = createGlfwWindow(window_width, window_height);
 
 	unsigned int buffer;
 	glGenBuffers(1, &buffer);
@@ -554,7 +563,7 @@ int main()
 	Quat null_rotation = Quat(1, 0, 0, 0);
 	
 
-	auto obj = parse(readFile("examples/visibility_scene.txt"));
+	auto obj = parse(readFile("examples/thousand_boxes.txt"));
 	
 
 	assert(obj != nullptr);
@@ -637,6 +646,21 @@ int main()
 
 
 
+#include <iostream>
+
+int main() {
+	//openGlCode();
+	//return 0;
+	VulkanApp app;
+	auto obj = parse(readFile("examples/box_with_windows.txt"));
+	GlslSceneMemory mem;
+	mem.setSceneAsComposedObject(obj->copy());
+	app.setScene(mem);
+	app.run();
+	
+
+	return 0;
+}
 
 
 

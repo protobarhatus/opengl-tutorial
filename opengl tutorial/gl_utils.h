@@ -1,6 +1,6 @@
 #pragma once
 #include <glad/glad.h> // GLAD: https://github.com/Dav1dde/glad ... GLAD 2 also works via the web-service: https://gen.glad.sh/ (leaving all checkbox options unchecked)
-
+#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <string>
 #include <vector>
@@ -9,6 +9,8 @@ GLuint createSharedBufferObject(void* data, int data_size, int binding);
 void printProgramLog(int program);
 
 std::string readFile(const std::string& name);
+std::vector<char> readBinFile(const std::string& filename);
+
 
 bool checkCompilation(int shader);
 void loadShader(int prog, const std::string& name, GLuint type);
