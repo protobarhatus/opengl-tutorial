@@ -1,0 +1,30 @@
+#version 460
+#extension GL_EXT_ray_tracing : require
+
+struct Payload
+{
+  vec3 color;
+  float hitDistance;
+};
+
+layout(location = 0) rayPayloadInEXT Payload prd;
+
+struct Intersection
+{
+    vec3 n;
+    float t;
+};
+
+struct IRO
+{
+    int inters;
+    Intersection first, second;
+};
+
+hitAttributeEXT IRO hit_iro;
+
+void main() {
+//походу так в энихит не делается, цвета не передаются вообще
+    prd.color = vec3(1,1,1) * abs(dot(normalize(gl_WorldRayDirectionEXT), hit_iro.first.n));
+
+}

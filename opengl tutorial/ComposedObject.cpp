@@ -140,7 +140,13 @@ ObjectType ComposedObject::getType() const
 
 std::unique_ptr<Object> ComposedObject::copy() const
 {
-	return std::make_unique<ComposedObject>(left->copy(), right->copy(), operation, position, rotation);
+	auto res = std::make_unique<ComposedObject>(left->copy(), right->copy(), operation, position, rotation);
+	res->bb_set = this->bb_set;
+	res->bb_position_set = this->bb_set;
+	res->bounding_box = this->bounding_box;
+	res->bounding_box_position = this->bounding_box_position;
+	res->id = this->id;
+	return res;
 }
 
 bool ComposedObject::isPointInside(const Vector<3>& p) const

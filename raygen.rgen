@@ -1,0 +1,62 @@
+#version 460
+#extension GL_EXT_ray_tracing : require
+
+struct Payload
+{
+  vec3 color;
+  float hitDistance;
+};
+
+layout(set = 0, binding = 0) uniform accelerationStructureEXT topLevelAS;
+layout(rgba32f, binding = 1) uniform image2D img_output;
+layout(binding = 2) uniform u_obj_obj {
+    vec3 camera_pos;
+    ivec2 screen_size;
+    int primitives_count;
+    int data_count;
+    int normals_count;
+    int composed_object_nodes_count;
+} ubo;
+
+layout(location = 0) rayPayloadEXT Payload prd;
+
+const vec2 screen_size = vec2(1000, 1000);
+
+layout(binding = 10) buffer intersections_amount_buffer_object
+{
+    uint intersections_amount[];
+};
+
+void main() {
+    // Initialize the payload data
+    prd.color = vec3(0.0);
+    prd.hitDistance = 10000;
+    
+    float horizontal_step = 2.0/gl_LaunchSizeEXT.x;
+    float vertical_step = 2.0 /gl_LaunchSizeEXT.y;
+    
+    vec3 rayOrigin = ubo.camera_pos; // Define the ray origin
+    vec3 rayDirection = vec3(-1 + gl_LaunchIDEXT.x * horizontal_step, 1, -1 + gl_LaunchIDEXT.y * vertical_step); // Define the ray direction
+    //rayOrigin = vec3(0, 2, 0);
+    //rayDirection = vec3(0, 1, 0);
+
+    intersections_amount[gl_LaunchIDEXT.y * gl_LaunchSizeEXT.x + gl_LaunchIDEXT.x] = 0;
+
+    // Trace the ray
+    traceRayEXT(
+        topLevelAS,
+        gl_RayFlagsNoOpaqueEXT,
+        0xFF, // Cull mask
+        0,    // SBT record offset
+        0,    // SBT record stride
+        0,    // Miss index
+        rayOrigin,
+        0.001,
+        rayDirection,
+        10000.0, // A large distance to ensure the ray can travel far
+        0
+    );
+
+    imageStore(img_output, ivec2(gl_LaunchIDEXT.x, gl_LaunchIDEXT.y), vec4(prd.color.r , prd.color.g, prd.color.b, 1));
+    return;
+}

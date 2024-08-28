@@ -405,7 +405,9 @@ void Object::rotate(const Quat& rotation)
 
 Vector<3> Object::getBoundingBox() const
 {
-	return bounding_box;
+	if (this->bb_set)
+		return bounding_box;
+	return countBoundingBox();
 }
 
 
@@ -1311,4 +1313,34 @@ const std::vector<std::vector<Vector<2>>> Polyhedron::getPolygons() const
 const std::vector<Matrix<3>>& Polyhedron::getCoords() const
 {
 	return this->polygs_coords;
+}
+
+void Object::setBoundingBoxHSize(const Vector<3>& bb)
+{
+	this->bounding_box = bb;
+	this->bb_set = true;
+	if (!this->bb_position_set)
+	{
+		this->bb_position_set = true;
+		this->bounding_box_position = this->position;
+	}
+}
+
+void Object::setBoundingBoxPosition(const Vector<3>& bb)
+{
+	this->bb_position_set = true;
+	this->bounding_box_position = bb;
+}
+
+bool Object::haveBoundingBox() const
+{
+	return this->bb_set;
+}
+
+Vector<3> Object::getBoundingBoxPosition() const
+{
+	if (this->bb_position_set)
+		return this->bounding_box_position;
+	else
+		return this->position;
 }

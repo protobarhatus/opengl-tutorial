@@ -13,7 +13,7 @@ namespace Parser
 {
 
 	x3::rule<class word, std::string> liter_rule;
-	auto liter_rule_def = x3::alpha >> *(x3::alnum);
+	auto liter_rule_def = x3::alpha >> *( x3::alnum | x3::char_('_'));
 	BOOST_SPIRIT_DEFINE(liter_rule);
 
 	x3::rule<class vec2, Vector<2>> vec2 = "Vector<2>";
@@ -148,7 +148,9 @@ if (data.type() != getType<Type>()) throw "Provided optional argument " + std::s
 	const std::map<std::string, std::function<void(std::unique_ptr<Object>&, ArgumentData)>> optional_arguments_setter{
 		OPTIONAL_ARGUMENT_SETTER(color, Color, Vector<3>),
 		OPTIONAL_ARGUMENT_SETTER(alpha, Alpha, double),
-		OPTIONAL_ARGUMENT_SETTER(id, Id, int)
+		OPTIONAL_ARGUMENT_SETTER(id, Id, int),
+		OPTIONAL_ARGUMENT_SETTER(bb_hsize, BoundingBoxHSize, Vector<3>),
+		OPTIONAL_ARGUMENT_SETTER(bb_position, BoundingBoxPosition, Vector<3>)
 	};
 
 	void checkProvidedArguments(std::vector<std::pair<std::string, DataType>>& acceptable, const std::map<std::string, ArgumentData>& provided)
@@ -277,7 +279,9 @@ if (data.type() != getType<Type>()) throw "Provided optional argument " + std::s
 
 	x3::rule<class assign_tuple, std::tuple<std::string, std::unique_ptr<Object>>> tuple_assignation_rule;
 	auto tuple_assignation_rule_def = liter_rule >> '=' >> (primitive_rule | expression_rule);
-	void assignVariable(const std::string& str, std::unique_ptr<Object>&& prim) { __vars_map.insert({ str, std::move(prim) }); }
+	void assignVariable(const std::string& str, std::unique_ptr<Object>&& prim) {
+		__vars_map.insert({ str, std::move(prim) });
+	}
 	BOOST_SPIRIT_DEFINE(tuple_assignation_rule);
 
 	x3::rule<class assign, x3::unused_type> assignation_rule;
@@ -360,9 +364,167 @@ if (data.type() != getType<Type>()) throw "Provided optional argument " + std::s
 	BOOST_SPIRIT_DEFINE(final_rule);
 
 
-
+	std::string toString(const Vector<2>& v)
+	{
+		return "{" + std::to_string(v.x()) + ", " + std::to_string(v.y()) + "}";
+	}
+	std::string toString(const Vector<3>& v)
+	{
+		return "{" + std::to_string(v.x()) + ", " + std::to_string(v.y()) + ", " + std::to_string(v.z()) + "}";
+	}
+	std::string toString(const Vector<4>& v)
+	{
+		return "{" + std::to_string(v.x()) + ", " + std::to_string(v.y()) + ", " + std::to_string(v.z()) + ", " + std::to_string(v.t()) + "}";
+	}
+	std::string toString(const Quat& q)
+	{
+		return std::to_string(q.a0()) + " + " + toString(q.a);
+	}
+	std::string standartString(const Object& obj)
+	{
+		return "; position= " + toString(obj.getPosition()) + "; rotation= " + toString(obj.getRotation()) + "; color= " + toString(Vector<3>(obj.getColor().x(), obj.getColor().y(), obj.getColor().z()))
+			+ "; alpha= " + std::to_string(obj.getColor().t()) + "; id= " + std::to_string(obj.getId())
+			+ (obj.haveBoundingBox() ? "; bb_hsize= " + toString(obj.getBoundingBox()) + "; bb_position= " + toString(obj.getBoundingBoxPosition()) : "") + ")";
+	}
+	std::string toString(const std::vector<Vector<2>>& v)
+	{
+		std::string res = "{";
+		for (int i = 0; i < v.size(); ++i)
+		{
+			res += toString(v[i]) + (i < v.size() - 1 ? ",\n" : "\n");
+		}
+		return res + "}";
+	}
+	std::string toString(const std::vector<Vector<3>>& v)
+	{
+		std::string res = "{";
+		for (int i = 0; i < v.size(); ++i)
+		{
+			res += toString(v[i]) + (i < v.size() - 1 ? ",\n" : "\n");
+		}
+		return res + "}";
+	}
+	std::string toString(const std::vector<int>& v)
+	{
+		std::string res = "{";
+		for (int i = 0; i < v.size(); ++i)
+		{
+			res += std::to_string(v[i]) + (i < v.size() - 1 ? "," : "");
+		}
+		return res + "}";
+	}
+	std::string toString(const std::vector<std::vector<int>>& v)
+	{
+		std::string res = "{";
+		for (int i = 0; i < v.size(); ++i)
+		{
+			res += toString(v[i]) + (i < v.size() - 1 ? "," : "");
+		}
+		return res + "}";
+	}
+	std::string toString(ComposedObject::Operation op)
+	{
+		switch (op)
+		{
+		case ComposedObject::PLUS:
+			return "+";
+		case ComposedObject::MINUS:
+			return "\\";
+		case ComposedObject::MULT:
+			return "*";
+		default:
+			assert(false);
+		}
+		return "";
+	}
+	std::string toStringObject(const Object& obj)
+	{
+		switch (obj.getType())
+		{
+		case ObjectType::BOX:
+		{ const Box* box_p = dynamic_cast<const Box*>(&obj);
+		return "Box(hsize= " + toString(box_p->getHsize()) + standartString(obj);
+		}
+		case ObjectType::CONE: {
+			const Cone* cone_p = dynamic_cast<const Cone*>(&obj);
+			return "Cone(height= " + std::to_string(cone_p->getHeight()) + "; radius= " + std::to_string(cone_p->getRadius()) + standartString(obj);
+		}
+		case ObjectType::CYLINDER: {
+								 const Cylinder* cyl_p = dynamic_cast<const Cylinder*>(&obj);
+								 return "Cylinder(height= " + std::to_string(cyl_p->getHalfHeight() * 2) + "; radius= " + std::to_string(cyl_p->getRadius()) + standartString(obj);
+		}
+		case ObjectType::PIRAMID: {
+			const Piramid* pir_p = dynamic_cast<const Piramid*> (&obj);
+			return "Piramid(height=" + std::to_string(pir_p->getHeight()) + "; base= " + toString(pir_p->getBase()) + standartString(obj);
+		}
+		case ObjectType::POLYHEDRON: {
+			const Polyhedron* pol_p = dynamic_cast<const Polyhedron*>(&obj);
+			return "Polyhedron(points: " + toString(pol_p->getPoints()) + ";\n edges: " + toString(pol_p->getEdges()) + standartString(obj);
+		}
+		case ObjectType::PRIZM: {
+			const Prizm* pr_p = dynamic_cast<const Prizm*>(&obj);
+			return "Prizm(height= " + std::to_string(pr_p->getHalfHeight() * 2) + "; base= " + toString(pr_p->getBase()) + standartString(obj);
+		}
+		case ObjectType::SPHERE: {
+			const Sphere* sp_p = dynamic_cast<const Sphere*>(&obj);
+			return "Sphere(radius= " + std::to_string(sp_p->getRadius()) + standartString(obj);
+		}
+		case ObjectType::COMPOSED_OBJECT: {
+			const ComposedObject* c_p = dynamic_cast<const ComposedObject*>(&obj);
+			return "Obj(O" + std::to_string(c_p->getLeft()->getId()) + " " + toString(c_p->getOperation()) + " O" + std::to_string(c_p->getRight()->getId()) + "; id=" + std::to_string(c_p->getId()) +
+				(obj.haveBoundingBox() ? "; bb_hsize= " + toString(obj.getBoundingBox()) + "; bb_position= " + toString(obj.getBoundingBoxPosition()) : "") + ")";
+		}
+		default: assert(false);
+		}
+	}
+	std::string traverseAndDisplay(const Object& obj)
+	{
+		std::string res = "";
+		if (obj.getType() == ObjectType::COMPOSED_OBJECT)
+		{
+			const ComposedObject* c_p = dynamic_cast<const ComposedObject*>(&obj);
+			res += traverseAndDisplay(*c_p->getLeft());
+			res += traverseAndDisplay(*c_p->getRight());
+		}
+		res += "O" + std::to_string(obj.getId()) + " = " + toStringObject(obj) + "\n";
+		return res;
+	}
+	
 }
-
+#include <stack>
+std::string toStringScene(const Object& obj)
+{
+	std::string res = "";
+	std::stack<std::pair<const Object*, int>> st;
+	st.push({ &obj, 0 });
+	while (!st.empty())
+	{
+		if (st.top().first->getType() == ObjectType::COMPOSED_OBJECT)
+		{
+			if (st.top().second == 0)
+			{
+				st.top().second = 1;
+				st.push({ ((const ComposedObject*)(st.top().first))->getLeft().get(), 0 });
+			}
+			else if (st.top().second == 1)
+			{
+				st.top().second = 2;
+				st.push({ ((const ComposedObject*)(st.top().first))->getRight().get(), 0 });
+			}
+			else
+			{
+				res += "O" + std::to_string(st.top().first->getId()) + " = " + Parser::toStringObject(*st.top().first) + "\n";
+				st.pop();
+			}
+		}
+		else
+		{
+			res += "O" + std::to_string(st.top().first->getId()) + " = " + Parser::toStringObject(*st.top().first) + "\n";
+			st.pop();
+		}
+	}
+	return res + "\n__obj__ = O" + std::to_string(obj.getId());
+}
 
 std::unique_ptr<Object> parse(const std::string & str)
 {

@@ -20,12 +20,12 @@ vec3 colors[3] = vec3[](
 );
 
 vec2 tex_coords[6] = vec2[](
+    vec2(0, 0),
     vec2(0, 1),
-    vec2(0, 0),
-    vec2(1, 1),
-    vec2(1, 1),
-    vec2(0, 0),
-    vec2(1, 0)
+    vec2(1, 0),
+    vec2(1, 0),
+    vec2(0, 1),
+    vec2(1, 1)
 );
 
 void main() {

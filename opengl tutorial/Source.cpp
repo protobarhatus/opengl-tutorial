@@ -563,8 +563,7 @@ int openGlCode()
 	Quat null_rotation = Quat(1, 0, 0, 0);
 	
 
-	auto obj = parse(readFile("examples/thousand_boxes.txt"));
-	
+	auto obj = parse(readFile("examples/thousand_cubes.txt"));
 
 	assert(obj != nullptr);
 	obj->moveOn({ 0,9,0 });
@@ -647,15 +646,76 @@ int openGlCode()
 
 
 #include <iostream>
-
+#include <cmath>
 int main() {
+	
+	/*std::vector<std::vector<std::unique_ptr<Object>>> objs(13);
+	for (int i = 0; i < 13; ++i)
+		objs[i].resize(16 * 16 * 16);
+	std::function<void(int, int, int, int, int, int, int)> octogonalCubeCreation;
+	int id_counter = 0;
+	octogonalCubeCreation = [&objs, &id_counter, &octogonalCubeCreation](int size, int start, int depth, int i_ind, int j_ind, int k_ind, int ind_range)->void {
+		if (size == 1)
+		{
+			objs[depth][start] = makeBox({ 0.5, 0.5, 0.5 }, { i_ind * 2., j_ind * 2., k_ind * 2. }, { 1,0,0,0 });
+			objs[depth][start]->setId(id_counter++);
+			return;
+		}
+		octogonalCubeCreation(size / 8, start, depth + 3, i_ind, j_ind, k_ind, ind_range / 2);
+		octogonalCubeCreation(size / 8, start + (size / 8), depth + 3, i_ind + ind_range / 2, j_ind, k_ind, ind_range / 2);
+		octogonalCubeCreation(size / 8, start + (size / 8) * 2, depth + 3, i_ind, j_ind + ind_range / 2, k_ind, ind_range / 2);
+		octogonalCubeCreation(size / 8, start + (size / 8) * 3, depth + 3, i_ind + ind_range / 2, j_ind + ind_range / 2, k_ind, ind_range / 2);
+		octogonalCubeCreation(size / 8, start + (size / 8) * 4, depth + 3, i_ind, j_ind, k_ind + ind_range / 2, ind_range / 2);
+		octogonalCubeCreation(size / 8, start + (size / 8) * 5, depth + 3, i_ind + ind_range / 2, j_ind, k_ind + ind_range / 2, ind_range / 2);
+		octogonalCubeCreation(size / 8, start + (size / 8) * 6, depth + 3, i_ind, j_ind + ind_range / 2, k_ind + ind_range / 2, ind_range / 2);
+		octogonalCubeCreation(size / 8, start + (size / 8) * 7, depth + 3, i_ind + ind_range / 2, j_ind + ind_range / 2, k_ind + ind_range / 2, ind_range / 2);
+
+		for (int i = 0; i < 4; ++i)
+		{
+			objs[depth + 2][(start * 4) / size + i] = objectsUnion(std::move(objs[depth + 3][(start*8) / size + 2 * i]), std::move(objs[depth + 3][(start*8) / size + 2 * i + 1]), { 0,0,0 }, { 1,0,0,0 });
+			objs[depth + 2][(start * 4) / size + i]->setId(id_counter++);
+		}
+		for (int i = 0; i < 2; ++i)
+		{
+			objs[depth + 1][(start * 2) / size + i] = objectsUnion(std::move(objs[depth + 2][(start * 4) / size + 2 * i]), std::move(objs[depth + 2][(start * 4) / size + 2 * i + 1]), { 0,0,0 }, { 1,0,0,0 });
+			objs[depth + 1][(start * 2) / size + i]->setId(id_counter++);
+		}
+		objs[depth][start / size] = objectsUnion(std::move(objs[depth + 1][(start * 2) / size]), std::move(objs[depth + 1][(start * 2) / size + 1]), { 0,0,0 }, { 1,0,0,0 });
+		objs[depth][start / size]->setId(id_counter++);
+		float bb_hsize = (2. * (ind_range - 1) + 1.0) / 2;
+		objs[depth][start / size]->setBoundingBoxHSize({ bb_hsize, bb_hsize, bb_hsize });
+		objs[depth][start / size]->setBoundingBoxPosition({ 2. * i_ind + 2.0 * ind_range / 2 - 1 , 2.0 * j_ind + 2.0 * ind_range / 2 - 1, 2.0 * k_ind + 2.0 * ind_range / 2 - 1 });
+
+	};
+	octogonalCubeCreation(16 * 16 * 16, 0, 0, 0, 0, 0, 16);
+	std::fstream file("examples/thousand_cubes.txt", std::ios_base::out);
+	file << toStringScene(*objs[0][0]);
+	file.close();*/
 	//openGlCode();
 	//return 0;
+
+	int digs[] = { 70, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,13,14,15,16,17,18,70 };
+	unsigned int p_map[5];
+	for (int i = 0; i < 20; ++i)
+	{
+		int byte_num = 3 - i % 4;
+		p_map[i / 4] &= ~(0xFF << (8 * byte_num));
+		p_map[i / 4] |= ((digs[i] * 2) << (8 * byte_num));
+	}
+	for (int i = 0; i < 20; ++i)
+	{
+		std::cout << int((p_map[i / 4] >> (8 * (3 - i % 4))) & 0xFF) << ' ';
+	}
+	//system("pause");
+	//return 0;
 	VulkanApp app;
-	auto obj = parse(readFile("examples/box_with_windows.txt"));
+	auto obj = parse(readFile("examples/thousand_cubes.txt"));
+	//obj = makeSphere(1, { 0,0,0 });
 	GlslSceneMemory mem;
 	mem.setSceneAsComposedObject(obj->copy());
-	app.setScene(mem);
+	app.setScene(obj);
+
+
 	app.run();
 	
 

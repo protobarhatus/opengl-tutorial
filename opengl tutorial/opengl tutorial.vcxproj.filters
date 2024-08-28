@@ -65,6 +65,9 @@
     <None Include="visibility_detection_main.comp">
       <Filter>Исходные файлы</Filter>
     </None>
+    <None Include="raytrace_vulkan.comp">
+      <Filter>Исходные файлы</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="intersection.h">

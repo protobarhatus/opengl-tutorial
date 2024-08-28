@@ -3,7 +3,7 @@
 
 void main() {
     ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
-    if (composed_object_nodes_count > STACK_SIZE)
+    if (composed_object_nodes_count > 1048576)
 	{
 		imageStore(img_output, pixel_coords, vec4(abs(LIGHT_INTER.n), 1));
 		return;

@@ -2,7 +2,7 @@
 layout(local_size_x = 8, local_size_y = 4) in;
 layout(rgba32f, binding = 0) uniform image2D img_output;
 
-layout(binding = 7) uniform u_obj_obj {
+layout(binding = 8) uniform u_obj_obj {
 	vec3 camera_pos;
 	ivec2 screen_size;
 	int primitives_count;
@@ -50,6 +50,8 @@ struct ComposedObjectNode
 {
 //положительный означает примитив. Отрицательный - операцию. 
 	int operation;
+//положительное число - указатель на bb_data. -1 - отсутствие боундинг бокса
+	int bb_index;
 };
 
 layout(binding = 6) buffer composed_objects_array
@@ -86,6 +88,17 @@ layout(binding = 4) buffer int_array
 layout(binding = 5) buffer matrix_array
 {
 	mat3 matrix_data[];
+};
+struct BoundingBoxData
+{
+	vec3 hsize;
+	float dump1;
+	vec3 position;
+	float dump2;
+};
+layout(binding = 7) buffer bounding_boxes_array
+{
+	BoundingBoxData bb_data[];
 };
 
 
@@ -897,12 +910,11 @@ BoolISRBool intersectLineWithBoxOnSide(int sig, int dir_c, int c1, int c2, vec3 
 	return res;
 
 }
-
-IRO intersectBoxWithLine(in Primitive obj, in vec3 start, in vec3 dir)
+//size - half size
+IRO intersectBoxShapeWithLine(in vec3 size, in vec3 start, in vec3 dir)
 {
 	int c = 0;
 	Intersection res[2];
-	vec3 size = vec3(obj.sc1, obj.sc2, obj.sc3);
 	BoolISRBool intres = intersectLineWithBoxOnSide(1, 0, 1, 2, size, start, dir);
 	int previn = -1;
 	if (intres.have_intersect)
@@ -973,6 +985,12 @@ IRO intersectBoxWithLine(in Primitive obj, in vec3 start, in vec3 dir)
 	}
 	IRO ires = {0, { {0,0,0},0}, { {0,0,0},0}};
 	return ires;
+}
+
+IRO intersectBoxWithLine(in Primitive obj, in vec3 start, in vec3 dir)
+{
+	vec3 size = vec3(obj.sc1, obj.sc2, obj.sc3);
+	return intersectBoxShapeWithLine(size, start, dir);
 }
 
 
@@ -1106,9 +1124,10 @@ float sq(float x)
 }
 
 
-//точки которые вылазят за стек будут отброшены.
+//количество доступных точек. точки которые вылазят за стек будут отброшены.
 #define STACK_SIZE 200
-
+//определяет размер стека при проходе csg дерева, в котором хранится указатель на список пересечений левого нода.
+#define MAX_TREE_DEPTH 20
 struct IntersectionListUnit
 {
 	Intersection data;
@@ -1121,21 +1140,18 @@ struct IntersectionListUnit
 IntersectionListUnit intersections_stack[STACK_SIZE];
 //поскольку удаление не предусмотренно, мы просто идем вправо. То есть есть ограничение по в целом количеству пересечений на обьекте.
 int stack_index = 0;
-//листы по инлексу должны совпадать с нодами, которых они представляют. Это по сути просто отображение из нодов в начало листа с их данными
-int lists_stack[STACK_SIZE];
 
-void intersectWithPrimitiveAsNode(int node, vec3 camera_pos, vec3 dir)
+
+int intersectWithPrimitiveAsNode(int node, vec3 camera_pos, vec3 dir)
 {
-	IRO inter_res = intersectWithRay(primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[node])], ubo.camera_pos, dir);
+	IRO inter_res = intersectWithRay(primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[node])], camera_pos, dir);
 	switch(inter_res.inters)
 	{
 		case 0:
-			lists_stack[node] = -1;
-			return;
+			return -1;
 		case 1:
 			//это просто касание, и не стоит это рассматривать. Потому что тогда is_in всеравно кривоватое.
-			lists_stack[node] = -1;
-			return;
+			return -1;
 			/*if (inter_res.first.t >= 0)
 			{
 				lists_stack[node] = stack_index;
@@ -1147,53 +1163,51 @@ void intersectWithPrimitiveAsNode(int node, vec3 camera_pos, vec3 dir)
 		case 2:
 			if (inter_res.first.t >= 0) //если .first >= 0 то и .second >= 0 точно
 			{
-				lists_stack[node] = stack_index;
 				intersections_stack[stack_index] = IntersectionListUnit(inter_res.first, stack_index + 1, true, node);
 				stack_index++;
 				intersections_stack[stack_index++] = IntersectionListUnit(inter_res.second, -1, false, node);
-				return;
+				return stack_index - 2;
 			}
-			//.second точно >= 0, иначе бы вернулось ZERO_IRO
-			lists_stack[node] = stack_index;
 			intersections_stack[stack_index++] = IntersectionListUnit(inter_res.second, -1, false, node); //вообще конечно вопрос как это повлияет на алгоритмы т-м операций но вроде бы должно быть нормально.
-			return;
+			return stack_index - 1;
 	}
 }
 
-void pushBackToList(int object, inout int last_pushed, int to_push)
+void pushBackToList(inout int list_start, inout int last_pushed, int to_push)
 {
 	if (last_pushed == -1)
-		lists_stack[object] = to_push;
+		list_start = to_push;
 	else
 		intersections_stack[last_pushed].next_index = to_push;
 	last_pushed = to_push;
 }
 
 //при этом листы, относящиеся к дочерним нодам разрушаются.
-void uniteObjects(int current, int left, int right)
+int uniteObjects(int left_it, int right_it)
 {
-	int left_it = lists_stack[left];
-	int right_it = lists_stack[right];
-
+	//int left_it = lists_stack[left];
+	//int right_it = lists_stack[right];
+	
 	bool in_a = false;
 	bool in_b = false;
 
 	int last_pushed = -1;
-
+	//это будет либо left_it, либо right_it. заполняется в pushBackToList
+	int new_list_start = -1;
 	while (left_it != -1 && right_it != -1)
 	{
 		if (intersections_stack[left_it].data.t < intersections_stack[right_it].data.t)
 		{
 		// точки не выбрасываем, потому что даже если обьект не прозрачный, то потом при вычитании из него дырки нужно все равно хранить внутренние обьекты
 			//if (!in_b)
-				pushBackToList(current, last_pushed, left_it);
+				pushBackToList(new_list_start, last_pushed, left_it);
 			in_a = intersections_stack[left_it].is_in;
 			left_it = intersections_stack[left_it].next_index;
 		}
 		else
 		{
 			//if (!in_a)
-				pushBackToList(current, last_pushed, right_it);
+				pushBackToList(new_list_start, last_pushed, right_it);
 			in_b = intersections_stack[right_it].is_in;
 			right_it = intersections_stack[right_it].next_index;
 		}
@@ -1201,55 +1215,58 @@ void uniteObjects(int current, int left, int right)
 	//сейчас одно из них дошло точно до конца поэтому никаких ифов можно не делать
 	while (right_it != -1)
 	{
-		pushBackToList(current, last_pushed, right_it);
+		pushBackToList(new_list_start, last_pushed, right_it);
 		right_it = intersections_stack[right_it].next_index;
 	}
 	while (left_it != -1)
 	{
-		pushBackToList(current, last_pushed, left_it);
+		pushBackToList(new_list_start, last_pushed, left_it);
 		left_it = intersections_stack[left_it].next_index;
 	}
 	//это по сути закрытие листа, иначе финальный нод будет ссылаться на рандомный другой
-	pushBackToList(current, last_pushed, -1);
+	pushBackToList(new_list_start, last_pushed, -1);
+	return new_list_start;
 }
 
-void intersectObjects(int current, int left, int right)
+int intersectObjects(int left_it, int right_it)
 {
 	int in_a = 0;
 	int in_b = 0;
-	
-	int last_pushed = -1;
-	int left_it = lists_stack[left];
-	int right_it = lists_stack[right];
 
+	int last_pushed = -1;
+	//int left_it = lists_stack[left];
+	//int right_it = lists_stack[right];
+	int new_list_start = -1;
 	while (left_it != -1 && right_it != -1)
 	{
 		if (intersections_stack[left_it].data.t < intersections_stack[right_it].data.t)
 		{
 			if (in_b > 0)
-				pushBackToList(current, last_pushed, left_it);
+				pushBackToList(new_list_start, last_pushed, left_it);
 			in_a += 2*int(intersections_stack[left_it].is_in) - 1;
 			left_it = intersections_stack[left_it].next_index;
 		}
 		else
 		{
 			if (in_a > 0)
-				pushBackToList(current, last_pushed, right_it);
+				pushBackToList(new_list_start, last_pushed, right_it);
 			in_b += 2*int(intersections_stack[right_it].is_in) - 1;
 			right_it = intersections_stack[right_it].next_index;
 		}
 	}
-	pushBackToList(current, last_pushed, -1);
+	pushBackToList(new_list_start, last_pushed, -1);
+	return new_list_start;
 }
 
-void subtractObjects(int current, int left, int right)
+int subtractObjects(int left_it, int right_it)
 {
 	int in_a = 0;
 	int in_b = 0;
 
-	int left_it = lists_stack[left];
-	int right_it = lists_stack[right];
+	//int left_it = lists_stack[left];
+	//int right_it = lists_stack[right];
 
+	int new_list_start = -1;
 	int last_pushed = -1;
 	//это для того, чтобы при вычитании обьектов на стенках отображалась правильная текстура, т е текстура самого внутреннего обьекта. но глубина такого запоминания ограничена
 	#define MAX_SUB_DEPTH 10
@@ -1260,7 +1277,7 @@ void subtractObjects(int current, int left, int right)
 		{
 			if (in_b == 0)
 			{
-				pushBackToList(current, last_pushed, left_it);
+				pushBackToList(new_list_start, last_pushed, left_it);
 				
 			}
 			left_rememb[in_a] = intersections_stack[left_it].object_index;
@@ -1271,7 +1288,7 @@ void subtractObjects(int current, int left, int right)
 		{
 			if (in_a > 0)
 			{
-				pushBackToList(current, last_pushed, right_it);
+				pushBackToList(new_list_start, last_pushed, right_it);
 				//при этом last_pushed == right_it
 				intersections_stack[last_pushed].is_in = !intersections_stack[right_it].is_in;
 				intersections_stack[last_pushed].data.n = -1 * intersections_stack[right_it].data.n;
@@ -1285,25 +1302,26 @@ void subtractObjects(int current, int left, int right)
 	}
 	while (left_it != -1)
 	{
-		pushBackToList(current, last_pushed, left_it);
+		pushBackToList(new_list_start, last_pushed, left_it);
 		left_it = intersections_stack[left_it].next_index;
 	}
-	pushBackToList(current, last_pushed, -1);
+	pushBackToList(new_list_start, last_pushed, -1);
+	return new_list_start;
 }
 
-void combineObjects(int current, int left, int right)
+int combineObjects(int current, int left_it, int right_it)
 {
 	switch(composed_objects[current].operation)
 	{
 	case OBJECTS_ADD:
-		uniteObjects(current, left, right);
-		return;
+		return uniteObjects( left_it, right_it);
+		;
 	case OBJECTS_MULT:
-		intersectObjects(current, left, right);
-		return;
+		return intersectObjects( left_it, right_it);
+		;
 	case OBJECTS_SUB:
-		subtractObjects(current, left, right);
-		return;
+		return subtractObjects( left_it, right_it);
+		;
 	}
 }
 
@@ -1320,22 +1338,43 @@ FullIntersectionResult intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_
 	int prev = -1;
 	if (ComposedObjectNode_isPrimitive(composed_objects[0]))
 	{
-		IRO inter_res = intersectWithRay(primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[0])], ubo.camera_pos, dir);
+		IRO inter_res = intersectWithRay(primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[0])], camera_pos, dir);
 		has_intersection = (inter_res.inters > 0);
-		FullIntersectionResult res = {inter_res.first, primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[0])].color, 0};
+		FullIntersectionResult res = {inter_res.first, primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[0])].color * (-dot(normalize(dir), inter_res.first.n)), 0};
 		return res;
 	}
+	
+	int left_stack_list_index[MAX_TREE_DEPTH];
+	left_stack_list_index[0] = -1;
+	int stack_list_depth = 0;
 	//has_intersection = true;
+	int prev_node_list_index = -1;
+	if (composed_objects[0].bb_index > -1)
+	{
+		IRO bb_iro = intersectBoxShapeWithLine(bb_data[composed_objects[0].bb_index].hsize, camera_pos - bb_data[composed_objects[0].bb_index].position, dir);
+		if (bb_iro.inters == 0)
+		{
+			current = -1;
+			prev_node_list_index = -1;
+		}
+	}
 	while (current != -1)
 	{
 		if (prev == ComposedObjectNode_parent(composed_objects[current], current))
 		{
 			int left = ComposedObjectNode_left(composed_objects[current], current);
+			if (composed_objects[left].bb_index > -1)
+			{
+				IRO bb_iro = intersectBoxShapeWithLine(bb_data[composed_objects[left].bb_index].hsize, camera_pos - bb_data[composed_objects[left].bb_index].position, dir);
+				if (bb_iro.inters == 0)
+				{
+					prev_node_list_index = -1;
+					prev = left;
+				}
+			}
 			if (ComposedObjectNode_isPrimitive(composed_objects[left]))
 			{
-				
-				intersectWithPrimitiveAsNode(left, ubo.camera_pos, dir);
-				//return MAGENTA_INTER;
+				prev_node_list_index = intersectWithPrimitiveAsNode(left, camera_pos, dir);	
 				prev = left;
 			}
 			else
@@ -1347,10 +1386,22 @@ FullIntersectionResult intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_
 		}
 		else if (prev == ComposedObjectNode_left(composed_objects[current], current))
 		{
+			left_stack_list_index[stack_list_depth] = prev_node_list_index;
+			stack_list_depth++;
+			
 			int right = ComposedObjectNode_right(composed_objects[current], current);
+			if (composed_objects[right].bb_index > -1)
+			{
+				IRO bb_iro = intersectBoxShapeWithLine(bb_data[composed_objects[right].bb_index].hsize, camera_pos - bb_data[composed_objects[right].bb_index].position, dir);
+				if (bb_iro.inters == 0)
+				{
+					prev_node_list_index = -1;
+					prev = right;
+				}
+			}
 			if (ComposedObjectNode_isPrimitive(composed_objects[right]))
 			{
-				intersectWithPrimitiveAsNode(right, ubo.camera_pos, dir);
+				prev_node_list_index = intersectWithPrimitiveAsNode(right, camera_pos, dir);
 				prev = right;
 			}
 			else
@@ -1364,13 +1415,15 @@ FullIntersectionResult intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_
 		{
 			int left = ComposedObjectNode_left(composed_objects[current], current);
 			int right = prev;
-			combineObjects(current, left, right);
+			stack_list_depth--;
+			
+			prev_node_list_index = combineObjects(current, left_stack_list_index[stack_list_depth], prev_node_list_index);
 			prev = current;
 			current = ComposedObjectNode_parent(composed_objects[current], current);
 		}
 	}
 
-	if (lists_stack[0] == -1)
+	if (prev_node_list_index == -1)
 	{
 		has_intersection = false;
 		FullIntersectionResult res = { {{0,0,0},0}, {0,0,0,0},0};
@@ -1381,11 +1434,11 @@ FullIntersectionResult intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_
 	
 	vec3 normalized_ray_dir = normalize(dir);
 	//NORMAL COLOR BLENDING
-	/*vec4 color = primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[intersections_stack[lists_stack[0]].object_index])].color;
-	color.rgb *= -dot(normalized_ray_dir, intersections_stack[lists_stack[0]].data.n);
+	/**/vec4 color = primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[intersections_stack[prev_node_list_index].object_index])].color;
+	color.rgb *= -dot(normalized_ray_dir, intersections_stack[prev_node_list_index].data.n);
 	 
 	float passed_alph = 1 - color.a;
-	int current_node = intersections_stack[lists_stack[0]].next_index;
+	int current_node = intersections_stack[prev_node_list_index].next_index;
 	while (current_node != -1 && passed_alph > 0.01 )
 	{
 		int current_node_primitive = ComposedObjectNode_getPrimitiveIndex(composed_objects[intersections_stack[current_node].object_index]);
@@ -1394,7 +1447,7 @@ FullIntersectionResult intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_
 		current_node = intersections_stack[current_node].next_index;
 	}
 	
-	color.a = 1 - passed_alph;*/
+	color.a = 1 - passed_alph;
 
 	//Meshkin’s Method
 	/*vec4 color = primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[intersections_stack[lists_stack[0]].object_index])].color;
@@ -1414,9 +1467,9 @@ FullIntersectionResult intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_
 	color.a = 1;*/
 
 	//Bavoil and Myers’ Method
-	vec4 color = primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[intersections_stack[lists_stack[0]].object_index])].color;
-	color.rgb *= -dot(normalized_ray_dir, intersections_stack[lists_stack[0]].data.n);
-	int current_node = intersections_stack[lists_stack[0]].next_index;
+	/*vec4 color = primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[intersections_stack[prev_node_list_index].object_index])].color;
+	color.rgb *= -dot(normalized_ray_dir, intersections_stack[prev_node_list_index].data.n);
+	int current_node = intersections_stack[prev_node_list_index].next_index;
 	color.rgb *= color.a;
 	int n = 1;
 	float alpha_sum = color.a;
@@ -1433,7 +1486,7 @@ FullIntersectionResult intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_
 		passed_alph *= (1 - primitives[current_node_primitive].color.a);
 	}
 	color.rgb = color.rgb / max(alpha_sum, 0.0001) * (1. - pow(1. - 1.0/n * alpha_sum, n));
-	color.a = 1;
+	color.a = 1;*/
 
 	//A New Blended OIT Method
 	/*vec4 color = primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[intersections_stack[lists_stack[0]].object_index])].color;
@@ -1483,24 +1536,21 @@ FullIntersectionResult intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_
 	color.rgb = color.rgb / max(alpha_sum, 0.00001) * (1 - passed_alph);
 	color.a = 1;*/
 
-	FullIntersectionResult res = {intersections_stack[lists_stack[0]].data, color, intersections_stack[lists_stack[0]].object_index};
+	FullIntersectionResult res = {intersections_stack[prev_node_list_index].data, color, intersections_stack[prev_node_list_index].object_index};
 	return res;
 
 
 }
 
 
-
-
-
 void main() {
     ivec2 pixel_coords = ivec2(gl_GlobalInvocationID.xy);
-    if (composed_objects[0].operation == -3)
-	imageStore(img_output, pixel_coords, vec4(1,0,0,1));
-    else
-	imageStore(img_output, pixel_coords, vec4(0,1,0,1));
-    return;
-    if (ubo.composed_object_nodes_count > STACK_SIZE)
+    //if (composed_objects[0].operation == -3)
+	//imageStore(img_output, pixel_coords, vec4(1,0,0,1));
+    //else
+	//imageStore(img_output, pixel_coords, vec4(0,1,0,1));
+    //return;
+    if (ubo.composed_object_nodes_count > 1048576)
 	{
 		imageStore(img_output, pixel_coords, vec4(abs(LIGHT_INTER.n), 1));
 		return;

@@ -39,6 +39,7 @@ struct GLSL_mat3
 struct GLSL_ComposedObject
 {
 	int operation;
+	int bounding_box_index = -1;
 };
 
 enum class OperationTypeInShader
@@ -48,6 +49,13 @@ enum class OperationTypeInShader
 	OBJECTS_SUB = -3
 };
 
+struct GLSL_BoundingBoxData
+{
+	GLSL_vec3 bb_hsize;
+	float dump1;
+	GLSL_vec3 bb_position;
+	float dump2;
+};
 class GlslSceneMemory
 {
 	friend class VulkanApp;
@@ -57,7 +65,7 @@ class GlslSceneMemory
 	std::vector<Vec3Type> vec3_buffer;
 	std::vector<int> int_buffer;
 	std::vector<GLSL_mat3> mat3_buffer;
-
+	std::vector<GLSL_BoundingBoxData> bb_buffer;
 	void addObject(const std::unique_ptr<Object>& obj);
 	typedef int ComposedObjectRepresentation;
 	std::vector<GLSL_ComposedObject> composed_object_nodes_buffer;

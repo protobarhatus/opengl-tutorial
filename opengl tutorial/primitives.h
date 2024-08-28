@@ -40,11 +40,14 @@ protected:
 	Matrix<4> rotation_mat;
 	Matrix<4> back_rotation_mat;
 	Vector<3> bounding_box;
-	
+	//пока оно только для шейдера, на цпу не используется. Позиция центра коробки
+	Vector<3> bounding_box_position;
+	bool bb_set = false;
+	bool bb_position_set = false;
 	//оно переопределяется в пирамиде и конусе т к там центр смещен по вертикали
 	virtual bool lineIntersectsBoundingBox(const Vector<3>& start, const Vector<3>& dir) const;
 	Vector<4> color = { 1,1,1,1 };
-
+	//!! При добавлении новых вещей прочекать ::copy() в ComposedObject иначе парсить будет без учета новых аргументов
 	int id = -1;
 public:
 	virtual ObjectType getType() const = 0;
@@ -52,6 +55,11 @@ public:
 	virtual Vector<3> countBoundingBox() const = 0;
 	//для composed object требуется перевести bounding box в мировую ск т к иначе граница комбинированного бб будет рассчитана неправильно
 	Vector<3> rotateBoundingBox() const;
+	//заданный напрямую извне
+	void setBoundingBoxHSize(const Vector<3>& bb);
+	void setBoundingBoxPosition(const Vector<3>& bb);
+	Vector<3> getBoundingBoxPosition() const;
+	bool haveBoundingBox() const;
 	//если оставить в protected то ComposedObject не сможет вызывать это для своих членов. так что пока так
 	virtual std::vector<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const = 0;
 	Object(const Vector<3>& pos, const Quat& rot);
@@ -82,6 +90,7 @@ public:
 	virtual const Object* getObjectOfId(int id) const;
 	void setParent(const Object* parent);
 	bool isItIdOfObjectOrItsParent(int id_to_check) const;
+
 };
 
 
@@ -98,6 +107,7 @@ public:
 	std::vector<ISR> intersectWithRayOnBothSides(const Vector<3>& start, const Vector<3>& direction) const;
 	bool isPointInside(const Vector<3>& p) const override;
 	Vector<3> getHsize() const;
+
 
 };
 

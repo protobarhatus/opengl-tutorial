@@ -85,7 +85,13 @@ OperationTypeInShader mapOperations(ComposedObject::Operation op)
 		return OperationTypeInShader::OBJECTS_MULT;
 	}
 }
-
+std::vector<GLSL_BoundingBoxData> getBoundingBoxData(const std::unique_ptr<Object>& obj)
+{
+	if (obj->haveBoundingBox())
+		return { { (GLSL_vec3)(obj->getBoundingBox()), 0.0, (GLSL_vec3)(obj->getBoundingBoxPosition()), 0.0 } };
+	else
+		return {};
+}
 void GlslSceneMemory::setComposedObject(const std::unique_ptr<Object>& obj, int buffer_position, std::map<int, int>* map_of_ids, const std::set<int>& important_ids)
 {
 	if (this->composed_object_nodes_buffer.size() <= buffer_position)
@@ -97,13 +103,18 @@ void GlslSceneMemory::setComposedObject(const std::unique_ptr<Object>& obj, int 
 		const ComposedObject* obj_p = (const ComposedObject*)obj.get();
 		assert(equal(obj_p->getPosition(), { 0,0,0 }));
 		assert(equal(obj_p->getRotation(), Quat(1, 0, 0, 0)));
-		this->composed_object_nodes_buffer[buffer_position] = { (int)mapOperations(obj_p->getOperation()) };
+		this->composed_object_nodes_buffer[buffer_position] = { (int)mapOperations(obj_p->getOperation()),
+		 obj->haveBoundingBox() ? (int)this->bb_buffer.size() : -1 };
+		auto bb_dat = getBoundingBoxData(obj);
+		for (auto& it : bb_dat)
+			this->bb_buffer.push_back(it);
+
 		setComposedObject(obj_p->getLeft(), 2 * (buffer_position + 1) - 1, map_of_ids, important_ids);
 		setComposedObject(obj_p->getRight(), 2 * (buffer_position + 1), map_of_ids, important_ids);
 	}
 	else
 	{
-		this->composed_object_nodes_buffer[buffer_position] = { (int)this->primitives_buffer.size() };
+		this->composed_object_nodes_buffer[buffer_position] = { (int)this->primitives_buffer.size(), obj->haveBoundingBox() ? (int)this->bb_buffer.size() : -1 };
 		this->addObject(obj);
 	}
 }
@@ -178,6 +189,7 @@ std::vector<GLSL_mat3> getMat3Data(const std::unique_ptr<Object>& obj)
 	}
 }
 
+
 void GlslSceneMemory::addObject(const std::unique_ptr<Object>& obj)
 {
 	if (obj->getType() == ObjectType::COMPOSED_OBJECT)
@@ -189,7 +201,7 @@ void GlslSceneMemory::addObject(const std::unique_ptr<Object>& obj)
 	auto vec3_data = getVec3Data(obj);
 	auto int_data = getIntData(obj, this->mat3_buffer.size());
 	auto mat3_data = getMat3Data(obj);
-
+	auto bb_data = getBoundingBoxData(obj);
 
 	this->primitives_buffer.push_back(primitive);
 	for (auto& it : vec2_data)
@@ -200,6 +212,8 @@ void GlslSceneMemory::addObject(const std::unique_ptr<Object>& obj)
 		this->int_buffer.push_back(it);
 	for (auto& it : mat3_data)
 		this->mat3_buffer.push_back(it);
+	for (auto& it : bb_data)
+		this->bb_buffer.push_back(it);
 }
 
 static void writeBinaryFile(const char* data, int size, const std::string& name)
@@ -224,6 +238,8 @@ void GlslSceneMemory::dropToFiles(const std::string& dir) const
 		writeBinaryFile((char*)&this->mat3_buffer[0], sizeof(GLSL_mat3) * this->mat3_buffer.size(), dir + "mat3.buf");
 	if (this->composed_object_nodes_buffer.size() > 0)
 		writeBinaryFile((char*)&this->composed_object_nodes_buffer[0], sizeof(GLSL_ComposedObject) * this->composed_object_nodes_buffer.size(), dir + "composed.buf");
+	if (this->bb_buffer.size() > 0)
+		writeBinaryFile((char*)&this->bb_buffer[0], sizeof(GLSL_BoundingBoxData) * this->bb_buffer.size(), dir + "bounding_boxes.buf");
 }
 
 void GlslSceneMemory::bind(int programm, int current_program)
@@ -240,6 +256,8 @@ void GlslSceneMemory::bind(int programm, int current_program)
 		auto mat3_buf = createSharedBufferObject(&this->mat3_buffer[0], sizeof(GLSL_mat3) * this->mat3_buffer.size(), 5);
 	if (this->composed_object_nodes_buffer.size() > 0)
 		auto composed_buf = createSharedBufferObject(&this->composed_object_nodes_buffer[0], sizeof(GLSL_ComposedObject) * this->composed_object_nodes_buffer.size(), 6);
+	if (this->bb_buffer.size() > 0)
+		auto bb_buf = createSharedBufferObject(&this->bb_buffer[0], sizeof(GLSL_BoundingBoxData) * this->bb_buffer.size(), 7);
 
 
 	int primitive_count_location = glGetUniformLocation(programm, "primitives_count");

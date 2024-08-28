@@ -18,7 +18,7 @@
 #include "parser.h"
 #include "gl_utils.h"
 #include "GLSL_structures.h"
-
+#include <array>
 
 
 VkResult CreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkDebugUtilsMessengerEXT* pDebugMessenger);
@@ -42,20 +42,27 @@ struct SwapChainSupportDetails {
 
 
 
-
-
 class VulkanApp {
     const uint32_t WIDTH = 1000;
     const uint32_t HEIGHT = 1000;
+    const uint32_t INTERSECTION_STACK_SIZE = 100;
+    const uint32_t BATCHES_COUNT = 1;
     //под нее надо так же множить отдельные буфера для компьют шейдера и отдельные параметры камеры и тп, нафиг
     const int MAX_FRAMES_IN_FLIGHT = 1;
+    //без учета юниформ буфера
+    int BUFFERS_NUM = 7;
 
     const std::vector<const char*> validationLayers = {
         "VK_LAYER_KHRONOS_validation"
     };
-
+    
     const std::vector<const char*> deviceExtensions = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME
+        VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+        //все снизу - FOR RAYTRACING
+        VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,
+        VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,
+        VK_KHR_DEFERRED_HOST_OPERATIONS_EXTENSION_NAME,
+        VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME
     };
 
 #ifdef NDEBUG
@@ -63,9 +70,11 @@ class VulkanApp {
 #else
     const bool enableValidationLayers = true;
 #endif
+    void setScene(const GlslSceneMemory& scene);
 public:
     void run();
-    void setScene(const GlslSceneMemory& scene);
+    
+    void setScene(const std::unique_ptr<Object>& obj);
 private:
 
     Vector<3> camera = { 0, -5, 0 };
@@ -134,6 +143,11 @@ private:
     std::vector<void*> compute_mapped;
 
     GlslSceneMemory scene;
+    std::unique_ptr<Object> scene_object;
+
+    
+    std::array<VkBuffer, 4> intersection_stack_buffers;
+    std::array<VkDeviceMemory, 4> intersection_stack_buffers_memory;
 
     bool framebufferResized = false;
 
@@ -246,5 +260,29 @@ private:
 
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
 
-    
+
+
+    VkDescriptorSetLayout rtxDescriptorSetLayout;
+    VkDescriptorPool rtxDescriptorPool;
+    std::vector<VkDescriptorSet> rtxDescriptorSets;
+
+    VkPipelineLayout raytrace_pipeline_layout;
+    VkPipeline raytrace_pipeline;
+    VkCommandPool rtxCommandPool;
+    VkCommandBuffer rtxCommandBuffer;
+    //это временное решение
+    VkFence rtxFence;
+    VkAccelerationStructureKHR tlas;
+    VkStridedDeviceAddressRegionKHR raygen_shader_binding_table;
+    VkStridedDeviceAddressRegionKHR inter_shader_binding_table;
+    VkStridedDeviceAddressRegionKHR miss_shader_binding_table;
+
+    void doRaytraceSetup();
+    void createRaytracePipeline();
+    void createRaytraceCommandBuffer();
+    void createAccelerationStructure();
+    void makeShaderBindingTable();
+    void createDescriptorPoolAndSetForRaytrace();
+    void prepareCommandBufferForRtx();
+    VkAccelerationStructureKHR createBottomLevelAccelerationStructure();
 };

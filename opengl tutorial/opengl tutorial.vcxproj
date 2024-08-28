@@ -139,6 +139,11 @@
       <AdditionalDependencies>opengl32.lib;glfw3.lib;vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>G:\vulkanSDK\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
+    <PreBuildEvent>
+      <Command>glslc.exe --target-spv=spv1.6 "$(ProjectDir)hit.rchit" -o "$(ProjectDir)hit.spv"
+glslc.exe --target-spv=spv1.6 "$(ProjectDir)intersection.rint" -o "$(ProjectDir)intersection.spv"
+glslc.exe --target-spv=spv1.6 "$(ProjectDir)raygen.rgen" -o "$(ProjectDir)raygen.spv"</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
@@ -176,6 +181,7 @@
   <ItemGroup>
     <None Include="raytrace.comp" />
     <None Include="raytrace_main.comp" />
+    <None Include="raytrace_vulkan.comp" />
     <None Include="shader.frag" />
     <None Include="shader.vert" />
     <None Include="visibility_detection_main.comp" />
