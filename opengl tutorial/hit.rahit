@@ -1,19 +1,22 @@
 #version 460
 #extension GL_EXT_ray_tracing : require
 
-struct Payload
-{
-  vec3 color;
-  float hitDistance;
-};
-
-layout(location = 0) rayPayloadInEXT Payload prd;
-
+#define STACK_SIZE 128
 struct Intersection
 {
     vec3 n;
     float t;
 };
+struct RayHitList
+{
+    uint intersections_map[STACK_SIZE/2];
+    Intersection intersections_data[STACK_SIZE];
+    uint intersections_amount;
+    vec3 color;
+};
+
+layout(location = 0) rayPayloadInEXT RayHitList ray_data;
+
 
 struct IRO
 {
@@ -23,8 +26,24 @@ struct IRO
 
 hitAttributeEXT IRO hit_iro;
 
+
 void main() {
-//походу так в энихит не делается, цвета не передаются вообще
-    prd.color = vec3(1,1,1) * abs(dot(normalize(gl_WorldRayDirectionEXT), hit_iro.first.n));
+    if (ray_data.intersections_amount >= STACK_SIZE/2)
+    {
+        //ignoreIntersectionEXT();
+        return;
+    }
+    uint stack_index = ray_data.intersections_amount * 2;
+    //ray_data.intersections_map[ray_data.intersections_amount] = gl_GeometryIndexEXT;
+    uint bucket = gl_GeometryIndexEXT % 8;
+    if (ray_data.intersections_map[bucket * 8] == 7)
+        return;
+    //поскольку -1 означает отсутствие обьекта то gl_GeometryIndex ограничивается 23 битами а не 24 но это итак слишком много
+    ray_data.intersections_map[bucket * 8 + ray_data.intersections_map[bucket * 8] + 1] = (gl_GeometryIndexEXT << 8) | stack_index;
+    ray_data.intersections_map[bucket * 8] += 1;
+
+    ray_data.intersections_data[stack_index] = hit_iro.first;
+    ray_data.intersections_data[stack_index + 1] = hit_iro.second;
+    ray_data.intersections_amount += 1;
 
 }

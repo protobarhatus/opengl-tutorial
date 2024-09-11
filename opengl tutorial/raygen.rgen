@@ -1,11 +1,21 @@
 #version 460
 #extension GL_EXT_ray_tracing : require
 
-struct Payload
+struct Intersection
 {
-  vec3 color;
-  float hitDistance;
+    vec3 n;
+    float t;
 };
+#define _STACK_SIZE 128
+struct RayHitList
+{
+    uint intersections_map[_STACK_SIZE/2];
+    Intersection intersections_data[_STACK_SIZE];
+    uint intersections_amount;
+    vec3 color;
+};
+
+layout(location = 0) rayPayloadEXT RayHitList prd;
 
 layout(set = 0, binding = 0) uniform accelerationStructureEXT topLevelAS;
 layout(rgba32f, binding = 1) uniform image2D img_output;
@@ -20,33 +30,9 @@ layout(binding = 2) uniform u_obj_obj {
     int batches_count;
 } ubo;
 
-layout(location = 0) rayPayloadEXT Payload prd;
-
-const vec2 screen_size = vec2(1000, 1000);
-
-layout(binding = 10) buffer intersections_amount_buffer_object
-{
-    uint intersections_amount[];
-};
-struct IntersectionListUnit
-{
-    int next_index;
-    bool is_in;
-    //возможно хорошая идея переместить этот инт в Intersection. Хотя мне не нравится паддинг тогда ну и там оно бесполезно пока
-    //здесь индекс обьекта с чем пересекся луч в виде индекса в дереве composed_objects. Таким образом, индекс примитива, это composed_object[object_index].operation (или лучше ComposedObjectNode_getPrimitiveIndex(object_index) )
-    int object_index;
-    int intersections_amount;
-};
-//IntersectionListUnit intersections_stack[ubo.STACK_SIZE];
-layout(binding = 9) buffer intersection_stack_buffer_object
-{
-    IntersectionListUnit intersections_stack[];
-};
 
 void main() {
-    // Initialize the payload data
-    prd.color = vec3(0.0);
-    prd.hitDistance = 10000;
+    
     
     float horizontal_step = 2.0/ubo.screen_size.x;
     float vertical_step = 2.0 /ubo.screen_size.y;
@@ -56,11 +42,15 @@ void main() {
     {
         ivec2 pixel_coord = ivec2(gl_LaunchIDEXT.x, gl_LaunchIDEXT.y + i * gl_LaunchSizeEXT.y);
         vec3 rayDirection = vec3(-1 + pixel_coord.x * horizontal_step, 1, -1 + pixel_coord.y * vertical_step);
-
-        intersections_amount[gl_LaunchIDEXT.y * gl_LaunchSizeEXT.x + gl_LaunchIDEXT.x] = 0;
-
-        intersections_stack[(gl_LaunchIDEXT.y * gl_LaunchSizeEXT.x + gl_LaunchIDEXT.x) * ubo.STACK_SIZE].intersections_amount = 0;
-
+        // Initialize the payload data
+        prd.color = vec3(0.0);
+        prd.intersections_amount = 0;
+        for (int i = 0; i < 8; ++i)
+            prd.intersections_map[i * 8] = 0;
+        //for (int i = 0; i < 4096; ++i)
+        //{
+        //    prd.intersections_map[i] = -1;
+        //}
         traceRayEXT(
             topLevelAS,
             gl_RayFlagsNoOpaqueEXT,

@@ -84,34 +84,7 @@ struct IRO
     Intersection first, second;
 };
 
-//количество доступных точек. точки которые вылазят за стек будут отброшены. ЕСЛИ ИЗМЕНЯТЬ ТО ОДНОВРЕМЕННО ЗДЕСЬ, в hit.rchit и в коде при создании буфера!!!
-//#define ubo.STACK_SIZE 100
-struct IntersectionListUnit
-{
-    int next_index;
-    bool is_in;
-    //возможно хорошая идея переместить этот инт в Intersection. Хотя мне не нравится паддинг тогда ну и там оно бесполезно пока
-    //здесь индекс обьекта с чем пересекся луч в виде индекса в дереве composed_objects. Таким образом, индекс примитива, это composed_object[object_index].operation (или лучше ComposedObjectNode_getPrimitiveIndex(object_index) )
-    int object_index;
-    int intersections_amount;
-};
-//IntersectionListUnit intersections_stack[ubo.STACK_SIZE];
-layout(binding = 9) buffer intersection_stack_buffer_object
-{
-    IntersectionListUnit intersections_stack[];
-};
-layout(binding = 10) buffer intersections_amount_buffer_object
-{
-    uint intersections_amount[];
-};
-layout(binding = 11) buffer intersections_data_buffer_object
-{
-    Intersection intersections_data[];
-};
-layout(binding = 12) buffer primitives_mapping_buffer_object
-{
-    uint primitives_map[];
-};
+
 
 //Возможно стоит сделать эти вещи дефайнами
 uint Polyhedron_vertexAmount(Primitive obj)
@@ -146,8 +119,6 @@ uint Polyhedron_normalsStart(Primitive obj)
 }
 
 
-
-hitAttributeEXT IRO hit_iro;
 
 
 //некоторая инкапсуляция для примитивов. sc1, sc2 - это еще ладно но обращение к буферам точно надо
@@ -1120,35 +1091,24 @@ struct Payload
   float hitDistance;
 };
 
-/*struct RayHitList
-{
-    IntersectionListUnit intersections_stack[200];
-    int intersections_amount;
-};
-
-hitAttributeEXT RayHitList myCustomData;*/
+hitAttributeEXT IRO hit_iro;
 void main()
 {
     IRO res = intersectWithRay(primitives[gl_GeometryIndexEXT], gl_WorldRayOriginEXT, gl_WorldRayDirectionEXT);
     if (res.inters > 0)
     {
         hit_iro = res;
-        //atomicAdd(intersections_amount[gl_LaunchIDEXT.x * gl_LaunchSizeEXT.x + gl_LaunchIDEXT.y], 1);
-        uint IDX = gl_LaunchIDEXT.y * gl_LaunchSizeEXT.x + gl_LaunchIDEXT.x;
-        if (intersections_amount[IDX] >= ubo.STACK_SIZE/2)
-            return;
+        //if (ray_data.intersections_amount >= ubo.STACK_SIZE/2)
+        //    return;
 
-        uint stack_index = IDX * ubo.STACK_SIZE + intersections_stack[IDX * ubo.STACK_SIZE].intersections_amount * 2;
-        intersections_stack[stack_index] = 
-            IntersectionListUnit(int(stack_index + 1), true, gl_GeometryIndexEXT, 0);
-        intersections_stack[stack_index + 1] = 
-            IntersectionListUnit(-1, false, gl_GeometryIndexEXT, 0);
-        intersections_data[stack_index] = res.first;
-        intersections_data[stack_index + 1] = res.second;
+        //uint stack_index = ray_data.intersections_amount * 2;
+        //ray_data.intersections_map[ray_data.intersections_amount] = gl_GeometryIndexEXT;
+       // ray_data.intersections_data[stack_index] = res.first;
+        //ray_data.intersections_data[stack_index + 1] = res.second;
 
-        intersections_stack[IDX * ubo.STACK_SIZE].intersections_amount += 1;
+        //ray_data.intersections_amount += 1;
 
-        uint primitiv_map_ind = IDX * ubo.primitives_count + gl_GeometryIndexEXT;
+        //uint primitiv_map_ind = IDX * ubo.primitives_count + gl_GeometryIndexEXT;
         //int byte_num = int(3 - primitiv_map_ind % 4);
         //primitives_map[primitiv_map_ind / 4] &= ~(0xFF << (8*byte_num));
         //primitives_map[primitiv_map_ind / 4] |= ((intersections_amount[IDX] * 2) << (8*byte_num));

@@ -522,7 +522,7 @@ void VulkanApp::makeShaderBindingTable()
     vkGetPhysicalDeviceProperties2(physicalDevice, &deviceProps2);
 
     uint32_t handleSize = rtPipelineProps.shaderGroupHandleSize;
-    uint32_t groupCount = 3;  // We have two groups: intersection and raygen
+    uint32_t groupCount = 3; 
     uint32_t sbtSize = groupCount * handleSize;
 
     // Create a buffer to store the SBT
@@ -573,7 +573,7 @@ void VulkanApp::makeShaderBindingTable()
 
 void VulkanApp::createDescriptorPoolAndSetForRaytrace()
 {
-    std::array<VkDescriptorPoolSize, 13> poolSizes{};
+    std::array<VkDescriptorPoolSize, 9> poolSizes{};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
     poolSizes[0].descriptorCount = static_cast<uint32_t>(1);
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
@@ -592,14 +592,14 @@ void VulkanApp::createDescriptorPoolAndSetForRaytrace()
     poolSizes[3].descriptorCount = static_cast<uint32_t>(1);
     poolSizes[8].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     poolSizes[8].descriptorCount = static_cast<uint32_t>(1);
-    poolSizes[9].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    /*poolSizes[9].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     poolSizes[9].descriptorCount = static_cast<uint32_t>(1);
     poolSizes[10].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     poolSizes[10].descriptorCount = static_cast<uint32_t>(1);
     poolSizes[11].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     poolSizes[11].descriptorCount = static_cast<uint32_t>(1);
     poolSizes[12].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[12].descriptorCount = static_cast<uint32_t>(1);
+    poolSizes[12].descriptorCount = static_cast<uint32_t>(1);*/
 
 
     VkDescriptorPoolCreateInfo poolInfo{};
@@ -633,7 +633,7 @@ void VulkanApp::createDescriptorPoolAndSetForRaytrace()
 
 
 
-        std::array<VkWriteDescriptorSet, 13> descriptorWrites{};
+        std::array<VkWriteDescriptorSet, 9> descriptorWrites{};
         
         VkWriteDescriptorSetAccelerationStructureKHR asInfo{};
         asInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
@@ -746,15 +746,15 @@ void VulkanApp::createDescriptorPoolAndSetForRaytrace()
         descriptorWrites[8].pBufferInfo = &ssbo6;
         
 
-        this->createBuffer(uint64_t(WIDTH* HEIGHT / BATCHES_COUNT)* uint64_t(INTERSECTION_STACK_SIZE * 16), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, this->intersection_stack_buffers[0], intersection_stack_buffers_memory[0]);
+        /*this->createBuffer(uint64_t(WIDTH* HEIGHT / BATCHES_COUNT)* uint64_t(INTERSECTION_STACK_SIZE * 16), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, this->intersection_stack_buffers[0], intersection_stack_buffers_memory[0]);
         this->createBuffer(1 + 0 *WIDTH* HEIGHT / BATCHES_COUNT * 4, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, this->intersection_stack_buffers[1], intersection_stack_buffers_memory[1]);
         this->createBuffer(WIDTH* HEIGHT / BATCHES_COUNT * INTERSECTION_STACK_SIZE * 16, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, this->intersection_stack_buffers[2], intersection_stack_buffers_memory[2]);
         this->createBuffer(1 + 0 *WIDTH* HEIGHT / BATCHES_COUNT * scene.getPrimitivesCount() * 4, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, this->intersection_stack_buffers[3], intersection_stack_buffers_memory[3]);
-       /* if (uint64_t(WIDTH * HEIGHT / BATCHES_COUNT) * uint64_t(INTERSECTION_STACK_SIZE * 16) > std::numeric_limits<unsigned int>::max() ||
+        if (uint64_t(WIDTH * HEIGHT / BATCHES_COUNT) * uint64_t(INTERSECTION_STACK_SIZE * 16) > std::numeric_limits<unsigned int>::max() ||
             uint64_t(WIDTH * HEIGHT / BATCHES_COUNT) * scene.getPrimitivesCount() * 4 > std::numeric_limits<unsigned int>::max())
         {
             throw "TOO MUCH BUFFER IT WONT WORK\n";
-        }*/
+        }
 
         VkDescriptorBufferInfo intst1{};
         intst1.buffer = intersection_stack_buffers[0];
@@ -806,7 +806,7 @@ void VulkanApp::createDescriptorPoolAndSetForRaytrace()
         descriptorWrites[12].dstArrayElement = 0;
         descriptorWrites[12].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         descriptorWrites[12].descriptorCount = 1;
-        descriptorWrites[12].pBufferInfo = &intst4;
+        descriptorWrites[12].pBufferInfo = &intst4;*/
 
         vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
     }
@@ -859,7 +859,7 @@ void VulkanApp::prepareCommandBufferForRtx()
         throw std::runtime_error("something bad in rtx shader");
     }
     vkResetCommandBuffer(rtxCommandBuffer, 0);
-   // 
+   //  
     
 }
 
@@ -892,6 +892,8 @@ void VulkanApp::createRaytracePipeline()
     VkShaderModule miss_shader_module = createShaderModule(readBinFile("miss.spv"));
 
     auto hit_shader_module = createShaderModule(readBinFile("hit.spv"));
+
+    auto anyhit_shader_module = createShaderModule(readBinFile("anyhit.spv"));
     
     VkPipelineShaderStageCreateInfo hit_shst_crinfo{};
     hit_shst_crinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -925,6 +927,14 @@ void VulkanApp::createRaytracePipeline()
     miss_shst_create_info.pName = "main";
     miss_shst_create_info.flags = 0;
 
+    VkPipelineShaderStageCreateInfo anyhit_shst_crinfo{};
+    anyhit_shst_crinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    anyhit_shst_crinfo.pNext = nullptr;
+    anyhit_shst_crinfo.stage = VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
+    anyhit_shst_crinfo.module = anyhit_shader_module;
+    anyhit_shst_crinfo.pName = "main";
+    anyhit_shst_crinfo.flags = 0;
+
 
     VkRayTracingShaderGroupCreateInfoKHR raygen_gr_crinfo{};
     raygen_gr_crinfo.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
@@ -943,7 +953,7 @@ void VulkanApp::createRaytracePipeline()
     rtsg_create_info.closestHitShader = 0;
    // rtsg_create_info.intersectionShader = 0;
     rtsg_create_info.intersectionShader = 3;
-    rtsg_create_info.anyHitShader = VK_SHADER_UNUSED_KHR;
+    rtsg_create_info.anyHitShader = 4;
 
     VkRayTracingShaderGroupCreateInfoKHR miss_rtsg_create_info{};
     miss_rtsg_create_info.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
@@ -956,8 +966,9 @@ void VulkanApp::createRaytracePipeline()
     miss_rtsg_create_info.anyHitShader = VK_SHADER_UNUSED_KHR;
 
     //VkPipelineShaderStageCreateInfo pssci[3] = { shst_create_info ,raygen_shst_crinfo, hit_shst_crinfo };
-    VkPipelineShaderStageCreateInfo pssci[] = { hit_shst_crinfo, raygen_shst_crinfo, miss_shst_create_info,  shst_create_info };
-    VkRayTracingShaderGroupCreateInfoKHR rtsgci[] = { rtsg_create_info , raygen_gr_crinfo, miss_rtsg_create_info };
+
+    std::vector<VkPipelineShaderStageCreateInfo> pssci = { hit_shst_crinfo, raygen_shst_crinfo, miss_shst_create_info,  shst_create_info, anyhit_shst_crinfo };
+    std::vector<VkRayTracingShaderGroupCreateInfoKHR> rtsgci = { rtsg_create_info , raygen_gr_crinfo, miss_rtsg_create_info };
 
 
     //set layout
@@ -988,25 +999,17 @@ void VulkanApp::createRaytracePipeline()
     ssbo1.descriptorCount = 1;
     ssbo1.stageFlags = VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
 
-    VkDescriptorSetLayoutBinding ssbo2, ssbo3, ssbo4, ssbo5, ssbo6, intstssbo1, intstssbo2, intstssbo3, intstssbo4;
-    intstssbo4 = intstssbo3 = intstssbo1 = intstssbo2 = ssbo2 = ssbo3 = ssbo4 = ssbo5 = ssbo6 = ssbo1;
+    VkDescriptorSetLayoutBinding ssbo2, ssbo3, ssbo4, ssbo5, ssbo6;
+    ssbo2 = ssbo3 = ssbo4 = ssbo5 = ssbo6 = ssbo1;
     ssbo2.binding = 4;
     ssbo3.binding = 5;
     ssbo4.binding = 6;
     ssbo5.binding = 7;
     ssbo6.binding = 8;
     ssbo6.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
-    intstssbo1.binding = 9;
-    intstssbo2.binding = 10;
-    intstssbo3.binding = 11;
-    intstssbo4.binding = 12;
-    intstssbo1.stageFlags  = VK_SHADER_STAGE_INTERSECTION_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-    intstssbo2.stageFlags = VK_SHADER_STAGE_INTERSECTION_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-    intstssbo3.stageFlags = VK_SHADER_STAGE_INTERSECTION_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
-    intstssbo4.stageFlags = VK_SHADER_STAGE_INTERSECTION_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
     ssbo1.stageFlags = VK_SHADER_STAGE_INTERSECTION_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
 
-    std::vector<VkDescriptorSetLayoutBinding> bindings = { accel_struct_binding, image_binding, uniform_binding, ssbo1, ssbo2, ssbo3, ssbo4, ssbo5, ssbo6, intstssbo1, intstssbo2, intstssbo3, intstssbo4 };
+    std::vector<VkDescriptorSetLayoutBinding> bindings = { accel_struct_binding, image_binding, uniform_binding, ssbo1, ssbo2, ssbo3, ssbo4, ssbo5, ssbo6};
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -1039,10 +1042,10 @@ void VulkanApp::createRaytracePipeline()
     rt_create_info.sType = VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR;
     rt_create_info.pNext = nullptr;
     rt_create_info.flags = VK_PIPELINE_CREATE_RAY_TRACING_NO_NULL_INTERSECTION_SHADERS_BIT_KHR | VK_PIPELINE_CREATE_RAY_TRACING_SKIP_TRIANGLES_BIT_KHR;
-    rt_create_info.stageCount = 4;
-    rt_create_info.pStages = pssci;
-    rt_create_info.groupCount = 3;
-    rt_create_info.pGroups = rtsgci;
+    rt_create_info.stageCount = pssci.size();
+    rt_create_info.pStages = pssci.data();
+    rt_create_info.groupCount = rtsgci.size();
+    rt_create_info.pGroups = rtsgci.data();
     rt_create_info.maxPipelineRayRecursionDepth = 1;
     rt_create_info.layout = raytrace_pipeline_layout;
 
@@ -1071,7 +1074,7 @@ void VulkanApp::dispatchCompute()
     vkCmdBindDescriptorSets(computeCommandBuffers[0], VK_PIPELINE_BIND_POINT_COMPUTE, computeLayout, 0, 1, &computeDescriptorSets[0], 0, nullptr);
 
 
-    vkCmdDispatch(computeCommandBuffers[0], WIDTH / 8, HEIGHT/4, 1);
+    vkCmdDispatch(computeCommandBuffers[0], WIDTH / 8, HEIGHT / 4, 1);
 
     if (vkEndCommandBuffer(computeCommandBuffers[0]) != VK_SUCCESS) {
         throw std::runtime_error("failed to record command buffer!");

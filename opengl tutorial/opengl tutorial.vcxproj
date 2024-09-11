@@ -140,9 +140,16 @@
       <AdditionalLibraryDirectories>G:\vulkanSDK\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PreBuildEvent>
-      <Command>glslc.exe --target-spv=spv1.6 "$(ProjectDir)hit.rchit" -o "$(ProjectDir)hit.spv"
+      <Command>glslangValidator.exe --target-env spirv1.6 "$(ProjectDir)hit.rahit" -V -o dump
+glslangValidator.exe --target-env spirv1.6 "$(ProjectDir)hit.rchit" -V -o dump
+glslangValidator.exe --target-env spirv1.6 "$(ProjectDir)intersection.rint" -V -o dump
+glslangValidator.exe --target-env spirv1.6 "$(ProjectDir)raygen.rgen" -V -o dump
+glslangValidator.exe --target-env spirv1.6 "$(ProjectDir)miss.rmiss" -V -o dump
+glslc.exe --target-spv=spv1.6 "$(ProjectDir)hit.rchit" -o "$(ProjectDir)hit.spv"
 glslc.exe --target-spv=spv1.6 "$(ProjectDir)intersection.rint" -o "$(ProjectDir)intersection.spv"
-glslc.exe --target-spv=spv1.6 "$(ProjectDir)raygen.rgen" -o "$(ProjectDir)raygen.spv"</Command>
+glslc.exe --target-spv=spv1.6 "$(ProjectDir)raygen.rgen" -o "$(ProjectDir)raygen.spv"
+glslc.exe --target-spv=spv1.6 "$(ProjectDir)hit.rahit" -o "$(ProjectDir)anyhit.spv"
+glslc.exe --target-spv=spv1.6 "$(ProjectDir)miss.rmiss" -o "$(ProjectDir)miss.spv"</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

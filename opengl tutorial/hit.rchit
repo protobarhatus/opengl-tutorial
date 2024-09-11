@@ -1,27 +1,37 @@
 #version 460
 #extension GL_EXT_ray_tracing : require
 
-struct Payload
-{
-  vec3 color;
-  float hitDistance;
-};
-
-layout(location = 0) rayPayloadInEXT Payload prd;
-
 struct Intersection
 {
     vec3 n;
     float t;
 };
+#define _STACK_SIZE 128
+struct RayHitList
+{
+    uint intersections_map[_STACK_SIZE/2];
+    Intersection intersections_data[_STACK_SIZE];
+    uint intersections_amount;
+    vec3 color;
+};
+struct IntersectionListUnit
+{
+    int next_index;
+    bool is_in;
+    int object_index;
+};
+
+IntersectionListUnit intersections_stack[_STACK_SIZE];
+
+layout(location = 0) rayPayloadInEXT RayHitList ray_data;
+
+
 
 struct IRO
 {
     int inters;
     Intersection first, second;
 };
-
-hitAttributeEXT IRO hit_iro;
 
 struct ComposedObjectNode
 {
@@ -88,34 +98,11 @@ layout(binding = 8) buffer composed_objects_array
 
 //количество доступных точек. точки которые вылазят за стек будут отброшены. ЕСЛИ ИЗМЕНЯТЬ ТО ОДНОВРЕМЕННО ЗДЕСЬ, в intersection.rint и в коде при создании буфера!!!
 //#define STACK_SIZE 100
-struct IntersectionListUnit
-{
-    int next_index;
-    bool is_in;
-    //возможно хорошая идея переместить этот инт в Intersection. Хотя мне не нравится паддинг тогда ну и там оно бесполезно пока
-    //здесь индекс обьекта с чем пересекся луч в виде индекса в дереве composed_objects. Таким образом, индекс примитива, это composed_object[object_index].operation (или лучше ComposedObjectNode_getPrimitiveIndex(object_index) )
-    int object_index;
-    int intersections_amount;
-};
-//IntersectionListUnit intersections_stack[ubo.STACK_SIZE];
-layout(binding = 9) buffer intersection_stack_buffer_object
-{
-    IntersectionListUnit intersections_stack[];
-};
-/*layout(binding = 10) buffer intersections_amount_buffer_object
-{
-    uint intersections_amount[];
-};*/
-layout(binding = 11) buffer intersections_data_buffer_object
-{
-    Intersection intersections_data[];
-};
-/*layout(binding = 12) buffer primitives_mapping_buffer_object
-{
-    uint primitives_map[];
-};*/
 
-uint IDX;
+
+
+
+//hitAttributeEXT RayHitList ray_data;
 
 #define ComposedObjectNode_isPrimitive(X) (X.operation >= 0)
 #define ComposedObjectNode_getPrimitiveIndex(X) (X.operation)
@@ -130,10 +117,35 @@ int intersectWithPrimitiveAsNode(int node)
     //uint prim_index = IDX * ubo.primitives_count + ComposedObjectNode_getPrimitiveIndex(composed_objects[node]);
     //int pre = int(IDX * ubo.STACK_SIZE) + int((primitives_map[prim_index / 4] >> (8*(3 - prim_index % 4))) & 0xFF);
   //return primitives_map[IDX * ubo.primitives_count + ComposedObjectNode_getPrimitiveIndex(composed_objects[node])]
-  for (int i = 0; i < intersections_stack[IDX * ubo.STACK_SIZE].intersections_amount; ++i)
+  //return -1;
+  //return ray_data.intersections_map[ComposedObjectNode_getPrimitiveIndex(composed_objects[node])];
+
+
+  /*for (int i = 0; i < 8; ++i)
   {
-    if (intersections_stack[IDX * ubo.STACK_SIZE + 2*i].object_index == ComposedObjectNode_getPrimitiveIndex(composed_objects[node]))
-      return int(IDX * ubo.STACK_SIZE + 2*i);
+    for (int j = 1; j <= ray_data.intersections_map[i * 8]; ++j)
+    {
+      if ((ray_data.intersections_map[i * 8 + j] >> 8) == ComposedObjectNode_getPrimitiveIndex(composed_objects[node]))
+        return int(ray_data.intersections_map[i * 8 + j] & 0xFF);
+    }
+  }
+  return -1;*/
+
+
+  uint bucket = ComposedObjectNode_getPrimitiveIndex(composed_objects[node]) % 8;
+  for (int i = 1; i <= ray_data.intersections_map[bucket * 8]; ++i)
+  {
+    if ((ray_data.intersections_map[bucket * 8 + i] >> 8) == ComposedObjectNode_getPrimitiveIndex(composed_objects[node]))
+      return int(ray_data.intersections_map[bucket * 8 + i] & 0xFF);
+  }
+  return -1;
+
+
+
+  for (int i = 0; i < ray_data.intersections_amount; ++i)
+  {
+    if (ray_data.intersections_map[i] == ComposedObjectNode_getPrimitiveIndex(composed_objects[node]))
+      return 2*i;
   }
   return -1;
 }
@@ -162,7 +174,7 @@ int uniteObjects(int left_it, int right_it)
   int new_list_start = -1;
   while (left_it != -1 && right_it != -1)
   {
-    if (intersections_data[left_it].t < intersections_data[right_it].t)
+    if (ray_data.intersections_data[left_it].t < ray_data.intersections_data[right_it].t)
     {
     // точки не выбрасываем, потому что даже если обьект не прозрачный, то потом при вычитании из него дырки нужно все равно хранить внутренние обьекты
       //if (!in_b)
@@ -206,7 +218,7 @@ int intersectObjects(int left_it, int right_it)
   int new_list_start = -1;
   while (left_it != -1 && right_it != -1)
   {
-    if (intersections_data[left_it].t < intersections_data[right_it].t)
+    if (ray_data.intersections_data[left_it].t < ray_data.intersections_data[right_it].t)
     {
       if (in_b > 0)
         pushBackToList(new_list_start, last_pushed, left_it);
@@ -240,7 +252,7 @@ int subtractObjects(int left_it, int right_it)
   int left_rememb[MAX_SUB_DEPTH];
   while (left_it != -1 && right_it != -1)
   {
-    if (intersections_data[left_it].t < intersections_data[right_it].t - 1e-3 * (1 - 2*int(in_a)))
+    if (ray_data.intersections_data[left_it].t < ray_data.intersections_data[right_it].t - 1e-3 * (1 - 2*int(in_a)))
     {
       if (in_b == 0)
       {
@@ -258,7 +270,7 @@ int subtractObjects(int left_it, int right_it)
         pushBackToList(new_list_start, last_pushed, right_it);
         //при этом last_pushed == right_it
         intersections_stack[last_pushed].is_in = !intersections_stack[right_it].is_in;
-        intersections_data[last_pushed].n = -1 * intersections_data[right_it].n;
+        //ray_data.intersections_data[last_pushed].n = -1 * ray_data.intersections_data[right_it].n;
         intersections_stack[last_pushed].object_index = left_rememb[min(in_a - 1, MAX_SUB_DEPTH)];
         in_b += 2*int(!intersections_stack[last_pushed].is_in) - 1;
       }
@@ -308,7 +320,7 @@ FullIntersectionResult intersectWithRay(out bool has_intersection)
   if (ComposedObjectNode_isPrimitive(composed_objects[0]))
   {
     has_intersection = true;
-    FullIntersectionResult res = {intersections_data[IDX * ubo.STACK_SIZE], primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[0])].color * (-dot(normalize(dir), intersections_data[IDX * ubo.STACK_SIZE].n)), 0};
+    FullIntersectionResult res = {ray_data.intersections_data[0], primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[0])].color * (-dot(normalize(dir), ray_data.intersections_data[0].n)), 0};
     return res;
   }
 
@@ -404,7 +416,7 @@ FullIntersectionResult intersectWithRay(out bool has_intersection)
   vec3 normalized_ray_dir = normalize(dir);
   //NORMAL COLOR BLENDING
   /**/vec4 color = primitives[intersections_stack[prev_node_list_index].object_index].color;
-  color.rgb *= -dot(normalized_ray_dir, intersections_data[prev_node_list_index].n);
+  color.rgb *= -dot(normalized_ray_dir, ray_data.intersections_data[prev_node_list_index].n);
    
   float passed_alph = 1 - color.a;
   int current_node = intersections_stack[prev_node_list_index].next_index;
@@ -412,7 +424,7 @@ FullIntersectionResult intersectWithRay(out bool has_intersection)
   {
     int current_node_primitive = intersections_stack[current_node].object_index;
     color.rgb = mix(color.xyz, primitives[current_node_primitive].color.rgb *
-                     abs(dot(normalized_ray_dir, intersections_data[current_node].n)), passed_alph);
+                     abs(dot(normalized_ray_dir, ray_data.intersections_data[current_node].n)), passed_alph);
     passed_alph *= (1 - primitives[current_node_primitive].color.a);
     current_node = intersections_stack[current_node].next_index;
   }
@@ -506,7 +518,7 @@ FullIntersectionResult intersectWithRay(out bool has_intersection)
   color.rgb = color.rgb / max(alpha_sum, 0.00001) * (1 - passed_alph);
   color.a = 1;*/
 
-  FullIntersectionResult res = {intersections_data[prev_node_list_index], color, intersections_stack[prev_node_list_index].object_index};
+  FullIntersectionResult res = {ray_data.intersections_data[prev_node_list_index], color, intersections_stack[prev_node_list_index].object_index};
   return res;
 
 
@@ -514,27 +526,40 @@ FullIntersectionResult intersectWithRay(out bool has_intersection)
 
 
 void main() {
-    IDX = gl_LaunchIDEXT.y * gl_LaunchSizeEXT.x + gl_LaunchIDEXT.x;
 
-    /*if (ComposedObjectNode_isPrimitive(composed_objects[0]))
+    
+
+    for (int i = 0; i < ray_data.intersections_amount; ++i)
     {
-      prd.color =  primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[0])].color.rgb * (-dot(normalize(gl_WorldRayDirectionEXT), intersections_stack[IDX * ubo.STACK_SIZE].data.n));
-      prd.color = primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[0])].color.rgb * length(intersections_stack[IDX*200].data.n);
-      prd.color = vec3(float(gl_LaunchIDEXT.x) / gl_LaunchSizeEXT.x, float(gl_LaunchIDEXT.y) / gl_LaunchSizeEXT.y, 0);
-      prd.color = intersections_stack[IDX*200].data.n;
+        intersections_stack[2*i].next_index = 2*i + 1;
+        intersections_stack[2*i].is_in = true;
+
+        intersections_stack[2*i + 1].next_index = -1;
+        intersections_stack[2*i + 1].is_in = false;
+
+        //intersections_stack[2*i].object_index = intersections_stack[2*i + 1].object_index = ray_data.intersections_map[i];
     }
-    else
-      prd.color = vec3(0,0,1);*/
+    for (int i = 0; i < 8; ++i)
+    {
+      for (int j = 1; j <= ray_data.intersections_map[i * 8]; ++j)
+      {
+        uint stack_ind = ray_data.intersections_map[i * 8 + j] & 0xFF;
+        uint obj_index = ray_data.intersections_map[i * 8 + j] >> 8;
+        intersections_stack[stack_ind].object_index = intersections_stack[stack_ind + 1].object_index = int(obj_index);
+      }
+    }
+    //for (int i = 0; i < 4096; ++i)
+    //    if (ray_data.intersections_map[i] > -1)
+    //        intersections_stack[ray_data.intersections_map[i]].object_index = intersections_stack[ray_data.intersections_map[i] + 1].object_index = i;
+
     
     bool has_intersection = false;
     FullIntersectionResult res = intersectWithRay(has_intersection);
     if (has_intersection)
     {
-      prd.color = res.color.rgb;
+      ray_data.color = res.color.rgb;
     }
     else
-      prd.color = vec3(0,0,0);
-    //prd.color = vec3(1,1,1) * abs(dot(normalize(gl_WorldRayDirectionEXT), hit_iro.first.n));
-    //prd.color = vec3(1,1,1);
-    //prd.color.x *= float(intersections_amount[gl_LaunchIDEXT.x * gl_LaunchSizeEXT.x + gl_LaunchIDEXT.y]) / 20.0;
+      ray_data.color = vec3(0,0,0);
+    
 }
