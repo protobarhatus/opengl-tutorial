@@ -1,24 +1,10 @@
 #version 460
 #extension GL_EXT_ray_tracing : require
-
-struct Intersection
-{
-    vec3 n;
-    float t;
-};
-#define _STACK_SIZE 128
-struct RayHitList
-{
-    uint intersections_map[_STACK_SIZE/2];
-    Intersection intersections_data[_STACK_SIZE];
-    uint intersections_amount;
-    vec3 color;
-};
-
-layout(location = 0) rayPayloadEXT RayHitList prd;
-
 layout(set = 0, binding = 0) uniform accelerationStructureEXT topLevelAS;
-layout(rgba32f, binding = 1) uniform image2D img_output;
+layout(binding = 1) buffer bits_output
+{
+    uint out_buffer[];
+};
 layout(binding = 2) uniform u_obj_obj {
     vec3 camera_pos;
     ivec2 screen_size;
@@ -30,7 +16,7 @@ layout(binding = 2) uniform u_obj_obj {
     int batches_count;
 } ubo;
 
-
+layout(location = 0) rayPayloadEXT uint prd;
 void main() {
     
     
@@ -38,35 +24,28 @@ void main() {
     float vertical_step = 2.0 /ubo.screen_size.y;
     
     vec3 rayOrigin = ubo.camera_pos;
-    for (int i = 0; i < ubo.batches_count; ++i)
-    {
-        ivec2 pixel_coord = ivec2(gl_LaunchIDEXT.x, gl_LaunchIDEXT.y + i * gl_LaunchSizeEXT.y);
-        vec3 rayDirection = vec3(-1 + pixel_coord.x * horizontal_step, 1, -1 + pixel_coord.y * vertical_step);
-        // Initialize the payload data
-        prd.color = vec3(0.0);
-        prd.intersections_amount = 0;
-        for (int i = 0; i < 8; ++i)
-            prd.intersections_map[i * 8] = 0;
-        //for (int i = 0; i < 4096; ++i)
-        //{
-        //    prd.intersections_map[i] = -1;
-        //}
-        traceRayEXT(
-            topLevelAS,
-            gl_RayFlagsNoOpaqueEXT,
-            0xFF, // Cull mask
-            0,    // SBT record offset
-            0,    // SBT record stride
-            0,    // Miss index
-            rayOrigin,
-            0.001,
-            rayDirection,
-            10000.0, // A large distance to ensure the ray can travel far
-            0
-        );
 
-        imageStore(img_output, ivec2(pixel_coord.x, pixel_coord.y), vec4(prd.color.r , prd.color.g, prd.color.b, 1));
-    }
+    ivec2 pixel_coord = ivec2(gl_LaunchIDEXT.x, gl_LaunchIDEXT.y);
+    vec3 rayDirection = vec3(-1 + pixel_coord.x * horizontal_step, 1, -1 + pixel_coord.y * vertical_step);
+
+    uint IDX = gl_LaunchIDEXT.x + gl_LaunchIDEXT.y * gl_LaunchSizeEXT.x;
+    for (int i = 0; i < ubo.primitives_count / 32; ++i)
+        out_buffer[(IDX * ubo.primitives_count)/32 + i] = 0;
+
+    traceRayEXT(
+        topLevelAS,
+        gl_RayFlagsNoOpaqueEXT,
+        0xFF, // Cull mask
+        0,    // SBT record offset
+        0,    // SBT record stride
+        0,    // Miss index
+        rayOrigin,
+        0.001,
+        rayDirection,
+        10000.0, // A large distance to ensure the ray can travel far
+        0
+    );
+
     
     return;
 }

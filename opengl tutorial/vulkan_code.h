@@ -146,8 +146,7 @@ private:
     std::unique_ptr<Object> scene_object;
 
     
-    std::array<VkBuffer, 4> intersection_stack_buffers;
-    std::array<VkDeviceMemory, 4> intersection_stack_buffers_memory;
+    
 
     bool framebufferResized = false;
 
@@ -285,4 +284,18 @@ private:
     void createDescriptorPoolAndSetForRaytrace();
     void prepareCommandBufferForRtx();
     VkAccelerationStructureKHR createBottomLevelAccelerationStructure();
+
+    VkBuffer rtx_intersections_bits_buffer;
+    VkDeviceMemory rtx_intersections_bits_buffer_memory;
+
+    VkDescriptorSetLayout raytrace_compute_descriptor_set_layout;
+    VkPipelineLayout raytrace_compute_pipeline_layout;
+    VkPipeline raytrace_compute_pipeline;
+    VkDescriptorPool rtxComputeDescriptorPool;
+    std::vector<VkDescriptorSet> rtxComputeDescriptorSets;
+    void doComputeForRtxSetup();
+    void createDescriptorSetsLayoutForComputeShaderForRtx();
+    void loadComputeShaderForRtx();
+    void createDescriptorPoolForComputeForRtx();
+    void createDescriptorSetsForComputeForRtx();
 };

@@ -96,8 +96,296 @@ void VulkanApp::doComputeShadersSetup()
     createDescriptorPoolForCompute();
     createDescriptorSetsForCompute();
     setUpCommandPoolForCompute();
-    
 }
+
+void VulkanApp::doComputeForRtxSetup()
+{
+    //createSsbos is called in doComputeShaderSetup and i assume that is function is called even tho i dont need that compute pipeline when doing raytracing
+    createDescriptorSetsLayoutForComputeShaderForRtx();
+    loadComputeShaderForRtx();
+    createDescriptorPoolForComputeForRtx();
+    createDescriptorSetsForComputeForRtx();
+}
+
+void VulkanApp::createDescriptorSetsForComputeForRtx()
+{
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = rtxComputeDescriptorPool;
+    allocInfo.descriptorSetCount = static_cast<uint32_t>(1);
+    allocInfo.pSetLayouts = &raytrace_compute_descriptor_set_layout;
+
+    rtxComputeDescriptorSets.resize(1);
+    if (vkAllocateDescriptorSets(device, &allocInfo, rtxComputeDescriptorSets.data()) != VK_SUCCESS) {
+        throw std::runtime_error("failed to allocate descriptor sets!");
+    }
+
+    for (size_t i = 0; i < 1; i++) {
+        VkDescriptorImageInfo imageInfo{};
+        imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+        imageInfo.imageView = textureImageView;
+        imageInfo.sampler = textureSampler;
+
+
+
+        std::array<VkWriteDescriptorSet, 10> descriptorWrites{};
+        VkDescriptorBufferInfo bufferInfo{};
+        bufferInfo.buffer = uniformBuffers[i];
+        bufferInfo.offset = 0;
+        bufferInfo.range = 50;
+
+        VkDescriptorBufferInfo ssbo1{};
+        ssbo1.buffer = compute_buffers[0];
+        ssbo1.offset = 0;
+        ssbo1.range = scene.getPrimitivesCount() * sizeof(GLSL_Primitive);
+
+        VkDescriptorBufferInfo ssbo2{};
+        ssbo2.buffer = compute_buffers[1];
+        ssbo2.offset = 0;
+        //ssbo2.range = scene.getDataCount() * sizeof(float) * 2;
+        ssbo2.range = VK_WHOLE_SIZE;
+        VkDescriptorBufferInfo ssbo3{};
+        ssbo3.buffer = compute_buffers[2];
+        ssbo3.offset = 0;
+        // ssbo3.range = scene.getNormalsCount() * sizeof(float) * 3;
+        ssbo3.range = VK_WHOLE_SIZE;
+        VkDescriptorBufferInfo ssbo4{};
+        ssbo4.buffer = compute_buffers[3];
+        ssbo4.offset = 0;
+        //хардкод, надо изменить
+        ssbo4.range = VK_WHOLE_SIZE;
+        VkDescriptorBufferInfo ssbo5{};
+        ssbo5.buffer = compute_buffers[4];
+        ssbo5.offset = 0;
+        //хардкод, надо изменить
+        ssbo5.range = VK_WHOLE_SIZE;
+        VkDescriptorBufferInfo ssbo6{};
+        ssbo6.buffer = compute_buffers[5];
+        ssbo6.offset = 0;
+        ssbo6.range = scene.getComposedObjectNodesCount() * sizeof(GLSL_ComposedObject);
+
+        VkDescriptorBufferInfo ssbo7{};
+        ssbo7.buffer = compute_buffers[6];
+        ssbo7.offset = 0;
+        ssbo7.range = VK_WHOLE_SIZE;
+
+        VkDescriptorBufferInfo ssbo9{};
+        ssbo9.buffer = rtx_intersections_bits_buffer;
+        ssbo9.offset = 0;
+        ssbo9.range = VK_WHOLE_SIZE;
+
+        descriptorWrites[9].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[9].dstSet = rtxComputeDescriptorSets[i];
+        descriptorWrites[9].dstBinding = 9;
+        descriptorWrites[9].dstArrayElement = 0;
+        descriptorWrites[9].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[9].descriptorCount = 1;
+        descriptorWrites[9].pBufferInfo = &ssbo9;
+
+        descriptorWrites[8].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[8].dstSet = rtxComputeDescriptorSets[i];
+        descriptorWrites[8].dstBinding = 8;
+        descriptorWrites[8].dstArrayElement = 0;
+        descriptorWrites[8].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrites[8].descriptorCount = 1;
+        descriptorWrites[8].pBufferInfo = &bufferInfo;
+
+        descriptorWrites[7].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[7].dstSet = rtxComputeDescriptorSets[i];
+        descriptorWrites[7].dstBinding = 7;
+        descriptorWrites[7].dstArrayElement = 0;
+        descriptorWrites[7].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[7].descriptorCount = 1;
+        descriptorWrites[7].pBufferInfo = &ssbo7;
+
+        descriptorWrites[6].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[6].dstSet = rtxComputeDescriptorSets[i];
+        descriptorWrites[6].dstBinding = 6;
+        descriptorWrites[6].dstArrayElement = 0;
+        descriptorWrites[6].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[6].descriptorCount = 1;
+        descriptorWrites[6].pBufferInfo = &ssbo6;
+
+        descriptorWrites[5].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[5].dstSet = rtxComputeDescriptorSets[i];
+        descriptorWrites[5].dstBinding = 5;
+        descriptorWrites[5].dstArrayElement = 0;
+        descriptorWrites[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[5].descriptorCount = 1;
+        descriptorWrites[5].pBufferInfo = &ssbo5;
+
+        descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[4].dstSet = rtxComputeDescriptorSets[i];
+        descriptorWrites[4].dstBinding = 4;
+        descriptorWrites[4].dstArrayElement = 0;
+        descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[4].descriptorCount = 1;
+        descriptorWrites[4].pBufferInfo = &ssbo4;
+
+        descriptorWrites[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[3].dstSet = rtxComputeDescriptorSets[i];
+        descriptorWrites[3].dstBinding = 3;
+        descriptorWrites[3].dstArrayElement = 0;
+        descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[3].descriptorCount = 1;
+        descriptorWrites[3].pBufferInfo = &ssbo3;
+
+        descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[2].dstSet = rtxComputeDescriptorSets[i];
+        descriptorWrites[2].dstBinding = 2;
+        descriptorWrites[2].dstArrayElement = 0;
+        descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[2].descriptorCount = 1;
+        descriptorWrites[2].pBufferInfo = &ssbo2;
+
+        descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[1].dstSet = rtxComputeDescriptorSets[i];
+        descriptorWrites[1].dstBinding = 1;
+        descriptorWrites[1].dstArrayElement = 0;
+        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[1].descriptorCount = 1;
+        descriptorWrites[1].pBufferInfo = &ssbo1;
+
+
+
+        descriptorWrites[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[0].dstSet = rtxComputeDescriptorSets[i];
+        descriptorWrites[0].dstBinding = 0;
+        descriptorWrites[0].dstArrayElement = 0;
+        descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        descriptorWrites[0].descriptorCount = 1;
+        descriptorWrites[0].pImageInfo = &imageInfo;
+
+        vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
+    }
+}
+
+void VulkanApp::createDescriptorPoolForComputeForRtx()
+{
+    std::array<VkDescriptorPoolSize, 10> poolSizes{};
+    poolSizes[9].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[9].descriptorCount = static_cast<uint32_t>(1);
+    poolSizes[8].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSizes[8].descriptorCount = static_cast<uint32_t>(1);
+    poolSizes[7].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[7].descriptorCount = static_cast<uint32_t>(1);
+    poolSizes[6].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[6].descriptorCount = static_cast<uint32_t>(1);
+    poolSizes[5].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[5].descriptorCount = static_cast<uint32_t>(1);
+    poolSizes[4].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[4].descriptorCount = static_cast<uint32_t>(1);
+    poolSizes[3].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[3].descriptorCount = static_cast<uint32_t>(1);
+    poolSizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[2].descriptorCount = static_cast<uint32_t>(1);
+    poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[1].descriptorCount = static_cast<uint32_t>(1);
+    poolSizes[0].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    poolSizes[0].descriptorCount = static_cast<uint32_t>(1);
+
+    VkDescriptorPoolCreateInfo poolInfo{};
+    poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    poolInfo.poolSizeCount = static_cast<uint32_t>(poolSizes.size());
+    poolInfo.pPoolSizes = poolSizes.data();
+    poolInfo.maxSets = static_cast<uint32_t>(1);
+
+
+    if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &rtxComputeDescriptorPool) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create descriptor pool!");
+    }
+}
+
+void VulkanApp::loadComputeShaderForRtx()
+{
+    auto computeShaderCode = readBinFile("raytrace_from_rtx.spv");
+
+    VkShaderModule computeShaderModule = createShaderModule(computeShaderCode);
+
+    VkPipelineShaderStageCreateInfo computeShaderStageInfo{};
+    computeShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    computeShaderStageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    computeShaderStageInfo.module = computeShaderModule;
+    computeShaderStageInfo.pName = "main";
+
+
+    VkComputePipelineCreateInfo info = { VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
+    info.stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    info.stage.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    info.stage.module = computeShaderModule;
+    info.stage.pName = "main";
+
+
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
+    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.setLayoutCount = 1;
+    pipelineLayoutInfo.pSetLayouts = &raytrace_compute_descriptor_set_layout;
+    //std::vector<VkDescriptorSetLayout> lay = { descriptorSetLayout, computeDescriptorSetLayout };
+    //pipelineLayoutInfo.pSetLayouts = lay.data();
+    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &raytrace_compute_pipeline_layout) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create pipeline layout!");
+    }
+    info.layout = raytrace_compute_pipeline_layout;
+
+    if (vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &info, nullptr, &raytrace_compute_pipeline) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create pipeline");
+    }
+    // Pipeline is baked, we can delete the shader module now.
+    vkDestroyShaderModule(device, info.stage.module, nullptr);
+}
+
+void VulkanApp::createDescriptorSetsLayoutForComputeShaderForRtx()
+{
+    VkDescriptorSetLayoutBinding uboLayoutBinding{};
+    uboLayoutBinding.binding = 8;
+    uboLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    uboLayoutBinding.descriptorCount = 1;
+    uboLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    uboLayoutBinding.pImmutableSamplers = nullptr;
+
+    VkDescriptorSetLayoutBinding ssboLayoutBinding1{};
+    ssboLayoutBinding1.binding = 1;
+    ssboLayoutBinding1.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    ssboLayoutBinding1.descriptorCount = 1;
+    ssboLayoutBinding1.pImmutableSamplers = nullptr;
+    ssboLayoutBinding1.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkDescriptorSetLayoutBinding ssbo2 = ssboLayoutBinding1;
+    ssbo2.binding = 2;
+    VkDescriptorSetLayoutBinding ssbo3 = ssboLayoutBinding1;
+    ssbo3.binding = 3;
+    VkDescriptorSetLayoutBinding ssbo4 = ssboLayoutBinding1;
+    ssbo4.binding = 4;
+    VkDescriptorSetLayoutBinding ssbo5 = ssboLayoutBinding1;
+    ssbo5.binding = 5;
+    VkDescriptorSetLayoutBinding ssbo6 = ssboLayoutBinding1;
+    ssbo6.binding = 6;
+    VkDescriptorSetLayoutBinding ssbo7 = ssboLayoutBinding1;
+    ssbo7.binding = 7;
+    VkDescriptorSetLayoutBinding ssbo9 = ssboLayoutBinding1;
+    ssbo9.binding = 9;
+
+    VkDescriptorSetLayoutBinding samplerLayoutBinding{};
+    samplerLayoutBinding.binding = 0;
+    samplerLayoutBinding.descriptorCount = 1;
+    samplerLayoutBinding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    samplerLayoutBinding.pImmutableSamplers = nullptr;
+    samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+
+
+    std::vector<VkDescriptorSetLayoutBinding> bindings = { samplerLayoutBinding, ssboLayoutBinding1, ssbo2, ssbo3, ssbo4, ssbo5, ssbo6, ssbo7, uboLayoutBinding, ssbo9 };
+    VkDescriptorSetLayoutCreateInfo layoutInfo{};
+    layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
+    layoutInfo.pBindings = bindings.data();
+
+
+    if (vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &raytrace_compute_descriptor_set_layout) != VK_SUCCESS) {
+        throw std::runtime_error("failed to create descriptor set layout!");
+    }
+}
+
+
 
 void VulkanApp::setUpCommandPoolForCompute()
 {
@@ -136,6 +424,7 @@ void VulkanApp::doRaytraceSetup()
     createAccelerationStructure();
     makeShaderBindingTable();
     createDescriptorPoolAndSetForRaytrace();
+    doComputeForRtxSetup();
     //prepareCommandBufferForRtx();
 }
 void VulkanApp::createRaytraceCommandBuffer()
@@ -573,33 +862,14 @@ void VulkanApp::makeShaderBindingTable()
 
 void VulkanApp::createDescriptorPoolAndSetForRaytrace()
 {
-    std::array<VkDescriptorPoolSize, 9> poolSizes{};
+    std::array<VkDescriptorPoolSize, 3> poolSizes{};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
     poolSizes[0].descriptorCount = static_cast<uint32_t>(1);
-    poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     poolSizes[1].descriptorCount = static_cast<uint32_t>(1);
     poolSizes[2].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[2].descriptorCount = 1;
-    poolSizes[7].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[7].descriptorCount = static_cast<uint32_t>(1);
-    poolSizes[6].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[6].descriptorCount = static_cast<uint32_t>(1);
-    poolSizes[5].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[5].descriptorCount = static_cast<uint32_t>(1);
-    poolSizes[4].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[4].descriptorCount = static_cast<uint32_t>(1);
-    poolSizes[3].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[3].descriptorCount = static_cast<uint32_t>(1);
-    poolSizes[8].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[8].descriptorCount = static_cast<uint32_t>(1);
-    /*poolSizes[9].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[9].descriptorCount = static_cast<uint32_t>(1);
-    poolSizes[10].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[10].descriptorCount = static_cast<uint32_t>(1);
-    poolSizes[11].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[11].descriptorCount = static_cast<uint32_t>(1);
-    poolSizes[12].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[12].descriptorCount = static_cast<uint32_t>(1);*/
+
 
 
     VkDescriptorPoolCreateInfo poolInfo{};
@@ -626,14 +896,7 @@ void VulkanApp::createDescriptorPoolAndSetForRaytrace()
     }
 
     for (size_t i = 0; i < 1; i++) {
-        VkDescriptorImageInfo imageInfo{};
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-        imageInfo.imageView = textureImageView;
-        imageInfo.sampler = textureSampler;
-
-
-
-        std::array<VkWriteDescriptorSet, 9> descriptorWrites{};
+        std::array<VkWriteDescriptorSet, 3> descriptorWrites{};
         
         VkWriteDescriptorSetAccelerationStructureKHR asInfo{};
         asInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
@@ -647,14 +910,6 @@ void VulkanApp::createDescriptorPoolAndSetForRaytrace()
         descriptorWrites[0].descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
         descriptorWrites[0].descriptorCount = 1;
         descriptorWrites[0].pNext = &asInfo;
-
-        descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[1].dstSet = rtxDescriptorSets[i];
-        descriptorWrites[1].dstBinding = 1;
-        descriptorWrites[1].dstArrayElement = 0;
-        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-        descriptorWrites[1].descriptorCount = 1;
-        descriptorWrites[1].pImageInfo = &imageInfo;
 
         VkDescriptorBufferInfo bufferInfo{};
         bufferInfo.buffer = uniformBuffers[i];
@@ -670,143 +925,22 @@ void VulkanApp::createDescriptorPoolAndSetForRaytrace()
         descriptorWrites[2].descriptorCount = 1;
         descriptorWrites[2].pBufferInfo = &bufferInfo;
 
-        VkDescriptorBufferInfo ssbo1{};
-        ssbo1.buffer = compute_buffers[0];
-        ssbo1.offset = 0;
-        ssbo1.range = scene.getPrimitivesCount() * sizeof(GLSL_Primitive);
 
-        VkDescriptorBufferInfo ssbo2{};
-        ssbo2.buffer = compute_buffers[1];
-        ssbo2.offset = 0;
-        ssbo2.range = VK_WHOLE_SIZE;
-        VkDescriptorBufferInfo ssbo3{};
-        ssbo3.buffer = compute_buffers[2];
-        ssbo3.offset = 0;
-        ssbo3.range = VK_WHOLE_SIZE;
-        VkDescriptorBufferInfo ssbo4{};
-        ssbo4.buffer = compute_buffers[3];
-        ssbo4.offset = 0;
-        ssbo4.range = VK_WHOLE_SIZE;
-        VkDescriptorBufferInfo ssbo5{};
-        ssbo5.buffer = compute_buffers[4];
-        ssbo5.offset = 0;
-        ssbo5.range = VK_WHOLE_SIZE;
-        VkDescriptorBufferInfo ssbo6{};
-        ssbo6.buffer = compute_buffers[5];
-        ssbo6.offset = 0;
-        ssbo6.range = scene.getComposedObjectNodesCount() * sizeof(GLSL_ComposedObject);
+        this->createBuffer(this->scene.getPrimitivesCount() * this->WIDTH * this->HEIGHT / 8, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, this->rtx_intersections_bits_buffer, this->rtx_intersections_bits_buffer_memory);
 
+        VkDescriptorBufferInfo bits_buffer{};
+        bits_buffer.buffer = rtx_intersections_bits_buffer;
+        bits_buffer.offset = 0;
+        bits_buffer.range = VK_WHOLE_SIZE;
 
-        descriptorWrites[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[3].dstSet = rtxDescriptorSets[i];
-        descriptorWrites[3].dstBinding = 3;
-        descriptorWrites[3].dstArrayElement = 0;
-        descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        descriptorWrites[3].descriptorCount = 1;
-        descriptorWrites[3].pBufferInfo = &ssbo1;
+        descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[1].dstSet = rtxDescriptorSets[i];
+        descriptorWrites[1].dstBinding = 1;
+        descriptorWrites[1].dstArrayElement = 0;
+        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[1].descriptorCount = 1;
+        descriptorWrites[1].pBufferInfo = &bits_buffer;
 
-        descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[4].dstSet = rtxDescriptorSets[i];
-        descriptorWrites[4].dstBinding = 4;
-        descriptorWrites[4].dstArrayElement = 0;
-        descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        descriptorWrites[4].descriptorCount = 1;
-        descriptorWrites[4].pBufferInfo = &ssbo2;
-
-        descriptorWrites[5].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[5].dstSet = rtxDescriptorSets[i];
-        descriptorWrites[5].dstBinding = 5;
-        descriptorWrites[5].dstArrayElement = 0;
-        descriptorWrites[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        descriptorWrites[5].descriptorCount = 1;
-        descriptorWrites[5].pBufferInfo = &ssbo3;
-
-        descriptorWrites[6].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[6].dstSet = rtxDescriptorSets[i];
-        descriptorWrites[6].dstBinding = 6;
-        descriptorWrites[6].dstArrayElement = 0;
-        descriptorWrites[6].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        descriptorWrites[6].descriptorCount = 1;
-        descriptorWrites[6].pBufferInfo = &ssbo4;
-
-        descriptorWrites[7].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[7].dstSet = rtxDescriptorSets[i];
-        descriptorWrites[7].dstBinding = 7;
-        descriptorWrites[7].dstArrayElement = 0;
-        descriptorWrites[7].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        descriptorWrites[7].descriptorCount = 1;
-        descriptorWrites[7].pBufferInfo = &ssbo5;
-
-        descriptorWrites[8].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[8].dstSet = rtxDescriptorSets[i];
-        descriptorWrites[8].dstBinding = 8;
-        descriptorWrites[8].dstArrayElement = 0;
-        descriptorWrites[8].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        descriptorWrites[8].descriptorCount = 1;
-        descriptorWrites[8].pBufferInfo = &ssbo6;
-        
-
-        /*this->createBuffer(uint64_t(WIDTH* HEIGHT / BATCHES_COUNT)* uint64_t(INTERSECTION_STACK_SIZE * 16), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, this->intersection_stack_buffers[0], intersection_stack_buffers_memory[0]);
-        this->createBuffer(1 + 0 *WIDTH* HEIGHT / BATCHES_COUNT * 4, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, this->intersection_stack_buffers[1], intersection_stack_buffers_memory[1]);
-        this->createBuffer(WIDTH* HEIGHT / BATCHES_COUNT * INTERSECTION_STACK_SIZE * 16, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, this->intersection_stack_buffers[2], intersection_stack_buffers_memory[2]);
-        this->createBuffer(1 + 0 *WIDTH* HEIGHT / BATCHES_COUNT * scene.getPrimitivesCount() * 4, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, this->intersection_stack_buffers[3], intersection_stack_buffers_memory[3]);
-        if (uint64_t(WIDTH * HEIGHT / BATCHES_COUNT) * uint64_t(INTERSECTION_STACK_SIZE * 16) > std::numeric_limits<unsigned int>::max() ||
-            uint64_t(WIDTH * HEIGHT / BATCHES_COUNT) * scene.getPrimitivesCount() * 4 > std::numeric_limits<unsigned int>::max())
-        {
-            throw "TOO MUCH BUFFER IT WONT WORK\n";
-        }
-
-        VkDescriptorBufferInfo intst1{};
-        intst1.buffer = intersection_stack_buffers[0];
-        intst1.offset = 0;
-        intst1.range = VK_WHOLE_SIZE;
-
-        VkDescriptorBufferInfo intst2{};
-        intst2.buffer = intersection_stack_buffers[1];
-        intst2.offset = 0;
-        intst2.range = VK_WHOLE_SIZE;
-
-        VkDescriptorBufferInfo intst3{};
-        intst3.buffer = intersection_stack_buffers[2];
-        intst3.offset = 0;
-        intst3.range = VK_WHOLE_SIZE;
-
-        VkDescriptorBufferInfo intst4{};
-        intst4.buffer = intersection_stack_buffers[3];
-        intst4.offset = 0;
-        intst4.range = VK_WHOLE_SIZE;
-
-        descriptorWrites[9].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[9].dstSet = rtxDescriptorSets[i];
-        descriptorWrites[9].dstBinding = 9;
-        descriptorWrites[9].dstArrayElement = 0;
-        descriptorWrites[9].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        descriptorWrites[9].descriptorCount = 1;
-        descriptorWrites[9].pBufferInfo = &intst1;
-
-        descriptorWrites[10].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[10].dstSet = rtxDescriptorSets[i];
-        descriptorWrites[10].dstBinding = 10;
-        descriptorWrites[10].dstArrayElement = 0;
-        descriptorWrites[10].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        descriptorWrites[10].descriptorCount = 1;
-        descriptorWrites[10].pBufferInfo = &intst2;
-
-        descriptorWrites[11].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[11].dstSet = rtxDescriptorSets[i];
-        descriptorWrites[11].dstBinding = 11;
-        descriptorWrites[11].dstArrayElement = 0;
-        descriptorWrites[11].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        descriptorWrites[11].descriptorCount = 1;
-        descriptorWrites[11].pBufferInfo = &intst3;
-
-        descriptorWrites[12].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[12].dstSet = rtxDescriptorSets[i];
-        descriptorWrites[12].dstBinding = 12;
-        descriptorWrites[12].dstArrayElement = 0;
-        descriptorWrites[12].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        descriptorWrites[12].descriptorCount = 1;
-        descriptorWrites[12].pBufferInfo = &intst4;*/
 
         vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
     }
@@ -859,8 +993,30 @@ void VulkanApp::prepareCommandBufferForRtx()
         throw std::runtime_error("something bad in rtx shader");
     }
     vkResetCommandBuffer(rtxCommandBuffer, 0);
-   //  
-    
+    if (vkBeginCommandBuffer(rtxCommandBuffer, &beginInfo) != VK_SUCCESS) {
+        throw std::runtime_error("failed to begin recording command buffer!");
+    }
+
+    vkCmdBindPipeline(rtxCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, this->raytrace_compute_pipeline);
+    vkCmdBindDescriptorSets(rtxCommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, this->raytrace_compute_pipeline_layout, 0, 1, &rtxComputeDescriptorSets[0], 0, nullptr);
+
+    vkCmdDispatch(rtxCommandBuffer, WIDTH / 8, HEIGHT / 4, 1);
+    if (vkEndCommandBuffer(rtxCommandBuffer) != VK_SUCCESS) {
+        throw std::runtime_error("failed to record command buffer!");
+    }
+    VkSubmitInfo submitInfo2{};
+    submitInfo2.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo2.commandBufferCount = 1;
+    submitInfo2.pCommandBuffers = &rtxCommandBuffer;
+    vkResetFences(device, 1, &rtxFence);
+    if (vkQueueSubmit(computeQueue, 1, &submitInfo2, rtxFence) != VK_SUCCESS) {
+        throw std::runtime_error("failed to submit rtx command buffer!");
+    };
+    if (vkWaitForFences(device, 1, &rtxFence, VK_TRUE, 1000000000000) == VK_ERROR_DEVICE_LOST)
+    {
+        throw std::runtime_error("something bad in rtx shader");
+    }
+    vkResetCommandBuffer(rtxCommandBuffer, 0);
 }
 
 
@@ -890,18 +1046,6 @@ void VulkanApp::createRaytracePipeline()
     VkShaderModule raygen_shader_module = createShaderModule(raygen_shader);
 
     VkShaderModule miss_shader_module = createShaderModule(readBinFile("miss.spv"));
-
-    auto hit_shader_module = createShaderModule(readBinFile("hit.spv"));
-
-    auto anyhit_shader_module = createShaderModule(readBinFile("anyhit.spv"));
-    
-    VkPipelineShaderStageCreateInfo hit_shst_crinfo{};
-    hit_shst_crinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    hit_shst_crinfo.pNext = nullptr;
-    hit_shst_crinfo.stage = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
-    hit_shst_crinfo.module = hit_shader_module;
-    hit_shst_crinfo.pName = "main";
-    hit_shst_crinfo.flags = 0;
     
     VkPipelineShaderStageCreateInfo raygen_shst_crinfo{};
     raygen_shst_crinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -911,13 +1055,13 @@ void VulkanApp::createRaytracePipeline()
     raygen_shst_crinfo.pName = "main";
     raygen_shst_crinfo.flags = 0;
     
-    VkPipelineShaderStageCreateInfo shst_create_info{};
-    shst_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    shst_create_info.pNext = nullptr;
-    shst_create_info.stage = VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
-    shst_create_info.module = computeShaderModule;
-    shst_create_info.pName = "main";
-    shst_create_info.flags = 0;
+    VkPipelineShaderStageCreateInfo intersect_shst_create_info{};
+    intersect_shst_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    intersect_shst_create_info.pNext = nullptr;
+    intersect_shst_create_info.stage = VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
+    intersect_shst_create_info.module = computeShaderModule;
+    intersect_shst_create_info.pName = "main";
+    intersect_shst_create_info.flags = 0;
 
     VkPipelineShaderStageCreateInfo miss_shst_create_info{};
     miss_shst_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -927,13 +1071,6 @@ void VulkanApp::createRaytracePipeline()
     miss_shst_create_info.pName = "main";
     miss_shst_create_info.flags = 0;
 
-    VkPipelineShaderStageCreateInfo anyhit_shst_crinfo{};
-    anyhit_shst_crinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    anyhit_shst_crinfo.pNext = nullptr;
-    anyhit_shst_crinfo.stage = VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
-    anyhit_shst_crinfo.module = anyhit_shader_module;
-    anyhit_shst_crinfo.pName = "main";
-    anyhit_shst_crinfo.flags = 0;
 
 
     VkRayTracingShaderGroupCreateInfoKHR raygen_gr_crinfo{};
@@ -950,10 +1087,10 @@ void VulkanApp::createRaytracePipeline()
     rtsg_create_info.pNext = nullptr;
     rtsg_create_info.type = VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR;
     rtsg_create_info.generalShader = VK_SHADER_UNUSED_KHR;
-    rtsg_create_info.closestHitShader = 0;
+    rtsg_create_info.closestHitShader = VK_SHADER_UNUSED_KHR;
    // rtsg_create_info.intersectionShader = 0;
-    rtsg_create_info.intersectionShader = 3;
-    rtsg_create_info.anyHitShader = 4;
+    rtsg_create_info.intersectionShader = 0;
+    rtsg_create_info.anyHitShader = VK_SHADER_UNUSED_KHR;
 
     VkRayTracingShaderGroupCreateInfoKHR miss_rtsg_create_info{};
     miss_rtsg_create_info.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
@@ -967,30 +1104,29 @@ void VulkanApp::createRaytracePipeline()
 
     //VkPipelineShaderStageCreateInfo pssci[3] = { shst_create_info ,raygen_shst_crinfo, hit_shst_crinfo };
 
-    std::vector<VkPipelineShaderStageCreateInfo> pssci = { hit_shst_crinfo, raygen_shst_crinfo, miss_shst_create_info,  shst_create_info, anyhit_shst_crinfo };
+    std::vector<VkPipelineShaderStageCreateInfo> pssci = {intersect_shst_create_info, raygen_shst_crinfo, miss_shst_create_info};
     std::vector<VkRayTracingShaderGroupCreateInfoKHR> rtsgci = { rtsg_create_info , raygen_gr_crinfo, miss_rtsg_create_info };
-
 
     //set layout
     VkDescriptorSetLayoutBinding accel_struct_binding{};
     accel_struct_binding.binding = 0;
     accel_struct_binding.descriptorType = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
     accel_struct_binding.descriptorCount = 1;
-    accel_struct_binding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_INTERSECTION_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+    accel_struct_binding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
     accel_struct_binding.pImmutableSamplers = nullptr;
 
-    VkDescriptorSetLayoutBinding image_binding{};
-    image_binding.binding = 1;
-    image_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-    image_binding.descriptorCount = 1;
-    image_binding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-    image_binding.pImmutableSamplers = nullptr;
+    VkDescriptorSetLayoutBinding ssbo_binding{};
+    ssbo_binding.binding = 1;
+    ssbo_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    ssbo_binding.descriptorCount = 1;
+    ssbo_binding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
+    ssbo_binding.pImmutableSamplers = nullptr;
 
     VkDescriptorSetLayoutBinding uniform_binding{};
     uniform_binding.binding = 2;
     uniform_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     uniform_binding.descriptorCount = 1;
-    uniform_binding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
+    uniform_binding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
     uniform_binding.pImmutableSamplers = nullptr;
 
     VkDescriptorSetLayoutBinding ssbo1{};
@@ -999,17 +1135,9 @@ void VulkanApp::createRaytracePipeline()
     ssbo1.descriptorCount = 1;
     ssbo1.stageFlags = VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
 
-    VkDescriptorSetLayoutBinding ssbo2, ssbo3, ssbo4, ssbo5, ssbo6;
-    ssbo2 = ssbo3 = ssbo4 = ssbo5 = ssbo6 = ssbo1;
-    ssbo2.binding = 4;
-    ssbo3.binding = 5;
-    ssbo4.binding = 6;
-    ssbo5.binding = 7;
-    ssbo6.binding = 8;
-    ssbo6.stageFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
-    ssbo1.stageFlags = VK_SHADER_STAGE_INTERSECTION_BIT_KHR | VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+    
 
-    std::vector<VkDescriptorSetLayoutBinding> bindings = { accel_struct_binding, image_binding, uniform_binding, ssbo1, ssbo2, ssbo3, ssbo4, ssbo5, ssbo6};
+    std::vector<VkDescriptorSetLayoutBinding> bindings = { accel_struct_binding, ssbo_binding, uniform_binding};
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -1057,7 +1185,7 @@ void VulkanApp::createRaytracePipeline()
         throw std::runtime_error("failed to create raytrace pipeline!");
     }
 
-    vkDestroyShaderModule(device, shst_create_info.module, nullptr);
+    vkDestroyShaderModule(device, intersect_shst_create_info.module, nullptr);
 }
 
 void VulkanApp::dispatchCompute()
@@ -2133,8 +2261,8 @@ void VulkanApp::updateUniformBuffer(uint32_t currentImage)
 
 void VulkanApp::drawFrame() {
     updateUniformBuffer(currentFrame);
-    //dispatchCompute();
-    prepareCommandBufferForRtx();
+    dispatchCompute();
+    //prepareCommandBufferForRtx();
     transitionImageLayout(this->textureImage, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
     
