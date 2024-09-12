@@ -115,6 +115,7 @@ void GlslSceneMemory::setComposedObject(const std::unique_ptr<Object>& obj, int 
 	else
 	{
 		this->composed_object_nodes_buffer[buffer_position] = { (int)this->primitives_buffer.size(), obj->haveBoundingBox() ? (int)this->bb_buffer.size() : -1 };
+		this->primitives_to_node_mapping.push_back(buffer_position);
 		this->addObject(obj);
 	}
 }

@@ -693,18 +693,21 @@ int main() {
 	file.close();*/
 	//openGlCode();
 	//return 0;
-
-	int digs[] = { 70, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,13,14,15,16,17,18,70 };
-	unsigned int p_map[5];
-	for (int i = 0; i < 20; ++i)
+	using uint = unsigned int;
+	uint IDX = 0;
+	std::vector<uint> primitives_to_nodes_mapping(4096);
+	for (int i = 0; i < primitives_to_nodes_mapping.size(); ++i)
+		primitives_to_nodes_mapping[i] = 4095 + i;
+	uint bit_index = primitives_to_nodes_mapping[3412];
+	uint int_ind = IDX * 8192 / 32 + bit_index / 32;
+	uint bit_position = bit_index % 32;
+	std::vector<uint> out_buffer(8192/32);
+	while (!bool(out_buffer[int_ind] & (1 << bit_position)))
 	{
-		int byte_num = 3 - i % 4;
-		p_map[i / 4] &= ~(0xFF << (8 * byte_num));
-		p_map[i / 4] |= ((digs[i] * 2) << (8 * byte_num));
-	}
-	for (int i = 0; i < 20; ++i)
-	{
-		std::cout << int((p_map[i / 4] >> (8 * (3 - i % 4))) & 0xFF) << ' ';
+		out_buffer[int_ind] |= (1 << bit_position);
+		bit_index /= 2;
+		int_ind = IDX * 8192 / 32 + bit_index / 32;
+		bit_position = bit_index % 32;
 	}
 	//system("pause");
 	//return 0;

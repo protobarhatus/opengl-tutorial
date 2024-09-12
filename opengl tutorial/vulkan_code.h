@@ -287,11 +287,16 @@ private:
 
     VkBuffer rtx_intersections_bits_buffer;
     VkDeviceMemory rtx_intersections_bits_buffer_memory;
+    VkBuffer primitives_mapping_buffer;
+    VkDeviceMemory primitives_mapping_buffer_memory;
 
     VkDescriptorSetLayout raytrace_compute_descriptor_set_layout;
     VkPipelineLayout raytrace_compute_pipeline_layout;
     VkPipeline raytrace_compute_pipeline;
     VkDescriptorPool rtxComputeDescriptorPool;
+
+    unsigned long long int ray_intersections_info_bits_size;
+
     std::vector<VkDescriptorSet> rtxComputeDescriptorSets;
     void doComputeForRtxSetup();
     void createDescriptorSetsLayoutForComputeShaderForRtx();

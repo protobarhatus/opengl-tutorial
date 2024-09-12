@@ -66,11 +66,14 @@ class GlslSceneMemory
 	std::vector<int> int_buffer;
 	std::vector<GLSL_mat3> mat3_buffer;
 	std::vector<GLSL_BoundingBoxData> bb_buffer;
+	
 	void addObject(const std::unique_ptr<Object>& obj);
 	typedef int ComposedObjectRepresentation;
 	std::vector<GLSL_ComposedObject> composed_object_nodes_buffer;
-	
 	void setComposedObject(const std::unique_ptr<Object>& obj, int buffer_position, std::map<int, int>* map_of_ids, const std::set<int>& important_ids);
+
+	std::vector<unsigned int> primitives_to_node_mapping;
+	
 public:
 	GlslSceneMemory();
 	void setSceneAsComposedObject(const std::unique_ptr<Object>& obj);

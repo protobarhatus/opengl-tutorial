@@ -12,15 +12,26 @@ layout(binding = 2) uniform u_obj_obj {
     int data_count;
     int normals_count;
     int composed_object_nodes_count;
-    int STACK_SIZE;
+    uint ray_intersections_info_bits_size;
     int batches_count;
 } ubo;
+layout(binding = 3) buffer mapping_buffer
+{
+    uint primitives_to_nodes_mapping[];
+};
 
 
 void main()
 {
     uint IDX = gl_LaunchIDEXT.x + gl_LaunchIDEXT.y * gl_LaunchSizeEXT.x;
-    uint int_ind = IDX * ubo.primitives_count/32 + gl_GeometryIndexEXT/32;
-    uint bit_position = gl_GeometryIndexEXT % 32;
-    out_buffer[int_ind] |= (1 << bit_position);
+    int bit_index = int(primitives_to_nodes_mapping[gl_GeometryIndexEXT]);
+    uint int_ind = IDX * (ubo.ray_intersections_info_bits_size/32) + bit_index/32;
+    uint bit_position = bit_index % 32;
+    while (bit_index > -1 && !bool(out_buffer[int_ind] & (1 << bit_position)))
+    {
+        out_buffer[int_ind] |= (1 << bit_position);
+        bit_index = (bit_index + 1) / 2 - 1;
+        int_ind = IDX * (ubo.ray_intersections_info_bits_size/32) + bit_index/32;
+        bit_position = bit_index % 32;
+    }
 };

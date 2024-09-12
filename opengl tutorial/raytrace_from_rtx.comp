@@ -9,6 +9,7 @@ layout(binding = 8) uniform u_obj_obj {
 	int data_count;
 	int normals_count;
 	int composed_object_nodes_count;
+	uint ray_intersections_info_bits_size;
 } ubo;
 
 struct Quat
@@ -1149,11 +1150,6 @@ int stack_index = 0;
 
 int intersectWithPrimitiveAsNode(int node, vec3 camera_pos, vec3 dir)
 {
-	uint IDX = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * (gl_NumWorkGroups.x * gl_WorkGroupSize.x);
-	uint int_ind = IDX * ubo.primitives_count/32 + ComposedObjectNode_getPrimitiveIndex(composed_objects[node])/32;
-	uint bit_position = ComposedObjectNode_getPrimitiveIndex(composed_objects[node]) % 32;
-	if (! bool(bb_intersections_bits_buffer[int_ind] & (1 << bit_position)))
-		return -1;
 	IRO inter_res = intersectWithRay(primitives[ComposedObjectNode_getPrimitiveIndex(composed_objects[node])], camera_pos, dir);
 	switch(inter_res.inters)
 	{
@@ -1342,6 +1338,15 @@ struct FullIntersectionResult
 	//индекс примитива в дереве composed_objects с которым произошло первое пересечение. Для получения его индекса как примитива следует вызвать ComposedObjectNode_getPrimitiveIndex(composed_objects[object_index])
 	int object_index;
 };
+
+bool hasAnyIntersection(int node)
+{
+	uint IDX = gl_GlobalInvocationID.x + gl_GlobalInvocationID.y * (gl_NumWorkGroups.x * gl_WorkGroupSize.x);
+	uint int_ind = IDX * (ubo.ray_intersections_info_bits_size/32) + node/32;
+	uint bit_position = node % 32;
+	return bool(bb_intersections_bits_buffer[int_ind] & (1 << bit_position));
+}
+
 FullIntersectionResult intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_intersection)
 {
 	int current = 0;
@@ -1359,28 +1364,21 @@ FullIntersectionResult intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_
 	int stack_list_depth = 0;
 	//has_intersection = true;
 	int prev_node_list_index = -1;
-	if (composed_objects[0].bb_index > -1)
+	if (!hasAnyIntersection(0))
 	{
-		IRO bb_iro = intersectBoxShapeWithLine(bb_data[composed_objects[0].bb_index].hsize, camera_pos - bb_data[composed_objects[0].bb_index].position, dir);
-		if (bb_iro.inters == 0)
-		{
-			current = -1;
-			prev_node_list_index = -1;
-		}
+		current = -1;
+		prev_node_list_index = -1;
 	}
 	while (current != -1)
 	{
 		if (prev == ComposedObjectNode_parent(composed_objects[current], current))
 		{
 			int left = ComposedObjectNode_left(composed_objects[current], current);
-			if (composed_objects[left].bb_index > -1)
+			if (!hasAnyIntersection(left))
 			{
-				IRO bb_iro = intersectBoxShapeWithLine(bb_data[composed_objects[left].bb_index].hsize, camera_pos - bb_data[composed_objects[left].bb_index].position, dir);
-				if (bb_iro.inters == 0)
-				{
-					prev_node_list_index = -1;
-					prev = left;
-				}
+				prev_node_list_index = -1;
+				prev = left;
+				continue;
 			}
 			if (ComposedObjectNode_isPrimitive(composed_objects[left]))
 			{
@@ -1400,14 +1398,11 @@ FullIntersectionResult intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_
 			stack_list_depth++;
 			
 			int right = ComposedObjectNode_right(composed_objects[current], current);
-			if (composed_objects[right].bb_index > -1)
+			if (!hasAnyIntersection(right))
 			{
-				IRO bb_iro = intersectBoxShapeWithLine(bb_data[composed_objects[right].bb_index].hsize, camera_pos - bb_data[composed_objects[right].bb_index].position, dir);
-				if (bb_iro.inters == 0)
-				{
-					prev_node_list_index = -1;
-					prev = right;
-				}
+				prev_node_list_index = -1;
+				prev = right;
+				continue;
 			}
 			if (ComposedObjectNode_isPrimitive(composed_objects[right]))
 			{
@@ -1585,8 +1580,6 @@ void main() {
 		imageStore(img_output, pixel_coords, vec4(inter.color.rgb, 1));
 		//imageStore(img_output, pixel_coords, vec4(abs(inter.n),1));
     }
-
-  
 }
 
 //Problems:
