@@ -1,10 +1,7 @@
 #version 460
 #extension GL_EXT_ray_tracing : require
 layout(set = 0, binding = 0) uniform accelerationStructureEXT topLevelAS;
-layout(binding = 1) buffer bits_output
-{
-    uint out_buffer[];
-};
+
 layout(binding = 2) uniform u_obj_obj {
     vec3 camera_pos;
     ivec2 screen_size;

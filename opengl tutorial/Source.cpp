@@ -648,8 +648,30 @@ int openGlCode()
 #include <iostream>
 #include <cmath>
 int main() {
+	//openGlCode();
+	//return 0;
+
+	VulkanApp app;
+	auto obj = parse(readFile("examples/thousand_cubes.txt"));
+	GlslSceneMemory mem;
+	mem.setSceneAsComposedObject(obj->copy());
+	app.setScene(obj);
+
+
+	app.run();
 	
-	/*std::vector<std::vector<std::unique_ptr<Object>>> objs(13);
+
+	return 0;
+}
+
+
+
+
+
+
+void makeCubesScene()
+{
+	std::vector<std::vector<std::unique_ptr<Object>>> objs(13);
 	for (int i = 0; i < 13; ++i)
 		objs[i].resize(16 * 16 * 16);
 	std::function<void(int, int, int, int, int, int, int)> octogonalCubeCreation;
@@ -672,7 +694,7 @@ int main() {
 
 		for (int i = 0; i < 4; ++i)
 		{
-			objs[depth + 2][(start * 4) / size + i] = objectsUnion(std::move(objs[depth + 3][(start*8) / size + 2 * i]), std::move(objs[depth + 3][(start*8) / size + 2 * i + 1]), { 0,0,0 }, { 1,0,0,0 });
+			objs[depth + 2][(start * 4) / size + i] = objectsUnion(std::move(objs[depth + 3][(start * 8) / size + 2 * i]), std::move(objs[depth + 3][(start * 8) / size + 2 * i + 1]), { 0,0,0 }, { 1,0,0,0 });
 			objs[depth + 2][(start * 4) / size + i]->setId(id_counter++);
 		}
 		for (int i = 0; i < 2; ++i)
@@ -690,47 +712,8 @@ int main() {
 	octogonalCubeCreation(16 * 16 * 16, 0, 0, 0, 0, 0, 16);
 	std::fstream file("examples/thousand_cubes.txt", std::ios_base::out);
 	file << toStringScene(*objs[0][0]);
-	file.close();*/
-	//openGlCode();
-	//return 0;
-	using uint = unsigned int;
-	uint IDX = 0;
-	std::vector<uint> primitives_to_nodes_mapping(4096);
-	for (int i = 0; i < primitives_to_nodes_mapping.size(); ++i)
-		primitives_to_nodes_mapping[i] = 4095 + i;
-	uint bit_index = primitives_to_nodes_mapping[3412];
-	uint int_ind = IDX * 8192 / 32 + bit_index / 32;
-	uint bit_position = bit_index % 32;
-	std::vector<uint> out_buffer(8192/32);
-	while (!bool(out_buffer[int_ind] & (1 << bit_position)))
-	{
-		out_buffer[int_ind] |= (1 << bit_position);
-		bit_index /= 2;
-		int_ind = IDX * 8192 / 32 + bit_index / 32;
-		bit_position = bit_index % 32;
-	}
-	//system("pause");
-	//return 0;
-	VulkanApp app;
-	auto obj = parse(readFile("examples/thousand_cubes.txt"));
-	//obj = makeSphere(1, { 0,0,0 });
-	GlslSceneMemory mem;
-	mem.setSceneAsComposedObject(obj->copy());
-	app.setScene(obj);
-
-
-	app.run();
-	
-
-	return 0;
+	file.close();
 }
-
-
-
-
-
-
-
 
 
 
