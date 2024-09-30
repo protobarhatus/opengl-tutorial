@@ -168,17 +168,17 @@ bool Object::lineIntersectsBoundingBox(const Vector<3>& start, const Vector<3>& 
 	return false;
 }
 
-Vector<3> Object::rotateBoundingBox() const
+void Object::rotateBoundingBox()
 {
-	//оно должно выполняться только при создании обьекта так что можно не слишком оптимизировать пытаться
-	Vector<3> a = bounding_box;
-	Vector<3> b = { -bounding_box.x(), bounding_box.y(), bounding_box.z() };
-	Vector<3> c = { bounding_box.x(), -bounding_box.y(), bounding_box.z() };
-	Vector<3> d = { -bounding_box.x(), -bounding_box.y(), bounding_box.z() };
-	Vector<3> e = { bounding_box.x(), bounding_box.y(), -bounding_box.z() };
-	Vector<3> f = { -bounding_box.x(), bounding_box.y(), -bounding_box.z() };
-	Vector<3> g = { bounding_box.x(), -bounding_box.y(), -bounding_box.z() };
-	Vector<3> h = { -bounding_box.x(), -bounding_box.y(), -bounding_box.z() };
+	
+	Vector<3> a = bounding_box + bounding_box_position - position;
+	Vector<3> b = Vector<3>{ -bounding_box.x(), bounding_box.y(), bounding_box.z() } + bounding_box_position - position;
+	Vector<3> c = Vector<3>{ bounding_box.x(), -bounding_box.y(), bounding_box.z() } + bounding_box_position - position;
+	Vector<3> d = Vector<3>{ -bounding_box.x(), -bounding_box.y(), bounding_box.z() } + bounding_box_position - position;
+	Vector<3> e = Vector<3>{ bounding_box.x(), bounding_box.y(), -bounding_box.z() } + bounding_box_position - position;
+	Vector<3> f = Vector<3>{ -bounding_box.x(), bounding_box.y(), -bounding_box.z() } + bounding_box_position - position;
+	Vector<3> g = Vector<3>{ bounding_box.x(), -bounding_box.y(), -bounding_box.z() } + bounding_box_position - position;
+	Vector<3> h = Vector<3>{ -bounding_box.x(), -bounding_box.y(), -bounding_box.z() } + bounding_box_position - position;
 
 	a = back_rotation_mat * Vector<4>(a);
 	b = back_rotation_mat * Vector<4>(b);
@@ -189,7 +189,12 @@ Vector<3> Object::rotateBoundingBox() const
 	g = back_rotation_mat * Vector<4>(g);
 	h = back_rotation_mat * Vector<4>(h);
 
-	return max(a, max(b, max(c, max(d, max(e, max(f, max(g, h)))))));
+	Vector<3> bb_max = max(a, max(b, max(c, max(d, max(e, max(f, max(g, h))))))) + position;
+	Vector<3> bb_min = min(a, min(b, min(c, min(d, min(e, min(f, min(g, h))))))) + position;
+
+	this->bounding_box = (bb_max - bb_min) * 0.5;
+	//this->bounding_box_position = back_rotation_mat * Vector<4>(this->bounding_box_position);
+	this->bounding_box_position = (bb_max + bb_min) * 0.5;
 }
 
 
@@ -198,6 +203,7 @@ Object::Object(const Vector<3>& pos, const Quat& rot) : position(pos), rotation(
 	rotation_mat = inverseRot(this->rotation).rotation();
 	transformation_mat = rotation_mat * transposition;
 	back_rotation_mat = this->rotation.rotation();
+	
 
 
 }
@@ -223,7 +229,7 @@ static int sign(double d)
 {
 	return d > 0 ? 1 : -1;
 }
-Vector<3> Prizm::countBoundingBox() const
+void Prizm::countBoundingBox()
 {
 #ifdef BB_SPHERE
 	double max = 0;
@@ -231,15 +237,15 @@ Vector<3> Prizm::countBoundingBox() const
 		max = std::max(max, sqrt(dot(it, it) + half_height * half_height));
 	return { max,0,0 };
 #endif
-	Vector<2> base_bb = { 0,0 };
+	Vector<2> base_bb_max = { 0,0 };
+	Vector<2> base_bb_min = { 0,0 };
 	for (auto& it : base)
 	{
-		if (abs(it.x()) > base_bb.x())
-			base_bb = { abs(it.x()), base_bb.y() };
-		if (abs(it.y()) > base_bb.y())
-			base_bb = { base_bb.x(), abs(it.y()) };
+		base_bb_max = max(base_bb_max, it);
+		base_bb_min = min(base_bb_min, it);
 	}
-	return { base_bb, half_height };
+	this->bounding_box = Vector<3>( (base_bb_max - base_bb_min) * 0.5, half_height );
+	this->bounding_box_position = position + Vector<3>((base_bb_max + base_bb_min) * 0.5, position.z());
 }
 Prizm::Prizm(const std::vector<Vector<2>>& polygon, const Vector<3>& pos, double height, const Quat& rot) : Object(pos, rot), half_height(height / 2), base(polygon) {
 	normals.resize(base.size());
@@ -248,8 +254,7 @@ Prizm::Prizm(const std::vector<Vector<2>>& polygon, const Vector<3>& pos, double
 		Vector<2> normal = { polygon[i < polygon.size() - 1 ? i + 1 : 0].y() - polygon[i].y(), polygon[i].x() - polygon[i < polygon.size() - 1 ? i + 1 : 0].x() };
 		normals[i] = { normalize(normal) * sign(dot(polygon[i], normal)), 0 };
 	}
-
-	bounding_box = countBoundingBox();
+	reCountBoundingBox();
 }
 
 
@@ -273,9 +278,10 @@ std::vector<ISR> Sphere::_intersectLine(const Vector<3>& start, const Vector<3>&
 	return { ISR{t1, (start + dir * t1) * (1.0 / rad), true, this->id},  ISR{t2, (start + dir * t2) * (1.0 / rad), false , this->id} };
 }
 
-Vector<3> Sphere::countBoundingBox() const
+void Sphere::countBoundingBox()
 {
-	return { rad, rad, rad };
+	this->bounding_box = { rad, rad, rad };
+	this->bounding_box_position = this->position;
 }
 
 bool Sphere::isPointInside(const Vector<3>& p) const
@@ -288,7 +294,7 @@ bool Sphere::isPointInside(const Vector<3>& p) const
 
 Sphere::Sphere(const Vector<3>& pos, double rad) : Object(pos, Quat(1,0,0,0)), rad(rad)
 {
-	bounding_box = countBoundingBox();
+	reCountBoundingBox();
 }
 
 
@@ -308,7 +314,9 @@ bool Cone::isPointInside(const Vector<3>& p) const
 	return false;
 }
 
-Cone::Cone(double height, double rad, const Vector<3>& apex_position, const Quat& rot) : Object(apex_position, rot), height(height), rad(rad), rdivh(rad/height) { bounding_box = countBoundingBox();  }
+Cone::Cone(double height, double rad, const Vector<3>& apex_position, const Quat& rot) : Object(apex_position, rot), height(height), rad(rad), rdivh(rad/height) {
+	reCountBoundingBox();
+}
 
 bool Piramid::lineIntersectsBoundingBox(const Vector<3>& start, const Vector<3>& dir) const
 {
@@ -328,7 +336,7 @@ Piramid::Piramid(const std::vector<Vector<2>>& polygon, const Vector<3>& pos, do
 	{
 		normals[i] = normalize(cross({ base[i], -height }, { base[(i + 1) % base.size()], -height }));
 	}
-	bounding_box = countBoundingBox();
+	reCountBoundingBox();
 }
 
 bool Cylinder::isPointInside(const Vector<3>& p) const
@@ -339,7 +347,9 @@ bool Cylinder::isPointInside(const Vector<3>& p) const
 	return dot(Vector<2>(point), Vector<2>(point)) <= rad * rad && point.z() >= -half_height && point.z() <= half_height;
 }
 
-Cylinder::Cylinder(const Vector<3>& pos, double height, double rad, const Quat& rotation) : Object(pos, rotation), half_height(height/2), rad(rad) { bounding_box = countBoundingBox();  }
+Cylinder::Cylinder(const Vector<3>& pos, double height, double rad, const Quat& rotation) : Object(pos, rotation), half_height(height/2), rad(rad) {
+	reCountBoundingBox();
+}
 
 
 void Object::setColor(const Vector<3>& col)
@@ -387,6 +397,7 @@ void Object::moveOn(const Vector<3>& movement)
 	position = position + movement;
 	Matrix<4> transposition(Vector<4>(1, 0, 0, -position.x()), Vector<4>(0, 1, 0, -position.y()), Vector<4>(0, 0, 1, -position.z()), Vector<4>(0, 0, 0, 1));
 	transformation_mat = rotation_mat * transposition;
+	this->bounding_box_position = bounding_box_position + movement;
 }
 
 void Object::globalizeCoordinates()
@@ -401,13 +412,18 @@ void Object::rotate(const Quat& rotation)
 	this->back_rotation_mat = this->rotation.rotation();
 	Matrix<4> transposition(Vector<4>(1, 0, 0, -position.x()), Vector<4>(0, 1, 0, -position.y()), Vector<4>(0, 0, 1, -position.z()), Vector<4>(0, 0, 0, 1));
 	transformation_mat = rotation_mat * transposition;
+	this->reCountBoundingBox();
+}
+
+void Object::reCountBoundingBox()
+{
+	this->countBoundingBox();
+	this->rotateBoundingBox();
 }
 
 Vector<3> Object::getBoundingBox() const
 {
-	if (this->bb_set)
-		return bounding_box;
-	return countBoundingBox();
+	return this->bounding_box;
 }
 
 
@@ -713,12 +729,13 @@ std::vector<ISR> Cone::_intersectLine(const Vector<3>& start, const Vector<3>& d
 
 }
 
-Vector<3> Cone::countBoundingBox() const
+void Cone::countBoundingBox()
 {
 #ifdef BB_SPHERE
 	return { sqrt(height * height / 4 + rad * rad),0,0 };
 #endif
-	return { rad, rad, height/2 };
+	this->bounding_box = { rad, rad, height / 2 };
+	this->bounding_box_position = this->position - Vector<3>{0, 0, height / 2};
 }
 
 bool Cone::lineIntersectsBoundingBox(const Vector<3>& start, const Vector<3>& dir) const
@@ -807,7 +824,7 @@ std::vector<ISR> Piramid::_intersectLine(const Vector<3>& start, const Vector<3>
 	return { t[1], t[0] };
 }
 
-Vector<3> Piramid::countBoundingBox() const
+void Piramid::countBoundingBox()
 {
 #ifdef BB_SPHERE
 	double max = 0;
@@ -815,15 +832,15 @@ Vector<3> Piramid::countBoundingBox() const
 		max = std::max(max, sqrt(dot(it, it) + height * height / 4));
 	return { max,0,0 };
 #endif
-	Vector<2> base_bb = { 0,0 };
+	Vector<2> base_bb_max = { 0,0 };
+	Vector<2> base_bb_min = { 0,0 };
 	for (auto& it : base)
 	{
-		if (abs(it.x()) > base_bb.x())
-			base_bb = { abs(it.x()), base_bb.y() };
-		if (abs(it.y()) > base_bb.y())
-			base_bb = { base_bb.x(), abs(it.y()) };
+		base_bb_max = max(base_bb_max, it);
+		base_bb_min = min(base_bb_min, it);
 	}
-	return { base_bb, height/2 };
+	this->bounding_box = Vector<3>( (base_bb_max - base_bb_min) * 0.5, height/2 );
+	this->bounding_box_position = this->position - Vector<3>(0, 0, height / 2);
 }
 
 
@@ -940,12 +957,13 @@ std::vector<ISR> Cylinder::_intersectLine(const Vector<3>& start, const Vector<3
 	return {};
 }
 
-Vector<3> Cylinder::countBoundingBox() const
+void Cylinder::countBoundingBox()
 {
 #ifdef BB_SPHERE
 	return { sqrt(rad * rad + half_height * half_height),0,0 };
 #endif
-	return { rad, rad, half_height };
+	this->bounding_box = { rad, rad, half_height };
+	this->bounding_box_position = this->position;
 }
 
 
@@ -965,18 +983,16 @@ IntersectionResult::IntersectionResult() : t(0), n(0,0,0)
 
 Box::Box(const Vector<3>& position, const Vector<3>& size, const Quat& rotation) : Object(position, rotation), size(size)
 {
-
-	bounding_box = countBoundingBox();
+	reCountBoundingBox();
 }
 
-Vector<3> Box::countBoundingBox() const
+void Box::countBoundingBox()
 {
 #ifdef BB_SPHERE
 	return { sqrt(dot(size, size)),0,0 };
 #endif
-	return size;
-
-	//return this->bounding_box;
+	this->bounding_box = getHsize();
+	this->bounding_box_position = position;
 }
 
 std::pair<bool, ISR> intersectLineWithBoxOnSide(int sig, int dir_c, int c1, int c2, const Vector<3>& bounding_box, const Vector<3>& start, const Vector<3>& dir, int id)
@@ -1088,7 +1104,6 @@ bool Box::isPointInside(const Vector<3>& p) const
 
 Polyhedron::Polyhedron(const Vector<3>& position, const Quat& rotation, const std::vector<Vector<3>>& points, const std::vector<std::vector<int>>& edges) : Object(position, rotation), points(points), edges(edges)
 {
-	bounding_box = countBoundingBox();
 	normals.resize(edges.size());
 	polygons.resize(edges.size());
 	polygs_coords.resize(edges.size());
@@ -1121,17 +1136,24 @@ Polyhedron::Polyhedron(const Vector<3>& position, const Quat& rotation, const st
 				normals[i] = -1 * normals[i];
 		}
 	}
+	reCountBoundingBox();
 }
 
-Vector<3> Polyhedron::countBoundingBox() const
+void Polyhedron::countBoundingBox()
 {
-	Vector<3> bb({ 0,0,0 });
-	for (auto& it : points)
-		bb = max(bb, it);
 #ifdef BB_SPHERE
 	return { sqrt(dot(bb, bb)),0,0 };
 #endif
-	return bb;
+	Vector<3> base_bb_max = { 0,0, 0 };
+	Vector<3> base_bb_min = { 0,0, 0 };
+	for (auto& it : this->points)
+	{
+		base_bb_max = max(base_bb_max, it);
+		base_bb_min = min(base_bb_min, it);
+	}
+	this->bounding_box_position = position + (base_bb_max + base_bb_min) * 0.5;
+	this->bounding_box = (base_bb_max - base_bb_min) * 0.5;
+
 }
 #include<algorithm>
 static bool __comp(const ISR& a, const ISR& b)
@@ -1318,29 +1340,20 @@ const std::vector<Matrix<3>>& Polyhedron::getCoords() const
 void Object::setBoundingBoxHSize(const Vector<3>& bb)
 {
 	this->bounding_box = bb;
-	this->bb_set = true;
-	if (!this->bb_position_set)
-	{
-		this->bb_position_set = true;
-		this->bounding_box_position = this->position;
-	}
 }
 
 void Object::setBoundingBoxPosition(const Vector<3>& bb)
 {
-	this->bb_position_set = true;
 	this->bounding_box_position = bb;
 }
 
 bool Object::haveBoundingBox() const
 {
-	return this->bb_set;
+	return this->getType() != ObjectType::BOX;
 }
 
 Vector<3> Object::getBoundingBoxPosition() const
 {
-	if (this->bb_position_set)
-		return this->bounding_box_position;
-	else
-		return this->position;
+	return this->bounding_box_position;
+
 }

@@ -124,13 +124,38 @@ std::vector<ISR> ComposedObject::_intersectLine(const Vector<3>& pos, const Vect
 
 
 
-Vector<3> ComposedObject::countBoundingBox() const
+void ComposedObject::countBoundingBox()
 {
-	//кстати если это вычитание множеств то бб второго можно не считать
 #ifdef BB_SPHERE
 	return max(Vector<3>{ length(left->getPosition()),0,0 } + left->getBoundingBox(), Vector<3>{ length(right->getPosition()),0,0 } + right->getBoundingBox());
 #endif
-	return max(left->getPosition() + left->rotateBoundingBox(), right->getPosition() + right->rotateBoundingBox());
+	switch (this->operation)
+	{
+	case PLUS:
+	{
+		Vector<3> bb_max = max(left->getBoundingBoxPosition() + left->getBoundingBox(), right->getBoundingBoxPosition() + right->getBoundingBox());
+		Vector<3> bb_min = min(left->getBoundingBoxPosition() - left->getBoundingBox(), right->getBoundingBoxPosition() - right->getBoundingBox());
+
+		this->bounding_box_position = (bb_max + bb_min) * 0.5;
+		this->bounding_box = (bb_max - bb_min) * 0.5;
+		break;
+	}
+	case MULT:
+		//пересечение боксов
+	{
+		Vector<3> a = max(left->getBoundingBoxPosition() - left->getBoundingBox(), right->getBoundingBoxPosition() - right->getBoundingBox());
+		Vector<3> b = min(left->getBoundingBoxPosition() + left->getBoundingBox(), right->getBoundingBoxPosition() + right->getBoundingBox());
+		this->bounding_box_position = (a + b) * 0.5;
+		this->bounding_box = (b - a) * 0.5;
+		if (bounding_box.x() <= 0 || bounding_box.y() <= 0 || bounding_box.z() <= 0)
+			bounding_box = { 0,0,0 };
+		break;
+	}
+	case MINUS:
+		this->bounding_box_position = left->getBoundingBoxPosition();
+		this->bounding_box = left->getBoundingBox();
+	}
+	
 }
 
 ObjectType ComposedObject::getType() const
@@ -141,10 +166,11 @@ ObjectType ComposedObject::getType() const
 std::unique_ptr<Object> ComposedObject::copy() const
 {
 	auto res = std::make_unique<ComposedObject>(left->copy(), right->copy(), operation, position, rotation);
-	res->bb_set = this->bb_set;
-	res->bb_position_set = this->bb_set;
+
 	res->bounding_box = this->bounding_box;
 	res->bounding_box_position = this->bounding_box_position;
+	res->left->setParent(res.get());
+	res->right->setParent(res.get());
 	res->id = this->id;
 	return res;
 }
@@ -158,9 +184,9 @@ bool ComposedObject::isPointInside(const Vector<3>& p) const
 
 ComposedObject::ComposedObject(std::unique_ptr<Object>&& left, std::unique_ptr<Object>&& right, Operation oper, const Vector<3>& pos, const Quat& rot) : left(std::move(left)), right(std::move(right)), operation(oper), Object(pos, rot)
 {
-	bounding_box = countBoundingBox();
 	this->left->setParent(this);
 	this->right->setParent(this);
+	reCountBoundingBox();
 }
 
 ComposedObject::Operation ComposedObject::getOperation() const

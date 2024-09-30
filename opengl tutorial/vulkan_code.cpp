@@ -417,6 +417,11 @@ void VulkanApp::setScene(const std::unique_ptr<Object>& obj)
     this->scene.setSceneAsComposedObject(scene_object);
 }
 
+void VulkanApp::setRenderer(Renderer ren)
+{
+    this->render = ren;
+}
+
 void VulkanApp::doRaytraceSetup()
 {
     createRaytraceCommandBuffer();
@@ -927,7 +932,7 @@ void VulkanApp::createDescriptorPoolAndSetForRaytrace()
         descriptorWrites[2].pBufferInfo = &bufferInfo;
          
         ray_intersections_info_bits_size = unsigned long long int(ceil(scene.getComposedObjectNodesCount() / 32.0)) * 32;
-        this->createBuffer(ray_intersections_info_bits_size * this->WIDTH * this->HEIGHT / 8, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, this->rtx_intersections_bits_buffer, this->rtx_intersections_bits_buffer_memory);
+        this->createBuffer(ray_intersections_info_bits_size * this->WIDTH * this->HEIGHT / 8, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, this->rtx_intersections_bits_buffer, this->rtx_intersections_bits_buffer_memory);
 
         VkDescriptorBufferInfo bits_buffer{};
         bits_buffer.buffer = rtx_intersections_bits_buffer;
@@ -978,12 +983,12 @@ void VulkanApp::prepareCommandBufferForRtx()
     if (vkBeginCommandBuffer(rtxCommandBuffer, &beginInfo) != VK_SUCCESS) {
         throw std::runtime_error("failed to begin recording command buffer!");
     }
-    vkCmdFillBuffer(rtxCommandBuffer, this->rtx_intersections_bits_buffer, 0, ray_intersections_info_bits_size * WIDTH * HEIGHT / 8, 0);
+    vkCmdFillBuffer(rtxCommandBuffer, this->rtx_intersections_bits_buffer, 0, (uint64_t)ray_intersections_info_bits_size * WIDTH * (uint64_t)HEIGHT / 8, 0);
     vkCmdBindPipeline(rtxCommandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, this->raytrace_pipeline);
     vkCmdBindDescriptorSets(rtxCommandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, this->raytrace_pipeline_layout, 0, 1, &rtxDescriptorSets[0], 0, nullptr);
 
     VkStridedDeviceAddressRegionKHR null_shader{};
-    vkCmdTraceRaysKHR(rtxCommandBuffer, &this->raygen_shader_binding_table, &this->miss_shader_binding_table, &this->inter_shader_binding_table, &null_shader, this->WIDTH, this->HEIGHT / BATCHES_COUNT, 1);
+    vkCmdTraceRaysKHR(rtxCommandBuffer, &this->raygen_shader_binding_table, &this->miss_shader_binding_table, &this->inter_shader_binding_table, &null_shader, this->WIDTH, this->HEIGHT, 1);
     if (vkEndCommandBuffer(rtxCommandBuffer) != VK_SUCCESS) {
         throw std::runtime_error("failed to record command buffer!");
     }
@@ -1252,10 +1257,14 @@ void VulkanApp::dispatchCompute()
     submitInfo.signalSemaphoreCount = 1;
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    if (vkQueueSubmit(computeQueue, 1, &submitInfo, nullptr) != VK_SUCCESS) {
+    VkFence fence;
+    VkFenceCreateInfo fcr{};
+    fcr.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    vkCreateFence(device, &fcr, nullptr, &fence);
+    if (vkQueueSubmit(computeQueue, 1, &submitInfo, fence) != VK_SUCCESS) {
         throw std::runtime_error("failed to submit compute command buffer!");
     };
-
+    vkWaitForFences(device, 1, &fence, VK_TRUE, 1000000000);
     
 }
 
@@ -1701,8 +1710,13 @@ void VulkanApp::createTextureSampler()
         throw std::runtime_error("failed to create texture sampler!");
     }
 }
-
+#include <chrono>
 void VulkanApp::mainLoop() {
+    auto start_time = std::chrono::high_resolution_clock::now();
+    int frame_counter = 0;
+    
+
+    
     while (!glfwWindowShouldClose(window)) {
         
         drawFrame();
@@ -1721,6 +1735,17 @@ void VulkanApp::mainLoop() {
             camera.nums[1] += cam_sp;
         if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS)
             camera.nums[1] -= cam_sp;
+        ++frame_counter;
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+        if (duration.count() >= 1000000)
+        {
+            double fps = 1000000.0 / duration.count() * frame_counter;
+            frame_counter = 0;
+            std::string title = "FPS: " + std::to_string(fps);
+            glfwSetWindowTitle(window, title.c_str());
+            start_time = std::chrono::high_resolution_clock::now();
+        }
     }
 
     vkDeviceWaitIdle(device);
@@ -2282,15 +2307,17 @@ void VulkanApp::updateUniformBuffer(uint32_t currentImage)
         unsigned int ray_intersections_info_bits_size;
         int batches_count;
     } dat;
-    dat = { {(float)camera.x(), (float)camera.y(), (float)camera.z(), 0}, {(int)this->WIDTH, (int)this->HEIGHT}, scene.getPrimitivesCount(), scene.getDataCount(), scene.getNormalsCount(), scene.getComposedObjectNodesCount(), unsigned int(ray_intersections_info_bits_size), int(BATCHES_COUNT) };
+    dat = { {(float)camera.x(), (float)camera.y(), (float)camera.z(), 0}, {(int)this->WIDTH, (int)this->HEIGHT}, scene.getPrimitivesCount(), scene.getDataCount(), scene.getNormalsCount(), scene.getComposedObjectNodesCount(), unsigned int(ray_intersections_info_bits_size), 1 };
     memcpy(uniformBuffersMapped[0], &dat, sizeof(dat));
 
 }
 
 void VulkanApp::drawFrame() {
     updateUniformBuffer(currentFrame);
-    //dispatchCompute();   
-    prepareCommandBufferForRtx();
+    if (render == COMPUTE)
+        dispatchCompute();
+    else
+        prepareCommandBufferForRtx();
     transitionImageLayout(this->textureImage, VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
      

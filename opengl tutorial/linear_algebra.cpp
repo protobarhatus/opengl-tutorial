@@ -21,6 +21,22 @@ Vector<2>::Vector(double x, double y) : nums{ x, y } {}
 
 Vector<3>::Vector(const Vector<2>& v, double z) : nums{ v.nums[0], v.nums[1], z } {}
 
+Vector<2> max(const Vector<2>& a, const Vector<2>& b)
+{
+	return Vector<2>(std::max(a.x(), b.x()), std::max(a.y(), b.y()));
+}
+Vector<3> min(const Vector<3>& a, const Vector<3>& b)
+{
+	return { std::min(a.x(), b.x()), std::min(a.y(), b.y()), std::min(a.z(), b.z()) };
+}
+Vector<2> min(const Vector<2>& a, const Vector<2>& b)
+{
+	return Vector<2>(std::min(a.x(), b.x()), std::min(a.y(), b.y()));
+}
+Vector<3> max(const Vector<3>& a, const Vector<3>& b)
+{
+	return { std::max(a.x(), b.x()), std::max(a.y(), b.y()), std::max(a.z(), b.z()) };
+}
 
 Vector<3> cross(const Vector<3>& a, const Vector<3>& b)
 {
@@ -61,10 +77,7 @@ Quat::Quat(double a0, const Vector<3>& a) : _a0(a0), a(a) {}
 
 Quat::Quat(double a0, double a1, double a2, double a3) : _a0(a0), a(a1, a2, a3) {}
 
-Vector<3> max(const Vector<3>& a, const Vector<3>& b)
-{
-	return { std::max(a.x(), b.x()), std::max(a.y(), b.y()), std::max(a.z(), b.z()) };
-}
+
 
 
 

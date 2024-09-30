@@ -40,18 +40,23 @@ struct SwapChainSupportDetails {
 };
 
 
-
+enum Renderer
+{
+    COMPUTE,
+    RAYTRACE,
+    OPENGL
+};
 
 class VulkanApp {
+    
     const uint32_t WIDTH = 1000;
     const uint32_t HEIGHT = 1000;
     const uint32_t INTERSECTION_STACK_SIZE = 100;
-    const uint32_t BATCHES_COUNT = 1;
     //под нее надо так же множить отдельные буфера для компьют шейдера и отдельные параметры камеры и тп, нафиг
     const int MAX_FRAMES_IN_FLIGHT = 1;
     //без учета юниформ буфера
     int BUFFERS_NUM = 7;
-
+    Renderer render = RAYTRACE;
     const std::vector<const char*> validationLayers = {
         "VK_LAYER_KHRONOS_validation"
     };
@@ -75,6 +80,7 @@ public:
     void run();
     
     void setScene(const std::unique_ptr<Object>& obj);
+    void setRenderer(Renderer ren);
 private:
 
     Vector<3> camera = { 0, -5, 0 };

@@ -42,8 +42,6 @@ protected:
 	Vector<3> bounding_box;
 	//пока оно только дл€ шейдера, на цпу не используетс€. ѕозици€ центра коробки
 	Vector<3> bounding_box_position;
-	bool bb_set = false;
-	bool bb_position_set = false;
 	//оно переопредел€етс€ в пирамиде и конусе т к там центр смещен по вертикали
 	virtual bool lineIntersectsBoundingBox(const Vector<3>& start, const Vector<3>& dir) const;
 	Vector<4> color = { 1,1,1,1 };
@@ -52,9 +50,11 @@ protected:
 public:
 	virtual ObjectType getType() const = 0;
 	virtual std::unique_ptr<Object> copy() const = 0;
-	virtual Vector<3> countBoundingBox() const = 0;
+	void reCountBoundingBox();
+	//в этой функции он не вращаетс€, но в конструкторе сразу после этого поворачиваетс€
+	virtual void countBoundingBox() = 0;
 	//дл€ composed object требуетс€ перевести bounding box в мировую ск т к иначе граница комбинированного бб будет рассчитана неправильно
-	Vector<3> rotateBoundingBox() const;
+	void rotateBoundingBox();
 	//заданный напр€мую извне
 	void setBoundingBoxHSize(const Vector<3>& bb);
 	void setBoundingBoxPosition(const Vector<3>& bb);
@@ -102,7 +102,7 @@ public:
 	virtual ObjectType getType() const override;
 	virtual std::unique_ptr<Object> copy() const override;
 	Box(const Vector<3>& position, const Vector<3>& half_size, const Quat& rotation);
-	virtual Vector<3> countBoundingBox() const override;
+	virtual void countBoundingBox() override;
 	virtual std::vector<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const override;
 	std::vector<ISR> intersectWithRayOnBothSides(const Vector<3>& start, const Vector<3>& direction) const;
 	bool isPointInside(const Vector<3>& p) const override;
@@ -119,7 +119,7 @@ class Prizm : public Object
 	virtual std::vector<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const override;
 	std::vector<Vector<2>> base;
 	std::vector<Vector<3>> normals;
-	virtual Vector<3> countBoundingBox() const override;
+	virtual void countBoundingBox() override;
 public:
 	virtual ObjectType getType() const override;
 	virtual std::unique_ptr<Object> copy() const override;
@@ -137,7 +137,7 @@ class Cone : public Object
 	double height, rad, rdivh;
 
 	virtual std::vector<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const override;
-	virtual Vector<3> countBoundingBox() const override;
+	virtual void countBoundingBox() override;
 	virtual bool lineIntersectsBoundingBox(const Vector<3>& start, const Vector<3>& dir) const;
 public:
 	virtual ObjectType getType() const override;
@@ -155,7 +155,7 @@ class Piramid : public Object
 	bool is_convex = true;
 	double height;
 	virtual std::vector<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const override;
-	virtual Vector<3> countBoundingBox() const override;
+	virtual void countBoundingBox() override;
 	std::vector<Vector<2>> base;
 	std::vector<Vector<3>> normals;
 	virtual bool lineIntersectsBoundingBox(const Vector<3>& start, const Vector<3>& dir) const;
@@ -175,7 +175,7 @@ class Cylinder : public Object
 	double half_height, rad;
 
 	virtual std::vector<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const override;
-	virtual Vector<3> countBoundingBox() const override;
+	virtual void countBoundingBox() override;
 public:
 	virtual ObjectType getType() const override;
 	virtual std::unique_ptr<Object> copy() const override;
@@ -191,7 +191,7 @@ class Sphere : public Object
 	double rad;
 
 	virtual std::vector<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const override;
-	virtual Vector<3> countBoundingBox() const override;
+	virtual void countBoundingBox() override;
 public:
 	double getRadius() const;
 	virtual ObjectType getType() const override;
@@ -214,7 +214,7 @@ public:
 	virtual ObjectType getType() const override;
 	virtual std::unique_ptr<Object> copy() const override;
 	Polyhedron(const Vector<3>& position, const Quat& rotation, const std::vector<Vector<3>>& points, const std::vector<std::vector<int>>& edges);
-	virtual Vector<3> countBoundingBox() const override;
+	virtual void countBoundingBox() override;
 	virtual std::vector<ISR> _intersectLine(const Vector<3>& start, const Vector<3>& dir) const override;
 	bool isPointInside(const Vector<3>& p) const override;
 

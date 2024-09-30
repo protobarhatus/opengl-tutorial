@@ -471,7 +471,9 @@ GLFWwindow* createGlfwWindow(int window_width, int window_height, bool vulkan=fa
 	return window;
 }
 
-int openGlCode()
+#include <chrono>
+
+int openGlCode(const std::string& file)
 {
 	int window_width = 1000;
 	int window_height = 1000;
@@ -563,7 +565,7 @@ int openGlCode()
 	Quat null_rotation = Quat(1, 0, 0, 0);
 	
 
-	auto obj = parse(readFile("examples/thousand_cubes.txt"));
+	auto obj = parse(readFile(file));
 
 	assert(obj != nullptr);
 	obj->moveOn({ 0,9,0 });
@@ -580,7 +582,8 @@ int openGlCode()
 	camera_pos.nums[1] = 2;
 
 	
-
+	auto start_time = std::chrono::high_resolution_clock::now();
+	int frame_counter = 0;
 	while (!glfwWindowShouldClose(window)) // Main-Loop
 	{
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear the screen with... red, green, blue.
@@ -628,9 +631,17 @@ int openGlCode()
 		if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS)
 			camera_pos.nums[1] -= cam_sp;
 
-
-
-		++counter;
+		++frame_counter;
+		if (frame_counter == 10)
+		{
+			frame_counter = 0;
+			auto end_time = std::chrono::high_resolution_clock::now();
+			auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+			double fps = 1000000.0 / duration.count() * 10;
+			std::string title = "FPS: " + std::to_string(fps);
+			glfwSetWindowTitle(window, title.c_str());
+			start_time = std::chrono::high_resolution_clock::now();
+		}
 		//while (glfwGetTime() - cstart < counter * (1.0 / 60.0))
 		//{
 		//}
@@ -647,12 +658,41 @@ int openGlCode()
 
 #include <iostream>
 #include <cmath>
-int main() {
-	//openGlCode();
-	//return 0;
+void makeCubesScene();
 
+int main(int argc, char * argv[]) {
+	Renderer rend = COMPUTE;
+	std::string scene_file = "examples/thousand_cubes.txt";
+	for (int i = 0; i < argc; ++i)
+	{
+		if (strcmp(argv[i], "-r") == 0)
+		{
+			rend = RAYTRACE;
+		}
+		if (strcmp(argv[i], "-c") == 0)
+		{
+			rend = COMPUTE;
+		}
+		if (strcmp(argv[i], "-g") == 0)
+		{
+			rend = OPENGL;
+		}
+		if (strcmp(argv[i], "-f") == 0)
+		{
+			if (i + 1 == argc)
+				throw "no file stated";
+			++i;
+			scene_file = argv[i];
+		}
+	}
+	if (rend == OPENGL)
+	{
+		openGlCode(scene_file);
+		return 0;
+	}
 	VulkanApp app;
-	auto obj = parse(readFile("examples/thousand_cubes.txt"));
+	app.setRenderer(rend);
+	auto obj = parse(readFile(scene_file));
 	GlslSceneMemory mem;
 	mem.setSceneAsComposedObject(obj->copy());
 	app.setScene(obj);
@@ -679,7 +719,7 @@ void makeCubesScene()
 	octogonalCubeCreation = [&objs, &id_counter, &octogonalCubeCreation](int size, int start, int depth, int i_ind, int j_ind, int k_ind, int ind_range)->void {
 		if (size == 1)
 		{
-			objs[depth][start] = makeBox({ 0.5, 0.5, 0.5 }, { i_ind * 2., j_ind * 2., k_ind * 2. }, { 1,0,0,0 });
+			objs[depth][start] = makeBox({ 0.05, 0.05, 0.05 }, { i_ind * 2., j_ind * 2., k_ind * 2. }, { 1,0,0,0 });
 			objs[depth][start]->setId(id_counter++);
 			return;
 		}
@@ -710,7 +750,7 @@ void makeCubesScene()
 
 	};
 	octogonalCubeCreation(16 * 16 * 16, 0, 0, 0, 0, 0, 16);
-	std::fstream file("examples/thousand_cubes.txt", std::ios_base::out);
+	std::fstream file("examples/thousand_small_cubes.txt", std::ios_base::out);
 	file << toStringScene(*objs[0][0]);
 	file.close();
 }

@@ -14,7 +14,7 @@ private:
 	std::unique_ptr<Object> left, right;
 	Operation operation;
 	virtual std::vector<ISR> _intersectLine(const Vector<3>& pos, const Vector<3>& dir) const override;
-	virtual Vector<3> countBoundingBox() const override;
+	virtual void countBoundingBox() override;
 public:
 	virtual ObjectType getType() const override;
 	virtual std::unique_ptr<Object> copy() const override;

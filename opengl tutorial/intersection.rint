@@ -33,5 +33,5 @@ void main()
         bit_index = (bit_index + 1) / 2 - 1;
         int_ind = IDX * (ubo.ray_intersections_info_bits_size/32) + bit_index/32;
         bit_position = bit_index % 32;
-    }
+    };
 };

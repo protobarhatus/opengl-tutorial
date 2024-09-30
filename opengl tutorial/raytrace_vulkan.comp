@@ -883,108 +883,58 @@ IRO intersectPiramidWithLine(in Primitive obj, in vec3 start, in vec3 dir)
 }
 
 
-
-
-struct BoolISRBool
+bool checkIfLineIntersectBox(in vec3 size, in vec3 start, in vec3 dir)
 {
-	bool have_intersect;
-	Intersection inter;
-	int isin;
-};
-BoolISRBool intersectLineWithBoxOnSide(int sig, int dir_c, int c1, int c2, vec3 bounding_box, vec3 start, vec3 dir)
-{
-	float xpT = (sig*bounding_box[dir_c] - start[dir_c]) / dir[dir_c];
-	float yatx = start[c1] + dir[c1] * xpT;
-	float zatx = start[c2] + dir[c2] * xpT;
-	if (abs(yatx) <= bounding_box[c1] && abs(zatx) <= bounding_box[c2])
-	{
-		vec3 n;
-		n[dir_c] = sig;
-		n[c1] = 0;
-		n[c2] = 0;
+	vec3 inv_dir = 1.0 / dir;
+	vec3 t0s = (-size - start) * inv_dir;
+	vec3 t1s = (size - start) * inv_dir;
 
-		BoolISRBool res = { true,  { n,xpT}, int((sig * sign(dir[dir_c])) < 0) };
-		return res;
-	}
-	BoolISRBool res = {false, {{0,0,0},0}, 0};
-	return res;
-
+	vec3 tsin = min(t0s, t1s);
+	vec3 tsout = max(t0s, t1s);
+	
+	float t_in = max(tsin.x, max(tsin.y, tsin.z));
+	float t_out = min(tsout.x, min(tsout.y, tsout.z));
+	return (t_in < t_out) && (t_out > 0);
 }
 //size - half size
 IRO intersectBoxShapeWithLine(in vec3 size, in vec3 start, in vec3 dir)
 {
-	int c = 0;
-	Intersection res[2];
-	BoolISRBool intres = intersectLineWithBoxOnSide(1, 0, 1, 2, size, start, dir);
-	int previn = -1;
-	if (intres.have_intersect)
-	{
-		res[1 - intres.isin] = intres.inter;
-		previn = intres.isin;
-		++c;
-	}
-	intres = intersectLineWithBoxOnSide(-1, 0, 1, 2, size, start, dir);
-	if (intres.have_intersect && intres.isin != previn)
-	{
-		res[1 - intres.isin] = intres.inter;
-		previn = intres.isin;
-		++c;
-	}
-	if (c == 2)
-	{
-		IRO res = {2, res[0], res[1]};
-		return res;
-	}
-	intres = intersectLineWithBoxOnSide(1, 1, 0, 2, size, start, dir);
-	if (intres.have_intersect && intres.isin != previn)
-	{
-		res[1 - intres.isin] = intres.inter;
-		previn = intres.isin;
-		++c;
-	}
-	if (c == 2)
-	{
-		IRO res = {2, res[0], res[1]};
-		return res;
-	}
-	intres = intersectLineWithBoxOnSide(-1, 1, 0, 2, size, start, dir);
-	if (intres.have_intersect && intres.isin != previn)
-	{
-		res[1 - intres.isin] = intres.inter;
-		previn = intres.isin;
-		++c;
-	}
-	if (c == 2)
-	{
-		IRO res = {2, res[0], res[1]};
-		return res;
-	}
-	intres = intersectLineWithBoxOnSide(1, 2, 1, 0, size, start, dir);
-	if (intres.have_intersect && intres.isin != previn)
-	{
-		res[1 - intres.isin] = intres.inter;
-		previn = intres.isin;
-		++c;
-	}
-	if (c == 2)
-	{
-		IRO res = {2, res[0], res[1]};
-		return res;
-	}
-	intres = intersectLineWithBoxOnSide(-1, 2, 1, 0, size, start, dir);
-	if (intres.have_intersect && intres.isin != previn)
-	{
-		res[1 - intres.isin] = intres.inter;
-		previn = intres.isin;
-		++c;
-	}
-	if (c == 2)
-	{
-		IRO res = {2, res[0], res[1]};
-		return res;
-	}
-	IRO ires = {0, { {0,0,0},0}, { {0,0,0},0}};
-	return ires;
+	vec3 inv_dir = 1.0 / dir;
+	vec3 t0s = (-size - start) * inv_dir;
+	vec3 t1s = (size - start) * inv_dir;
+
+	vec3 tsin = min(t0s, t1s);
+	vec3 tsout = max(t0s, t1s);
+
+
+	float t_in = max(tsin.x, max(tsin.y, tsin.z));
+	float t_out = min(tsout.x, min(tsout.y, tsout.z));
+	if (t_in >= t_out || t_out <= 0)
+		return ZERO_IRO;
+
+	Intersection in_int, out_int;
+	vec3 in_point_diff = abs(abs(start + dir * t_in) - size);
+	vec3 out_point_diff = abs(abs(start + dir * t_out) - size);
+
+	if (in_point_diff.x < in_point_diff.y && in_point_diff.x < in_point_diff.z)
+		in_int.n = vec3(-1, 0, 0) * sign(dir.x);
+	else if (in_point_diff.y < in_point_diff.z)
+		in_int.n = vec3(0, -1, 0) * sign(dir.y);
+	else
+		in_int.n = vec3(0, 0, -1) * sign(dir.z);
+
+	if (out_point_diff.x < out_point_diff.y && out_point_diff.x < out_point_diff.z)
+		out_int.n = vec3(1, 0, 0) * sign(dir.x);
+	else if (out_point_diff.y < out_point_diff.z)
+		out_int.n = vec3(0, 1, 0) * sign(dir.y);
+	else
+		out_int.n = vec3(0, 0, 1) * sign(dir.z);
+
+	in_int.t = t_in;
+	out_int.t = t_out;
+	IRO res = {2, in_int, out_int};
+	return res;
+
 }
 
 IRO intersectBoxWithLine(in Primitive obj, in vec3 start, in vec3 dir)
@@ -1351,8 +1301,7 @@ FullIntersectionResult intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_
 	int prev_node_list_index = -1;
 	if (composed_objects[0].bb_index > -1)
 	{
-		IRO bb_iro = intersectBoxShapeWithLine(bb_data[composed_objects[0].bb_index].hsize, camera_pos - bb_data[composed_objects[0].bb_index].position, dir);
-		if (bb_iro.inters == 0)
+		if (!checkIfLineIntersectBox(bb_data[composed_objects[0].bb_index].hsize, camera_pos - bb_data[composed_objects[0].bb_index].position, dir))
 		{
 			current = -1;
 			prev_node_list_index = -1;
@@ -1365,11 +1314,11 @@ FullIntersectionResult intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_
 			int left = ComposedObjectNode_left(composed_objects[current], current);
 			if (composed_objects[left].bb_index > -1)
 			{
-				IRO bb_iro = intersectBoxShapeWithLine(bb_data[composed_objects[left].bb_index].hsize, camera_pos - bb_data[composed_objects[left].bb_index].position, dir);
-				if (bb_iro.inters == 0)
+				if (!checkIfLineIntersectBox(bb_data[composed_objects[left].bb_index].hsize, camera_pos - bb_data[composed_objects[left].bb_index].position, dir))
 				{
 					prev_node_list_index = -1;
 					prev = left;
+					continue;
 				}
 			}
 			if (ComposedObjectNode_isPrimitive(composed_objects[left]))
@@ -1392,11 +1341,11 @@ FullIntersectionResult intersectWithRay(vec3 camera_pos, vec3 dir, out bool has_
 			int right = ComposedObjectNode_right(composed_objects[current], current);
 			if (composed_objects[right].bb_index > -1)
 			{
-				IRO bb_iro = intersectBoxShapeWithLine(bb_data[composed_objects[right].bb_index].hsize, camera_pos - bb_data[composed_objects[right].bb_index].position, dir);
-				if (bb_iro.inters == 0)
+				if (!checkIfLineIntersectBox(bb_data[composed_objects[right].bb_index].hsize, camera_pos - bb_data[composed_objects[right].bb_index].position, dir))
 				{
 					prev_node_list_index = -1;
 					prev = right;
+					continue;
 				}
 			}
 			if (ComposedObjectNode_isPrimitive(composed_objects[right]))

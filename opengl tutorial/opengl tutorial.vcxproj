@@ -96,13 +96,13 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>;G:\vulkanSDK\Include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(BOOST);$(VULKAN_SDK)\Includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>opengl32.lib;glfw3.lib;vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>G:\vulkanSDK\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(VULKAN_SDK)\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -113,7 +113,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>;G:\vulkanSDK\Include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(BOOST);$(VULKAN_SDK)\Include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -121,7 +121,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>opengl32.lib;glfw3.lib;vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>G:\vulkanSDK\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(VULKAN_SDK)\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -130,26 +130,18 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\boost_1_83_0;%(AdditionalIncludeDirectories);G:\vulkanSDK\Include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(BOOST);$(VULKAN_SDK)\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>opengl32.lib;glfw3.lib;vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>G:\vulkanSDK\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(VULKAN_SDK)\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PreBuildEvent>
-      <Command>glslangValidator.exe --target-env spirv1.6 "$(ProjectDir)hit.rahit" -V -o dump
-glslangValidator.exe --target-env spirv1.6 "$(ProjectDir)hit.rchit" -V -o dump
-glslangValidator.exe --target-env spirv1.6 "$(ProjectDir)intersection.rint" -V -o dump
-glslangValidator.exe --target-env spirv1.6 "$(ProjectDir)raygen.rgen" -V -o dump
-glslangValidator.exe --target-env spirv1.6 "$(ProjectDir)miss.rmiss" -V -o dump
-glslc.exe --target-spv=spv1.6 "$(ProjectDir)hit.rchit" -o "$(ProjectDir)hit.spv"
-glslc.exe --target-spv=spv1.6 "$(ProjectDir)intersection.rint" -o "$(ProjectDir)intersection.spv"
-glslc.exe --target-spv=spv1.6 "$(ProjectDir)raygen.rgen" -o "$(ProjectDir)raygen.spv"
-glslc.exe --target-spv=spv1.6 "$(ProjectDir)hit.rahit" -o "$(ProjectDir)anyhit.spv"
-glslc.exe --target-spv=spv1.6 "$(ProjectDir)miss.rmiss" -o "$(ProjectDir)miss.spv"</Command>
+      <Command>
+      </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -160,7 +152,7 @@ glslc.exe --target-spv=spv1.6 "$(ProjectDir)miss.rmiss" -o "$(ProjectDir)miss.sp
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\boost_1_83_0;%(AdditionalIncludeDirectories);G:\vulkanSDK\Include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(BOOST);%(AdditionalIncludeDirectories);$(VULKAN_SDK)\Include</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
@@ -169,7 +161,7 @@ glslc.exe --target-spv=spv1.6 "$(ProjectDir)miss.rmiss" -o "$(ProjectDir)miss.sp
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>opengl32.lib;glfw3.lib;vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>G:\vulkanSDK\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(VULKAN_SDK)\Lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>

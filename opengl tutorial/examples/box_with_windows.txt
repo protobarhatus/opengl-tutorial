@@ -5,6 +5,6 @@ cil3 = Cylinder(height: 2.1; radius: 0.7; position: {0,0,0}; rotation: 0.7 + {0.
 inbox = Box(hsize: {0.9, 0.9, 0.9}; position: {0,0,0}; rotation: 1+{0,0,0})
 outbox = Box(hsize: {1,1,1}; position: {0,0,0}; rotation: 1+{0,0,0})
 
-cils = Obj((cil1 + cil2) + cil3, id=1)
+cils = Obj((cil1 + cil2) + cil3, id=1, bb_hsize={5,5,5})
 
 __obj__ = (outbox \ inbox) \ cils
