@@ -565,7 +565,7 @@ int openGlCode(const std::string& file)
 	Quat null_rotation = Quat(1, 0, 0, 0);
 	
 
-	auto obj = parse(readFile(file));
+	auto obj = parse(readFile(file)).obj_scene;
 
 	assert(obj != nullptr);
 	obj->moveOn({ 0,9,0 });
@@ -656,11 +656,18 @@ int openGlCode(const std::string& file)
 
 
 
-#include <iostream>
-#include <cmath>
+#include "ifc_parsing.h"
 void makeCubesScene();
 
+
+
+
+
 int main(int argc, char * argv[]) {
+	std::string input_file_path = "G:/libIFC/h3.ifc";
+	
+
+	
 	Renderer rend = COMPUTE;
 	std::string scene_file = "examples/thousand_cubes.txt";
 	for (int i = 0; i < argc; ++i)
@@ -692,12 +699,43 @@ int main(int argc, char * argv[]) {
 	}
 	VulkanApp app;
 	app.setRenderer(rend);
-	auto obj = parse(readFile(scene_file));
-	GlslSceneMemory mem;
-	mem.setSceneAsComposedObject(obj->copy());
-	app.setScene(obj);
 
 
+	//auto obj_str = ifc(input_file_path); 
+	// 
+	auto obj_str = parse(readFile(scene_file));
+	obj_str.obj_scene = makeAnHierarchy(dissolveHierarchy(turnToHierarchy(obj_str.obj_scene)));
+	//std::ofstream file(input_file_path + ".txt");
+	//file << toStringScene(obj_str.vec_scene);
+	//file.close();
+
+	/*auto obj_hier = makeAnHierarchy(std::move(obj_str.vec_scene));
+	obj_str.vec_scene = dissolveHierarchy(obj_hier);
+	std::function<void(int, int, const std::unique_ptr<Object>&)> addBbs;
+	addBbs = [&addBbs, &obj_hier, &obj_str](int lev, int req, const std::unique_ptr<Object>& obj) {
+		if (lev == req)
+			obj_str.vec_scene.push_back(getBoundingBoxAsObject(obj));
+		else
+		{
+			addBbs(lev + 1, req, static_cast<ComposedObject*>(obj.get())->getLeft());
+			addBbs(lev + 1, req, static_cast<ComposedObject*>(obj.get())->getRight());
+		}
+	};
+
+	addBbs(0, 3, obj_hier);*/
+
+
+
+	auto bb = boundingBox(obj_str);
+	app.setCameraPosition({ ((bb.first + bb.second) / 2).x(), bb.first.y() - (bb.second.y() - bb.first.y()) * 0.01, ((bb.first + bb.second) / 2).z() });
+	app.setCameraSpeed(length(bb.second - bb.first) / 250);
+	//std::ofstream file("h3walls.txt");
+	//file << toStringScene(obj_str.vec_scene);
+	//file.close();
+
+	app.setScene(std::move(obj_str));
+	
+	
 	app.run();
 	
 

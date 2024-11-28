@@ -354,14 +354,47 @@ if (data.type() != getType<Type>()) throw "Provided optional argument " + std::s
 	); })];
 	BOOST_SPIRIT_DEFINE(add_term);
 
+	x3::rule<class csgexpr, std::unique_ptr<Object>> csg_expression_rule;
+	auto csg_expression_rule_def = add_term | monom;
+	BOOST_SPIRIT_DEFINE(csg_expression_rule);
 
-	auto expression_rule_def = add_term | monom;
+	x3::rule<class tuple_hierterm, std::tuple<std::unique_ptr<Object>, std::unique_ptr<Object>>> tuple_hierarchy_term;
+	auto tuple_hierarchy_term_def = csg_expression_rule >> '&' >> csg_expression_rule;
+	BOOST_SPIRIT_DEFINE(tuple_hierarchy_term);
+
+	x3::rule<class hierarch, std::unique_ptr<Object>> hierarchy_term;
+	auto hierarchy_term_def = tuple_hierarchy_term[([](auto& ctx) {
+
+		x3::_val(ctx) = objectsHierarchy(
+			std::move(std::get<0>(x3::_attr(ctx))),
+			std::move(std::get<1>(x3::_attr(ctx))));
+		})];
+
+	BOOST_SPIRIT_DEFINE(hierarchy_term);
+
+	auto expression_rule_def = hierarchy_term | csg_expression_rule;
 	BOOST_SPIRIT_DEFINE(expression_rule);
 
 
-	x3::rule<class fin, std::unique_ptr<Object>> final_rule;
-	auto final_rule_def = +assignation_rule >> x3::lit("__obj__") >> '=' >> expression_rule >> x3::eoi;
+	x3::rule<class finobj, std::unique_ptr<Object>> final_obj_rule;
+	auto final_obj_rule_def = +assignation_rule >> x3::lit("__obj__") >> '=' >> expression_rule >> x3::eoi;
+	BOOST_SPIRIT_DEFINE(final_obj_rule);
+
+
+	x3::rule<class finvec, std::vector<std::unique_ptr<Object>>> final_vec_rule;
+	auto final_vec_rule_def = +assignation_rule >> x3::lit("__obj__") >> '=' >> x3::lit("{") >> expression_rule % ',' >> '}' >> x3::eoi;
+	BOOST_SPIRIT_DEFINE(final_vec_rule);
+
+
+	x3::rule<class fin, SceneStruct> final_rule;
+	auto final_rule_def = final_obj_rule[([](auto& ctx) {
+		x3::_val(ctx).type = SceneStruct::Type::OBJECT;
+		x3::_val(ctx).obj_scene = std::move(x3::_attr(ctx)); })]   |   final_vec_rule[([](auto& ctx) {
+			x3::_val(ctx).type = SceneStruct::Type::VECTOR;
+			x3::_val(ctx).vec_scene = std::move(x3::_attr(ctx)); })];
+
 	BOOST_SPIRIT_DEFINE(final_rule);
+	
 
 
 	std::string toString(const Vector<2>& v)
@@ -432,6 +465,8 @@ if (data.type() != getType<Type>()) throw "Provided optional argument " + std::s
 			return "\\";
 		case ComposedObject::MULT:
 			return "*";
+		case ComposedObject::HIERARCHY:
+			return "&";
 		default:
 			assert(false);
 		}
@@ -492,7 +527,7 @@ if (data.type() != getType<Type>()) throw "Provided optional argument " + std::s
 	
 }
 #include <stack>
-std::string toStringScene(const Object& obj)
+std::string toStringScene(const Object& obj, bool place_obj_ )
 {
 	std::string res = "";
 	std::stack<std::pair<const Object*, int>> st;
@@ -523,12 +558,26 @@ std::string toStringScene(const Object& obj)
 			st.pop();
 		}
 	}
-	return res + "\n__obj__ = O" + std::to_string(obj.getId());
+	if (place_obj_)
+		return res + "\n__obj__ = O" + std::to_string(obj.getId());
+	else
+		return res;
 }
 
-std::unique_ptr<Object> parse(const std::string & str)
+std::string toStringScene(const std::vector<std::unique_ptr<Object>>& obj)
 {
-	std::unique_ptr<Object> res;
+	std::string res;
+	for (auto& it : obj)
+		res += toStringScene(*it, false);
+	res += "\n__obj__ = {";
+	for (int i = 0; i < obj.size(); ++i)
+		res += "O" + std::to_string(obj[i]->getId()) + (i < obj.size() - 1 ? ", " : "}\n");
+	return res;
+}
+
+SceneStruct parse(const std::string & str)
+{
+	SceneStruct res;
 
 	Parser::__vars_map.clear();
 	std::string::const_iterator begin = str.begin();
@@ -543,6 +592,9 @@ std::unique_ptr<Object> parse(const std::string & str)
 	}
 	
 	if (begin != str.end())
-		return nullptr;
-	return res;
+		return { SceneStruct::Type::NONE, nullptr, {} };
+	if (res.type == SceneStruct::Type::OBJECT)
+		res.obj_scene = res.obj_scene->copy();
+	return std::move(res);
+	//return res;
 }

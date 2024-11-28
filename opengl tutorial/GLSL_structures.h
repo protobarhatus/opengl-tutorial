@@ -46,7 +46,8 @@ enum class OperationTypeInShader
 {
 	OBJECTS_ADD = -1,
 	OBJECTS_MULT = -2,
-	OBJECTS_SUB = -3
+	OBJECTS_SUB = -3,
+	OBJECTS_HIERARCHY = -4
 };
 
 struct GLSL_BoundingBoxData
@@ -66,19 +67,22 @@ class GlslSceneMemory
 	std::vector<int> int_buffer;
 	std::vector<GLSL_mat3> mat3_buffer;
 	std::vector<GLSL_BoundingBoxData> bb_buffer;
+	std::vector<int> blas_mapping_buffer;
+	std::vector<GLSL_ComposedObject> hierarchy_buffer;
 	
 	void addObject(const std::unique_ptr<Object>& obj);
 	typedef int ComposedObjectRepresentation;
 	std::vector<GLSL_ComposedObject> composed_object_nodes_buffer;
-	void setComposedObject(const std::unique_ptr<Object>& obj, int buffer_position, std::map<int, int>* map_of_ids, const std::set<int>& important_ids);
+	void setComposedObject(const std::unique_ptr<Object>& obj, int root_position, int csg_node_position, std::map<int, int>* map_of_ids, const std::set<int>& important_ids);
+	void setHierarchyObject(const std::unique_ptr<Object>& obj, int node_position);
 
-	std::vector<unsigned int> primitives_to_node_mapping;
-	
+
+	friend std::string makeTraceFunction(const GlslSceneMemory& scene, int cur_hier_pos);
 public:
 	GlslSceneMemory();
 	void setSceneAsComposedObject(const std::unique_ptr<Object>& obj);
-	void setSceneAsComposedObject(const std::unique_ptr<Object>& obj, const std::set<int>& important_ids, std::map<int, int>& map_of_ids);
-	
+	//void setSceneAsComposedObject(const std::unique_ptr<Object>& obj, const std::set<int>& important_ids, std::map<int, int>& map_of_ids);
+	void setScene(const std::vector<std::unique_ptr<Object>>& objs);
 	void bind(int programm, int current_program);
 	void dropToFiles(const std::string& dir) const;
 	//репликация пересечения с сервера для дебага
@@ -117,6 +121,8 @@ struct GLSL_Primitive
 	unsigned int int_index;
 
 	GLSL_vec4 color;
+
+	
 };
 
 
@@ -135,3 +141,6 @@ GLSL_Primitive buildBox(GLSL_vec3 hsize, GLSL_vec3 position, GLSL_Quat rotation)
 
 
 void GLSL__castRays(int window_width, int window_height, std::vector<unsigned char>& canvas, const Vector<3>& camera_pos, GlslSceneMemory& memory);
+
+
+std::string makeTraceFunction(const GlslSceneMemory& scene);

@@ -1,5 +1,6 @@
 #pragma once
 #include <math.h>
+#include <assert.h>
 template<int dim>
 struct Vector
 {
@@ -18,6 +19,9 @@ struct Vector<4>
 	inline double y() const { return nums[1]; }
 	inline double z() const { return nums[2]; }
 	inline double t() const { return nums[3]; }
+
+	double& operator[](size_t i) { assert(i < 4);  return nums[i]; }
+	const double& operator[](size_t i) const { assert(i < 4);  return nums[i]; }
 };
 
 template<>
@@ -32,6 +36,9 @@ struct Vector<3>
 	inline double x() const { return nums[0]; }
 	inline double y() const { return nums[1]; }
 	inline double z() const { return nums[2]; }
+
+	double& operator[](size_t i) { assert(i < 3);  return nums[i]; }
+	const double& operator[](size_t i) const { assert(i < 3);  return nums[i]; }
 };
 
 
@@ -44,6 +51,9 @@ struct Vector<2>
 	Vector(double x, double y);
 	inline double x() const { return nums[0]; }
 	inline double y() const { return nums[1]; }
+
+	double& operator[](size_t i) { assert(i < 2);  return nums[i]; }
+	const double& operator[](size_t i) const { assert(i < 2);  return nums[i]; }
 
 };
 
@@ -74,6 +84,20 @@ double dot(const Vector<dim>& a, const Vector<dim>& b)
 	return res;
 }
 
+template<int dim>
+const Vector<dim>& operator+=(Vector<dim>& left, const Vector<dim>& right)
+{
+	left = left + right;
+	return left;
+}
+template<int dim>
+const Vector<dim>& operator-=(Vector<dim>& left, const Vector<dim>& right)
+{
+	left = left - right;
+	return left;
+}
+
+
 
 
 Vector<3> cross(const Vector<3>& a, const Vector<3>& b);
@@ -86,11 +110,32 @@ Vector<dim> operator*(const Vector<dim>& a, double b)
 		res.nums[i] = a.nums[i] * b;
 	return res;
 }
+template<int dim>
+Vector<dim> operator/(const Vector<dim>& a, double b)
+{
+	Vector<dim> res;
+	for (int i = 0; i < dim; ++i)
+		res.nums[i] = a.nums[i] / b;
+	return res;
+}
+template<int dim>
+Vector<dim> operator*(double b, const Vector<dim>& a)
+{
+	return a * b;
+}
+
 
 template<int dim>
-Vector<dim> operator*(double a, const Vector<dim>& b)
+const Vector<dim>& operator*=(Vector<dim>& left, double right)
 {
-	return b * a;
+	left = left * right;
+	return left;
+}
+template<int dim>
+const Vector<dim>& operator/=(Vector<dim>& left, double right)
+{
+	left = left / right;
+	return left;
 }
 
 template<int dim>
@@ -106,6 +151,12 @@ bool equal(const Vector<dim>& a, const Vector<dim>& b)
 }
 
 template<int dim>
+Vector<dim> operator-(const Vector<dim>& left)
+{
+	return left * -1;
+}
+
+template<int dim>
 struct Matrix
 {
 	Matrix() {}
@@ -117,6 +168,8 @@ struct Matrix<4>
 	Vector<4> mat[4];
 	Matrix(const Vector<4>& a, const Vector<4>& b, const Vector<4>& c, const Vector<4>& d) : mat{ a, b, c, d } {}
 	Matrix() {}
+	Vector<4>& operator[](size_t i) { assert(i < 4);  return mat[i]; }
+	const Vector<4>& operator[](size_t i) const { assert(i < 4);  return mat[i]; }
 };
 
 template<>
@@ -125,7 +178,8 @@ struct Matrix<3>
 	Vector<3> mat[3];
 	Matrix(const Vector<3>& a, const Vector<3>& b, const Vector<3>& c) : mat{ a, b, c } {}
 	Matrix() {}
-
+	Vector<3>& operator[](size_t i) { assert(i < 3);  return mat[i]; }
+	const Vector<3>& operator[](size_t i) const { assert(i < 3);  return mat[i]; }
 };
 
 template<int dim>
@@ -142,6 +196,7 @@ Matrix<dim> operator*(const Matrix<dim>& a, const Matrix<dim>& b) {
 	}
 	return res;
 }
+
 
 template<int dim>
 Vector<dim> operator*(const Matrix<dim>& a, const Vector<dim>& b)
@@ -187,7 +242,11 @@ public:
 
 	Matrix<4> rotation() const;
 
+	
+
 };
+
+Quat rotationQuat(double angle, const Vector<3>& n);
 
 bool equal(const Quat& a, const Quat& b);
 
@@ -212,4 +271,13 @@ template<int dim>
 double length(const Vector<dim>& v)
 {
 	return sqrt(dot(v, v));
+}
+
+template<int dim>
+Matrix<dim> diagonal(double num)
+{
+	Matrix<dim> res{};
+	for (int i = 0; i < dim; ++i)
+		res[i][i] = num;
+	return res;
 }

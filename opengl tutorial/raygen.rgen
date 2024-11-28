@@ -1,19 +1,42 @@
 #version 460
 #extension GL_EXT_ray_tracing : require
 layout(set = 0, binding = 0) uniform accelerationStructureEXT topLevelAS;
-
-layout(binding = 2) uniform u_obj_obj {
+layout(rgba32f, binding = 9) uniform image2D img_output;
+layout(binding = 8) uniform u_obj_obj {
     vec3 camera_pos;
     ivec2 screen_size;
     int primitives_count;
     int data_count;
     int normals_count;
     int composed_object_nodes_count;
-    int ray_intersections_info_bits_size;
-    int batches_count;
+    vec3 camera_right_vec;
+    vec3 camera_direction;
+    vec3 camera_up_vector;
 } ubo;
 
-layout(location = 0) rayPayloadEXT uint prd;
+struct Intersection
+{
+    vec3 n;
+    float t;
+};
+struct FullIntersectionResult
+{
+    Intersection inter;
+    vec4 color;
+    //индекс примитива в дереве composed_objects с которым произошло первое пересечение. Для получения его индекса как примитива следует вызвать ComposedObjectNode_getPrimitiveIndex(composed_objects[object_index])
+    int object_index;
+};
+
+struct PrdInfo
+{
+    FullIntersectionResult opaque_point;
+    float first_non_opaq_t;
+    float alpha_sum;
+    float alpha_prod;
+    vec3 color_sum;
+};
+
+layout(location = 0) rayPayloadEXT PrdInfo prd;
 void main() {
     
     
@@ -23,9 +46,16 @@ void main() {
     vec3 rayOrigin = ubo.camera_pos;
 
     ivec2 pixel_coord = ivec2(gl_LaunchIDEXT.x, gl_LaunchIDEXT.y);
-    vec3 rayDirection = vec3(-1 + pixel_coord.x * horizontal_step, 1, -1 + pixel_coord.y * vertical_step);
+    //vec3 rayDirection = vec3(-1 + pixel_coord.x * horizontal_step, 1, -1 + pixel_coord.y * vertical_step);
+    vec3 rayDirection = (-1 + pixel_coord.x * horizontal_step) * ubo.camera_right_vec + ubo.camera_direction + (-1 + pixel_coord.y * vertical_step) * 
+    ubo.camera_up_vector;
 
-
+    prd.opaque_point.inter.t = 1e50;
+    prd.opaque_point.color = vec4(0,0,0,1);
+    prd.first_non_opaq_t = 1e51;
+    prd.alpha_sum = 0;
+    prd.alpha_prod = 1;
+    prd.color_sum = vec3(0,0,0);
     traceRayEXT(
         topLevelAS,
         gl_RayFlagsNoOpaqueEXT,
@@ -36,10 +66,16 @@ void main() {
         rayOrigin,
         0.001,
         rayDirection,
-        10000.0, // A large distance to ensure the ray can travel far
+        1000000.0, // A large distance to ensure the ray can travel far
         0
     );
-
+    vec3 color;
+    if (prd.opaque_point.inter.t <= prd.first_non_opaq_t)
+        color = prd.opaque_point.color.rgb;
+    else
+        color = prd.color_sum * (1 - prd.alpha_prod) /*/ min(0.00001, prd.alpha_sum)*/ + prd.opaque_point.color.rgb * prd.alpha_prod;
+    //prd.color.rgb = prd.color.rgb  * (max(0.00001, (1 - prd.color.a)) / max(prd.alpha_sum, 0.00001));
+    imageStore(img_output, pixel_coord, vec4(color, 1));
     
     return;
 }

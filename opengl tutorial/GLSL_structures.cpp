@@ -83,6 +83,8 @@ OperationTypeInShader mapOperations(ComposedObject::Operation op)
 		return OperationTypeInShader::OBJECTS_SUB;
 	case ComposedObject::Operation::MULT:
 		return OperationTypeInShader::OBJECTS_MULT;
+	case ComposedObject::Operation::HIERARCHY:
+		return OperationTypeInShader::OBJECTS_HIERARCHY;
 	}
 }
 std::vector<GLSL_BoundingBoxData> getBoundingBoxData(const std::unique_ptr<Object>& obj)
@@ -92,43 +94,88 @@ std::vector<GLSL_BoundingBoxData> getBoundingBoxData(const std::unique_ptr<Objec
 	else
 		return {};
 }
-void GlslSceneMemory::setComposedObject(const std::unique_ptr<Object>& obj, int buffer_position, std::map<int, int>* map_of_ids, const std::set<int>& important_ids)
+void GlslSceneMemory::setComposedObject(const std::unique_ptr<Object>& obj, int root_position, int csg_node_position, std::map<int, int>* map_of_ids, const std::set<int>& important_ids)
 {
-	if (this->composed_object_nodes_buffer.size() <= buffer_position)
-		this->composed_object_nodes_buffer.resize(buffer_position + 1);
+	if (this->composed_object_nodes_buffer.size() <= root_position + csg_node_position)
+		this->composed_object_nodes_buffer.resize(root_position + csg_node_position + 1);
 	if (important_ids.find(obj->getId()) != important_ids.end() && map_of_ids != nullptr)
-		map_of_ids->insert({ obj->getId(), buffer_position });
+		map_of_ids->insert({ obj->getId(), root_position + csg_node_position });
 	if (obj->getType() == ObjectType::COMPOSED_OBJECT)
 	{
 		const ComposedObject* obj_p = (const ComposedObject*)obj.get();
 		assert(equal(obj_p->getPosition(), { 0,0,0 }));
 		assert(equal(obj_p->getRotation(), Quat(1, 0, 0, 0)));
-		this->composed_object_nodes_buffer[buffer_position] = { (int)mapOperations(obj_p->getOperation()),
+		this->composed_object_nodes_buffer[root_position + csg_node_position] = { (int)mapOperations(obj_p->getOperation()),
 		 obj->haveBoundingBox() ? (int)this->bb_buffer.size() : -1 };
 		auto bb_dat = getBoundingBoxData(obj);
 		for (auto& it : bb_dat)
 			this->bb_buffer.push_back(it);
 
-		setComposedObject(obj_p->getLeft(), 2 * (buffer_position + 1) - 1, map_of_ids, important_ids);
-		setComposedObject(obj_p->getRight(), 2 * (buffer_position + 1), map_of_ids, important_ids);
+		setComposedObject(obj_p->getLeft(), root_position, 2 * (csg_node_position + 1) - 1, map_of_ids, important_ids);
+		setComposedObject(obj_p->getRight(), root_position, 2 * (csg_node_position + 1), map_of_ids, important_ids);
 	}
 	else
 	{
-		this->composed_object_nodes_buffer[buffer_position] = { (int)this->primitives_buffer.size(), obj->haveBoundingBox() ? (int)this->bb_buffer.size() : -1 };
-		this->primitives_to_node_mapping.push_back(buffer_position);
+		this->composed_object_nodes_buffer[root_position + csg_node_position] = { (int)this->primitives_buffer.size(), obj->haveBoundingBox() ? (int)this->bb_buffer.size() : -1 };
 		this->addObject(obj);
 	}
 }
 
-void GlslSceneMemory::setSceneAsComposedObject(const std::unique_ptr<Object>& obj)
+void GlslSceneMemory::setHierarchyObject(const std::unique_ptr<Object>& obj, int node_position)
 {
-	setComposedObject(obj, 0, nullptr, std::set<int>());
+	if (this->hierarchy_buffer.size() <= node_position)
+		this->hierarchy_buffer.resize(node_position + 1);
+	if (obj->getType() == ObjectType::COMPOSED_OBJECT && static_cast<ComposedObject*>(obj.get())->getOperation() == ComposedObject::HIERARCHY)
+	{
+		const ComposedObject* obj_p = (const ComposedObject*)obj.get();
+		assert(equal(obj_p->getPosition(), { 0,0,0 }));
+		assert(equal(obj_p->getRotation(), Quat(1, 0, 0, 0)));
+		this->hierarchy_buffer[node_position] = { -1, obj->haveBoundingBox() ? (int)this->bb_buffer.size() : -1 };
+		auto bb_dat = getBoundingBoxData(obj);
+		for (auto& it : bb_dat)
+			this->bb_buffer.push_back(it);
+		setHierarchyObject(obj_p->getLeft(), 2 * (node_position + 1) - 1);
+		setHierarchyObject(obj_p->getRight(), 2 * (node_position + 1));
+		
+	}
+	else
+	{
+		this->hierarchy_buffer[node_position] = { (int)this->composed_object_nodes_buffer.size(), -1 };
+		setComposedObject(obj, composed_object_nodes_buffer.size(), 0, nullptr, std::set<int>());
+	}
 }
 
-void GlslSceneMemory::setSceneAsComposedObject(const std::unique_ptr<Object>& obj, const std::set<int>& important_ids, std::map<int, int>& map_of_ids)
+//это - для рейтресинга. В нем в примитивы вставляем composed_object
+void GlslSceneMemory::setScene(const std::vector<std::unique_ptr<Object>>& objs)
+{
+	//нулевой слот занимается мусором, так надо для интерсекшон шейдера
+	this->composed_object_nodes_buffer.push_back({ 12345, 0 });
+	for (auto& it : objs)
+	{
+		if (it->getType() == ObjectType::COMPOSED_OBJECT)
+		{
+			blas_mapping_buffer.push_back(-int(composed_object_nodes_buffer.size()));
+			setComposedObject(it, this->composed_object_nodes_buffer.size(), 0, nullptr, std::set<int>());
+		}
+		else
+		{
+			blas_mapping_buffer.push_back(this->primitives_buffer.size());
+			addObject(it);
+		}
+	}
+}
+
+
+void GlslSceneMemory::setSceneAsComposedObject(const std::unique_ptr<Object>& obj)
+{
+	//setComposedObject(obj, 0, 0, nullptr, std::set<int>());
+	setHierarchyObject(obj, 0);
+}
+
+/*void GlslSceneMemory::setSceneAsComposedObject(const std::unique_ptr<Object>& obj, const std::set<int>& important_ids, std::map<int, int>& map_of_ids)
 {
 	setComposedObject(obj, 0, &map_of_ids, important_ids);
-}
+}*/
 
 std::vector<Vector<3>> getVec3Data(const std::unique_ptr<Object>& obj)
 {
@@ -242,6 +289,7 @@ void GlslSceneMemory::dropToFiles(const std::string& dir) const
 	if (this->bb_buffer.size() > 0)
 		writeBinaryFile((char*)&this->bb_buffer[0], sizeof(GLSL_BoundingBoxData) * this->bb_buffer.size(), dir + "bounding_boxes.buf");
 }
+
 
 void GlslSceneMemory::bind(int programm, int current_program)
 {
@@ -700,4 +748,72 @@ void GLSL__castRays(int window_width, int window_height, std::vector<unsigned ch
 				setColor(i, j, window_width, { 0,0,0,255 }, canvas);
 		}
 	}
+}
+static std::string toString(const GLSL_vec2& v)
+{
+	return "vec2(" + std::to_string(v.x) + ", " + std::to_string(v.y) + ")";
+}
+static std::string toString(const GLSL_vec3& v)
+{
+	return "vec3(" + std::to_string(v.x) + ", " + std::to_string(v.y) + ", " + std::to_string(v.z) + ")";
+}
+static std::string toString(const GLSL_vec4& v)
+{
+	return "vec4(" + std::to_string(v.x) + ", " + std::to_string(v.y) + ", " + std::to_string(v.z) + ", " + std::to_string(v.t) + ")";
+}
+
+std::string makeTraceFunction(const GlslSceneMemory& scene, int cur_hier_pos)
+{
+	std::string res = "";
+	if (scene.hierarchy_buffer[cur_hier_pos].operation >= 0)
+	{
+		res += "has_this_intersection = false;\n\
+			this_res = intersectWithRay(camera_pos, dir, " + std::to_string(scene.hierarchy_buffer[cur_hier_pos].operation) + ", has_this_intersection); \n\
+		if (has_this_intersection && this_res.inter.t < trace_res.inter.t)\n\
+		{\n\
+			has_intersection = true;\n\
+			trace_res = this_res;\n\
+		}\n";
+		return res;
+	}
+	else
+	{
+		if (scene.hierarchy_buffer[cur_hier_pos].bounding_box_index > -1)
+		{
+			res += "if (checkIfLineIntersectBox(" + toString(scene.bb_buffer[scene.hierarchy_buffer[cur_hier_pos].bounding_box_index].bb_hsize) +
+				", camera_pos - " + toString(scene.bb_buffer[scene.hierarchy_buffer[cur_hier_pos].bounding_box_index].bb_position) + ", dir))\n\
+			{\n";
+			res += makeTraceFunction(scene, 2 * (cur_hier_pos + 1) - 1);
+			res += makeTraceFunction(scene, 2 * (cur_hier_pos + 1));
+			res += "}\n";
+			return res;
+		}
+		else
+		{
+			res += makeTraceFunction(scene, 2 * (cur_hier_pos + 1) - 1);
+			res += makeTraceFunction(scene, 2 * (cur_hier_pos + 1));
+			return res;
+		}
+	}
+}
+
+std::string makeTraceFunction(const GlslSceneMemory& scene)
+{
+	std::string res = "FullIntersectionResult traceRay(vec3 camera_pos, vec3 dir, out bool has_intersection)\n\
+	{\n\
+		if (HIERARCHY_IS_COMPOSED(0))\n\
+		{\n\
+			return intersectWithRay(camera_pos, dir, 0, has_intersection);\n\
+		}\n\
+		FullIntersectionResult trace_res;\n\
+		trace_res.inter.t = 1e50;\n\
+		trace_res.color = vec4(0, 0, 0, 1);\n\
+		has_intersection = false; \n\
+		bool has_this_intersection = false; \n\
+		FullIntersectionResult this_res;\n";
+
+	res += makeTraceFunction(scene, 0);
+	res += "    return trace_res;";
+	res += "}\n";
+	return res;
 }

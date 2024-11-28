@@ -55,7 +55,7 @@ class VulkanApp {
     //под нее надо так же множить отдельные буфера для компьют шейдера и отдельные параметры камеры и тп, нафиг
     const int MAX_FRAMES_IN_FLIGHT = 1;
     //без учета юниформ буфера
-    int BUFFERS_NUM = 7;
+    int BUFFERS_NUM = 8;
     Renderer render = RAYTRACE;
     const std::vector<const char*> validationLayers = {
         "VK_LAYER_KHRONOS_validation"
@@ -79,11 +79,21 @@ class VulkanApp {
 public:
     void run();
     
+    void setScene(std::vector<std::unique_ptr<Object>>&& obj);
     void setScene(const std::unique_ptr<Object>& obj);
+    void setScene(SceneStruct&& scene);
     void setRenderer(Renderer ren);
-private:
 
-    Vector<3> camera = { 0, -5, 0 };
+    void cursorMoveCallback(GLFWwindow* window, double xpos, double ypos);
+    void setCameraSpeed(double speed);
+    void setCameraPosition(const Vector<3>& pos);
+private:
+    double cam_speed = 0.2;
+    Vector<3> camera = { 0, -5, 0 } ;
+    //Vector<3> camera = {532189247., 178726908., 0.};
+    Vector<3> camera_direction = { 0, 1, 0 };
+    Vector<3> right_vec = { 1, 0, 0 };
+    Vector<3> up_vector = { 0, 0, 1 };
 
     GLFWwindow* window;
 
@@ -149,9 +159,12 @@ private:
     std::vector<void*> compute_mapped;
 
     GlslSceneMemory scene;
-    std::unique_ptr<Object> scene_object;
+    //это для рт
+    std::vector<std::unique_ptr<Object>> scene_objects;
+    //это для компьют
+    std::unique_ptr<Object> scene_as_object;
 
-    
+    Vector<2> last_cursor_position;
     
 
     bool framebufferResized = false;
@@ -291,10 +304,9 @@ private:
     void prepareCommandBufferForRtx();
     VkAccelerationStructureKHR createBottomLevelAccelerationStructure();
 
-    VkBuffer rtx_intersections_bits_buffer;
-    VkDeviceMemory rtx_intersections_bits_buffer_memory;
-    VkBuffer primitives_mapping_buffer;
-    VkDeviceMemory primitives_mapping_buffer_memory;
+    VkBuffer blas_mapping_buffer;
+    VkDeviceMemory blas_mapping_buffer_memory;
+
 
     VkDescriptorSetLayout raytrace_compute_descriptor_set_layout;
     VkPipelineLayout raytrace_compute_pipeline_layout;

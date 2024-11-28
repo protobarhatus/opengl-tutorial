@@ -24,7 +24,7 @@ static int sideOfPointRelativeToLine(Vector<2> point, Vector<2> low, Vector<2> h
 	Vector<2> v2 = point - low;
 	double z_orient = v1.x() * v2.y() - v1.y() * v2.x();
 	//z_orient > 0 => точка слева
-	return compareDouble(0, z_orient, 1e-4);
+	return compareDouble(0, z_orient/length(v1)/length(v2), 1e-4);
 }
 
 //проверка на то находится ли точка внутри многоугольника
@@ -220,6 +220,12 @@ int Object::getId() const {
 	return id;
 }
 
+void Object::propagateId(int& idcounter)
+{
+	if (this->id == -1)
+		this->setId(idcounter++);
+}
+
 void Object::setId(int i)
 {
 	id = i;
@@ -245,7 +251,7 @@ void Prizm::countBoundingBox()
 		base_bb_min = min(base_bb_min, it);
 	}
 	this->bounding_box = Vector<3>( (base_bb_max - base_bb_min) * 0.5, half_height );
-	this->bounding_box_position = position + Vector<3>((base_bb_max + base_bb_min) * 0.5, position.z());
+	this->bounding_box_position = position + Vector<3>((base_bb_max + base_bb_min) * 0.5, 0);
 }
 Prizm::Prizm(const std::vector<Vector<2>>& polygon, const Vector<3>& pos, double height, const Quat& rot) : Object(pos, rot), half_height(height / 2), base(polygon) {
 	normals.resize(base.size());
@@ -496,7 +502,7 @@ std::pair<bool,double> rayIntersectsSegment(const Vector<2>& p, const Vector<2>&
 	{
 		Vector<2> point = p + dir * (num / div);
 		
-		if (dot(b - point, a - point) <= 1e-8)
+		if (abs(dot(b - point, a - point)/length(b-point)/length(a-point) - (-1)) <= 1e-2)
 			return { true, num/div };
 		return { false, 0 };
 	}
@@ -1356,4 +1362,165 @@ Vector<3> Object::getBoundingBoxPosition() const
 {
 	return this->bounding_box_position;
 
+}
+
+#include "objects_fabric.h"
+std::unique_ptr<Object> getBoundingBoxAsObject(const std::unique_ptr<Object>& obj)
+{
+	auto res = makeBox(obj->getBoundingBox(), obj->getBoundingBoxPosition(), { 1,0,0,0 });
+	res->setColor({ 1, 0, 0 });
+	res->setAlpha(0.3);
+	return std::move(res);
+}
+bool doSegmentsIntersect(Vector<2> a, Vector<2> b, Vector<2> c, Vector<2> d)
+{
+	auto segm = rayIntersectsSegment(a, normalize(b - a), c, d);
+	return segm.first && segm.second >= 0 && segm.second <= length(b - a);
+}
+int findEar(const std::vector<Vector<2>>& polygon)
+{
+	//во время отрезания ушей может образоваться вырожденная вершина. С ней проще всего обращаться, как тоже с ухом
+	for (int i = 0; i < polygon.size(); ++i)
+	{
+		Vector<2> a = polygon[(i + 1) % polygon.size()] - polygon[i];
+		Vector<2> b = polygon[(i + polygon.size() - 1) % polygon.size()] - polygon[i];
+		if (dot(a, b) / length(a) / length(b) < -0.99)
+			return i;
+	}
+	for (int i = 0; i < polygon.size(); ++i)
+	{
+		bool is_ear = true;
+		Vector<2> a = polygon[(i + 1) % polygon.size()];
+		Vector<2> b = polygon[(i + polygon.size() - 1) % polygon.size()];
+		if (polygon.size() > 4)
+		{
+			for (int j = (i + 2) % polygon.size(); j != (i - 2 + polygon.size()) % polygon.size(); j = (j + 1) % polygon.size())
+				if (doSegmentsIntersect(a, b, polygon[j], polygon[(j + 1) % polygon.size()]))
+				{
+					is_ear = false;
+					break;
+				}
+			//
+			auto ne2 = polygon[(i + 2) % polygon.size()];
+			auto ne1 = polygon[(i + 1) % polygon.size()];
+			auto pe2 = polygon[(i + polygon.size() - 2) % polygon.size()];
+			auto pe1 = polygon[(i + polygon.size() - 1) % polygon.size()];
+			if (doSegmentsIntersect(a, b, polygon[(i + 1) % polygon.size()] + (polygon[(i + 2) % polygon.size()] - polygon[(i + 1) % polygon.size()]) * 0.01, polygon[(i + 2) % polygon.size()]) || (dot(b - a, ne2 - ne1) / length(b - a) / length(ne2 - ne1) > 0.999999))
+			//if (dot(b-a, ne2- ne1)/length(b-a)/length(ne2-ne1) > 0.99)
+				is_ear = false;
+			else if (doSegmentsIntersect(a, b, polygon[(i + polygon.size() - 1) % polygon.size()] + 0.01 * (polygon[(i + polygon.size() - 2) % polygon.size()] - polygon[(i + polygon.size() - 1) % polygon.size()]),polygon[(i + polygon.size() - 2) % polygon.size()]) || (dot(a - b, pe2 - pe1) / length(a - b) / length(pe2 - pe1) > 0.999999))
+			//else if (dot(a - b, pe2 - pe1)/length(a-b)/length(pe2-pe1) > 0.99)
+				is_ear = false;
+		}
+		
+		if (!is_ear)
+			continue;
+		if (isPointInsidePolygon((a + b) / 2, polygon) != PointPolygonRelation::OUTSIDE )
+			return i;
+	}
+	assert(false);
+	return -1;
+}
+#include <array>
+
+std::vector<std::array<int, 3>> triangulatePolygon(const std::vector<Vector<2>>& polygon)
+{
+	if (polygon.size() == 3)
+		return { {0, 1, 2} };
+	int ear = findEar(polygon);
+	std::vector<std::array<int, 3>>  res = { std::array<int, 3>{int ((ear - 1 + polygon.size()) % polygon.size()), ear, int((ear + 1) % polygon.size())} };
+	std::vector<Vector<2>> new_polygon;
+	for (int i = 0; i < polygon.size(); ++i)
+	{
+		if (i == ear)
+			continue;
+		new_polygon.push_back(polygon[i]);
+	}
+	auto recres = triangulatePolygon(new_polygon);
+	for (auto& it : recres)
+	{
+		for (int i = 0; i < 3; ++i)
+		{
+			if (it[i] >= ear)
+				it[i] += 1;
+		}
+		res.push_back(it);
+	}
+	return res;
+}
+
+bool isPolygonConvex(const std::vector<Vector<2>>& polygon)
+{
+	int dir = sign(cross(Vector<3>(polygon[0] - polygon.back(), 0), Vector<3>(polygon[1] - polygon[0], 0)).z());
+	for (int i = 1; i < polygon.size() - 1; ++i)
+	{
+		int curdir = sign(cross(Vector<3>(polygon[i] - polygon[i - 1], 0), Vector<3>(polygon[i + 1] - polygon[i], 0)).z());
+		if (curdir != dir)
+			return false;
+	}
+	return true;
+}
+
+std::vector<int> tryToAddTriagToConvexPolygon(const std::vector<int>& polygon, const std::array<int, 3>& triag, const std::vector<Vector<2>>& base)
+{
+	auto contains = [triag](int p)->bool { return triag[0] == p || triag[1] == p || triag[2] == p; };
+	for (int i = 0; i < polygon.size(); ++i)
+	{
+		if (contains(polygon[i]) && contains(polygon[(i + 1) % polygon.size()]))
+		{
+			int third = triag[0] + triag[1] + triag[2] - polygon[i] - polygon[(i + 1) % polygon.size()];
+			std::vector<Vector<2>> combine_new;
+			for (int j = 0; j <= i; ++j)
+				combine_new.push_back(base[polygon[j]]);
+			combine_new.push_back(base[third]);
+			for (int j = i + 1; j < polygon.size(); ++j)
+				combine_new.push_back(base[polygon[j]]);
+			if (isPolygonConvex(combine_new))
+			{
+				std::vector<int> res;
+				for (int j = 0; j <= i; ++j)
+					res.push_back(polygon[j]);
+				res.push_back(third);
+				for (int j = i + 1; j < polygon.size(); ++j)
+					res.push_back(polygon[j]);
+				return res;
+			}
+			else
+				return {};
+		}
+	}
+	return {};
+}
+std::vector < std::vector<Vector<2>>> splitPolygonIntoConvexParts(const std::vector<Vector<2>>& polygon)
+{
+	if (isPolygonConvex(polygon))
+		return { polygon };
+	auto triangulation = triangulatePolygon(polygon);
+	std::vector < std::vector<Vector<2>>> res;
+	while (triangulation.size() > 0 )
+	{
+		std::vector<int> new_part = { triangulation[0][0], triangulation[0][1], triangulation[0][2] };
+		triangulation.erase(triangulation.begin());
+		bool added_trig = true;
+		while (added_trig)
+		{
+			added_trig = false;
+			for (auto tri_inter = triangulation.begin(); tri_inter != triangulation.end(); ++tri_inter)
+			{
+				auto addres = tryToAddTriagToConvexPolygon(new_part, *tri_inter, polygon);
+				if (addres.size() > 0)
+				{
+					new_part = addres;
+					added_trig = true;
+					tri_inter = triangulation.erase(tri_inter);
+					break;
+				}
+			}
+		}
+		std::vector<Vector<2>> new_res;
+		for (auto& it : new_part)
+			new_res.push_back(polygon[it]);
+		res.push_back(new_res);
+	}
+	return res;
 }

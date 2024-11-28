@@ -1,0 +1,52 @@
+#version 460
+#extension GL_EXT_ray_tracing : require
+struct Intersection
+{
+    vec3 n;
+    float t;
+};
+
+
+struct FullIntersectionResult
+{
+    Intersection inter;
+    vec4 color;
+    //индекс примитива в дереве composed_objects с которым произошло первое пересечение. Для получения его индекса как примитива следует вызвать ComposedObjectNode_getPrimitiveIndex(composed_objects[object_index])
+    int object_index;
+};
+struct PrdInfo
+{
+    FullIntersectionResult opaque_point;
+    float first_non_opaq_t;
+    float alpha_sum;
+    float alpha_prod;
+    vec3 color_sum;
+};
+
+layout(location = 0) rayPayloadInEXT PrdInfo prd;
+hitAttributeEXT FullIntersectionResult hit_attrib;
+
+void main()
+{
+	//if (hit_attrib.inter.t < prd.inter.t)
+	//	prd = hit_attrib;
+    if (hit_attrib.inter.t >= prd.opaque_point.inter.t)
+        return;
+    if (hit_attrib.color.a > 0.5)
+    {
+        prd.opaque_point = hit_attrib;
+        if (hit_attrib.inter.t < prd.first_non_opaq_t && prd.first_non_opaq_t < 1e51)
+        {
+            prd.first_non_opaq_t = 1e51;
+            prd.alpha_sum = 0;
+            prd.alpha_prod = 1;
+            prd.color_sum = vec3(0, 0, 0);
+        }
+        return;
+    }
+    prd.alpha_sum += hit_attrib.color.a;
+    prd.alpha_prod *= (1 - hit_attrib.color.a);
+    prd.color_sum += hit_attrib.color.rgb;
+    prd.first_non_opaq_t = min(prd.first_non_opaq_t, hit_attrib.inter.t);
+    ignoreIntersectionEXT;
+}

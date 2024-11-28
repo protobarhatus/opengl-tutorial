@@ -48,6 +48,9 @@
     <ClCompile Include="vulkan_code.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
+    <ClCompile Include="ifc_parsing.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="shader.vert">
@@ -101,6 +104,9 @@
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
     <ClInclude Include="vulkan_code.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
+    <ClInclude Include="ifc_parsing.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

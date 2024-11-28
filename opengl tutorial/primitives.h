@@ -28,6 +28,22 @@ enum class ObjectType
 	POLYHEDRON,
 	COMPOSED_OBJECT
 };
+class Object;
+
+
+struct SceneStruct
+{
+	enum class Type
+	{
+		NONE,
+		OBJECT,
+		VECTOR
+	};
+	Type type;
+	std::unique_ptr<Object> obj_scene;
+	std::vector<std::unique_ptr<Object>> vec_scene;
+};
+
 
 class Object
 {
@@ -91,6 +107,7 @@ public:
 	void setParent(const Object* parent);
 	bool isItIdOfObjectOrItsParent(int id_to_check) const;
 
+	virtual void propagateId(int& idcounter);
 };
 
 
@@ -261,5 +278,5 @@ std::pair<bool, double> intersectLineWithTriangle(const Vector<3>& p, const Vect
 
 std::pair<int, std::pair<ISR, ISR>> intersectLineWithCircle(const Vector<2>& p, const Vector<2> dir, double rad);
 
-
-
+std::unique_ptr<Object> getBoundingBoxAsObject(const std::unique_ptr<Object>& obj);
+std::vector < std::vector<Vector<2>>> splitPolygonIntoConvexParts(const std::vector<Vector<2>>& polygon);

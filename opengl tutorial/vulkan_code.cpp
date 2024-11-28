@@ -24,7 +24,8 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT
 void VulkanApp::run() {
     initWindow();
     initVulkan();
-    this->doRaytraceSetup();
+    if (this->render == RAYTRACE)
+        this->doRaytraceSetup();
     //return;
     mainLoop();
     cleanup();
@@ -97,7 +98,7 @@ void VulkanApp::doComputeShadersSetup()
     createDescriptorSetsForCompute();
     setUpCommandPoolForCompute();
 }
-
+//вот это все, вероятно, под снос.
 void VulkanApp::doComputeForRtxSetup()
 {
     //createSsbos is called in doComputeShaderSetup and i assume that is function is called even tho i dont need that compute pipeline when doing raytracing
@@ -169,10 +170,10 @@ void VulkanApp::createDescriptorSetsForComputeForRtx()
         ssbo7.offset = 0;
         ssbo7.range = VK_WHOLE_SIZE;
 
-        VkDescriptorBufferInfo ssbo9{};
-        ssbo9.buffer = rtx_intersections_bits_buffer;
-        ssbo9.offset = 0;
-        ssbo9.range = VK_WHOLE_SIZE;
+       // VkDescriptorBufferInfo ssbo9{};
+       // ssbo9.buffer = rtx_intersections_bits_buffer;
+      //  ssbo9.offset = 0;
+      //  ssbo9.range = VK_WHOLE_SIZE;
 
         descriptorWrites[9].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[9].dstSet = rtxComputeDescriptorSets[i];
@@ -180,7 +181,7 @@ void VulkanApp::createDescriptorSetsForComputeForRtx()
         descriptorWrites[9].dstArrayElement = 0;
         descriptorWrites[9].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         descriptorWrites[9].descriptorCount = 1;
-        descriptorWrites[9].pBufferInfo = &ssbo9;
+       // descriptorWrites[9].pBufferInfo = &ssbo9;
 
         descriptorWrites[8].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[8].dstSet = rtxComputeDescriptorSets[i];
@@ -411,15 +412,53 @@ void VulkanApp::setUpCommandPoolForCompute()
     }
 }
 
+void VulkanApp::setScene(std::vector<std::unique_ptr<Object>>&& obj)
+{
+    if (this->render == COMPUTE)
+    {
+        setScene(makeAnHierarchy(std::move(obj)));
+        return;
+    }
+    this->scene_objects = std::move(obj);
+    this->scene.setScene(scene_objects);
+}
+
+void VulkanApp::setCameraSpeed(double speed)
+{
+    this->cam_speed = speed;
+}
+
 void VulkanApp::setScene(const std::unique_ptr<Object>& obj)
 {
-    this->scene_object = obj->copy();
-    this->scene.setSceneAsComposedObject(scene_object);
+
+    if (this->render == RAYTRACE)
+    {
+        setScene(dissolveHierarchy(turnToHierarchy( obj)));
+        return;
+    }
+    this->scene_as_object = turnToHierarchy(obj);
+    //this->scene_as_object = obj->copy();
+    this->scene.setSceneAsComposedObject(scene_as_object);
+}
+
+void VulkanApp::setScene(SceneStruct&& scene)
+{
+    if (scene.type == SceneStruct::Type::OBJECT)
+        setScene(scene.obj_scene);
+    else if (scene.type == SceneStruct::Type::VECTOR)
+        setScene(std::move(scene.vec_scene));
+    else
+        throw "wrong scene type\n";
 }
 
 void VulkanApp::setRenderer(Renderer ren)
 {
     this->render = ren;
+}
+
+void VulkanApp::setCameraPosition(const Vector<3>& pos)
+{
+    this->camera = pos;
 }
 
 void VulkanApp::doRaytraceSetup()
@@ -429,7 +468,7 @@ void VulkanApp::doRaytraceSetup()
     createAccelerationStructure();
     makeShaderBindingTable();
     createDescriptorPoolAndSetForRaytrace();
-    doComputeForRtxSetup();
+    //doComputeForRtxSetup();
     //prepareCommandBufferForRtx();
 }
 void VulkanApp::createRaytraceCommandBuffer()
@@ -482,6 +521,23 @@ std::vector<VkAabbPositionsKHR> getAllAabbs(const std::unique_ptr<Object>& obj)
         float(bb_pos.z() - bb_hsize.z()), float(bb_pos.x() + bb_hsize.x()), 
         float(bb_pos.y() + bb_hsize.y()), float(bb_pos.z() + bb_hsize.z()) } };
 }
+std::vector<VkAabbPositionsKHR> getAllAabbs(const std::vector<std::unique_ptr<Object>>& obj)
+{
+    std::vector<VkAabbPositionsKHR> res;
+    for (auto& it : obj)
+    {
+        /*auto aabbs = getAllAabbs(obj);
+        for (auto& it : aabbs)
+            res.push_back(it);*/
+        //не учитываем внутренности булеановских обьектов
+        auto bb_pos = it->getBoundingBoxPosition();
+        auto bb_hsize = it->getBoundingBox();
+        res.push_back(VkAabbPositionsKHR{ float(bb_pos.x() - bb_hsize.x()), float(bb_pos.y() - bb_hsize.y()),
+        float(bb_pos.z() - bb_hsize.z()), float(bb_pos.x() + bb_hsize.x()),
+        float(bb_pos.y() + bb_hsize.y()), float(bb_pos.z() + bb_hsize.z()) });
+    }
+    return res;
+}
 
 #define LOAD_PFN(NAME) PFN_##NAME NAME = (PFN_##NAME )vkGetDeviceProcAddr(device, #NAME);
 VkAccelerationStructureKHR VulkanApp::createBottomLevelAccelerationStructure()
@@ -492,7 +548,7 @@ VkAccelerationStructureKHR VulkanApp::createBottomLevelAccelerationStructure()
     LOAD_PFN(vkCreateAccelerationStructureKHR);
 
 
-    std::vector<VkAabbPositionsKHR> aabbs = getAllAabbs(this->scene_object);
+    std::vector<VkAabbPositionsKHR> aabbs = getAllAabbs(this->scene_objects);
     
     VkBuffer geo_buff;
     VkDeviceMemory geo_mem;
@@ -867,15 +923,29 @@ void VulkanApp::makeShaderBindingTable()
 
 void VulkanApp::createDescriptorPoolAndSetForRaytrace()
 {
-    std::array<VkDescriptorPoolSize, 4> poolSizes{};
+    std::array<VkDescriptorPoolSize, 11> poolSizes{};
     poolSizes[0].type = VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR;
-    poolSizes[0].descriptorCount = static_cast<uint32_t>(1);
+    poolSizes[0].descriptorCount = 1;
     poolSizes[1].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[1].descriptorCount = static_cast<uint32_t>(1);
-    poolSizes[2].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSizes[1].descriptorCount = 1;
+    poolSizes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     poolSizes[2].descriptorCount = 1;
     poolSizes[3].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    poolSizes[3].descriptorCount = static_cast<uint32_t>(1);
+    poolSizes[3].descriptorCount = 1;
+    poolSizes[4].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[4].descriptorCount = 1;
+    poolSizes[5].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[5].descriptorCount = 1;
+    poolSizes[6].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[6].descriptorCount = 1;
+    poolSizes[7].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[7].descriptorCount = 1;
+    poolSizes[8].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    poolSizes[8].descriptorCount = 1;
+    poolSizes[9].type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    poolSizes[9].descriptorCount = 1;
+    poolSizes[10].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[10].descriptorCount = 1;
 
 
     VkDescriptorPoolCreateInfo poolInfo{};
@@ -902,7 +972,7 @@ void VulkanApp::createDescriptorPoolAndSetForRaytrace()
     }
 
     for (size_t i = 0; i < 1; i++) {
-        std::array<VkWriteDescriptorSet, 4> descriptorWrites{};
+        std::array<VkWriteDescriptorSet, 11> descriptorWrites{};
         
         VkWriteDescriptorSetAccelerationStructureKHR asInfo{};
         asInfo.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR;
@@ -923,41 +993,101 @@ void VulkanApp::createDescriptorPoolAndSetForRaytrace()
         bufferInfo.range = 50;
 
 
-        descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[2].dstSet = rtxDescriptorSets[i];
-        descriptorWrites[2].dstBinding = 2;
-        descriptorWrites[2].dstArrayElement = 0;
-        descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        descriptorWrites[2].descriptorCount = 1;
-        descriptorWrites[2].pBufferInfo = &bufferInfo;
+        descriptorWrites[8].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[8].dstSet = rtxDescriptorSets[i];
+        descriptorWrites[8].dstBinding = 8;
+        descriptorWrites[8].dstArrayElement = 0;
+        descriptorWrites[8].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptorWrites[8].descriptorCount = 1;
+        descriptorWrites[8].pBufferInfo = &bufferInfo;
          
-        ray_intersections_info_bits_size = unsigned long long int(ceil(scene.getComposedObjectNodesCount() / 32.0)) * 32;
-        this->createBuffer(ray_intersections_info_bits_size * this->WIDTH * this->HEIGHT / 8, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, this->rtx_intersections_bits_buffer, this->rtx_intersections_bits_buffer_memory);
+        VkDescriptorBufferInfo ssbo1{};
+        ssbo1.buffer = compute_buffers[0];
+        ssbo1.offset = 0;
+        ssbo1.range = VK_WHOLE_SIZE;
+        //ssbo1.range = scene.getPrimitivesCount() * sizeof(GLSL_Primitive);
 
-        VkDescriptorBufferInfo bits_buffer{};
-        bits_buffer.buffer = rtx_intersections_bits_buffer;
-        bits_buffer.offset = 0;
-        bits_buffer.range = VK_WHOLE_SIZE;
+        VkDescriptorBufferInfo ssbo2{};
+        ssbo2.buffer = compute_buffers[1];
+        ssbo2.offset = 0;
+        //ssbo2.range = scene.getDataCount() * sizeof(float) * 2;
+        ssbo2.range = VK_WHOLE_SIZE;
+        VkDescriptorBufferInfo ssbo3{};
+        ssbo3.buffer = compute_buffers[2];
+        ssbo3.offset = 0;
+        // ssbo3.range = scene.getNormalsCount() * sizeof(float) * 3;
+        ssbo3.range = VK_WHOLE_SIZE;
+        VkDescriptorBufferInfo ssbo4{};
+        ssbo4.buffer = compute_buffers[3];
+        ssbo4.offset = 0;
+        //хардкод, надо изменить
+        ssbo4.range = VK_WHOLE_SIZE;
+        VkDescriptorBufferInfo ssbo5{};
+        ssbo5.buffer = compute_buffers[4];
+        ssbo5.offset = 0;
+        //хардкод, надо изменить
+        ssbo5.range = VK_WHOLE_SIZE;
+        VkDescriptorBufferInfo ssbo6{};
+        ssbo6.buffer = compute_buffers[5];
+        ssbo6.offset = 0;
+        //ssbo6.range = scene.getComposedObjectNodesCount() * sizeof(GLSL_ComposedObject);
+        ssbo6.range = VK_WHOLE_SIZE;
 
-        descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrites[1].dstSet = rtxDescriptorSets[i];
-        descriptorWrites[1].dstBinding = 1;
-        descriptorWrites[1].dstArrayElement = 0;
-        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        descriptorWrites[1].descriptorCount = 1;
-        descriptorWrites[1].pBufferInfo = &bits_buffer;
+        VkDescriptorBufferInfo ssbo7{};
+        ssbo7.buffer = compute_buffers[6];
+        ssbo7.offset = 0;
+        ssbo7.range = VK_WHOLE_SIZE;
 
-        this->createBuffer(this->scene.getPrimitivesCount() * 4, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
-            this->primitives_mapping_buffer, this->primitives_mapping_buffer_memory);
-        unsigned int* mem = new unsigned int[this->scene.getPrimitivesCount()];
-        vkMapMemory(device, primitives_mapping_buffer_memory, 0, scene.getPrimitivesCount() * 4, 0, (void**)&mem);
-        memcpy(mem, scene.primitives_to_node_mapping.data(), scene.getPrimitivesCount() * 4);
-        vkUnmapMemory(device, primitives_mapping_buffer_memory);
+        this->createBuffer(scene.blas_mapping_buffer.size() * sizeof(int), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, blas_mapping_buffer, blas_mapping_buffer_memory);
+        void* buff = calloc(scene.blas_mapping_buffer.size(), sizeof(int));
+        vkMapMemory(device, blas_mapping_buffer_memory, 0, scene.blas_mapping_buffer.size() * sizeof(int), 0, &buff);
+        memcpy(buff, scene.blas_mapping_buffer.data(), scene.blas_mapping_buffer.size()* sizeof(int));
 
-        VkDescriptorBufferInfo map_buffer{};
-        map_buffer.buffer = primitives_mapping_buffer;
-        map_buffer.offset = 0;
-        map_buffer.range = VK_WHOLE_SIZE;
+        VkDescriptorBufferInfo ssbo10{};
+        ssbo10.buffer = this->blas_mapping_buffer;
+        ssbo10.offset = 0;
+        ssbo10.range = VK_WHOLE_SIZE;
+
+
+        descriptorWrites[10].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[10].dstSet = rtxDescriptorSets[i];
+        descriptorWrites[10].dstBinding = 10;
+        descriptorWrites[10].dstArrayElement = 0;
+        descriptorWrites[10].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[10].descriptorCount = 1;
+        descriptorWrites[10].pBufferInfo = &ssbo10;
+
+        descriptorWrites[7].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[7].dstSet = rtxDescriptorSets[i];
+        descriptorWrites[7].dstBinding = 7;
+        descriptorWrites[7].dstArrayElement = 0;
+        descriptorWrites[7].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[7].descriptorCount = 1;
+        descriptorWrites[7].pBufferInfo = &ssbo7;
+
+        descriptorWrites[6].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[6].dstSet = rtxDescriptorSets[i];
+        descriptorWrites[6].dstBinding = 6;
+        descriptorWrites[6].dstArrayElement = 0;
+        descriptorWrites[6].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[6].descriptorCount = 1;
+        descriptorWrites[6].pBufferInfo = &ssbo6;
+
+        descriptorWrites[5].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[5].dstSet = rtxDescriptorSets[i];
+        descriptorWrites[5].dstBinding = 5;
+        descriptorWrites[5].dstArrayElement = 0;
+        descriptorWrites[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[5].descriptorCount = 1;
+        descriptorWrites[5].pBufferInfo = &ssbo5;
+
+        descriptorWrites[4].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[4].dstSet = rtxDescriptorSets[i];
+        descriptorWrites[4].dstBinding = 4;
+        descriptorWrites[4].dstArrayElement = 0;
+        descriptorWrites[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[4].descriptorCount = 1;
+        descriptorWrites[4].pBufferInfo = &ssbo4;
 
         descriptorWrites[3].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[3].dstSet = rtxDescriptorSets[i];
@@ -965,7 +1095,36 @@ void VulkanApp::createDescriptorPoolAndSetForRaytrace()
         descriptorWrites[3].dstArrayElement = 0;
         descriptorWrites[3].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
         descriptorWrites[3].descriptorCount = 1;
-        descriptorWrites[3].pBufferInfo = &map_buffer;
+        descriptorWrites[3].pBufferInfo = &ssbo3;
+
+        descriptorWrites[2].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[2].dstSet = rtxDescriptorSets[i];
+        descriptorWrites[2].dstBinding = 2;
+        descriptorWrites[2].dstArrayElement = 0;
+        descriptorWrites[2].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[2].descriptorCount = 1;
+        descriptorWrites[2].pBufferInfo = &ssbo2;
+
+        descriptorWrites[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[1].dstSet = rtxDescriptorSets[i];
+        descriptorWrites[1].dstBinding = 1;
+        descriptorWrites[1].dstArrayElement = 0;
+        descriptorWrites[1].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[1].descriptorCount = 1;
+        descriptorWrites[1].pBufferInfo = &ssbo1;
+
+
+        VkDescriptorImageInfo imageInfo{};
+        imageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+        imageInfo.imageView = textureImageView;
+        imageInfo.sampler = textureSampler;
+        descriptorWrites[9].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[9].dstSet = rtxDescriptorSets[i];
+        descriptorWrites[9].dstBinding = 9;
+        descriptorWrites[9].dstArrayElement = 0;
+        descriptorWrites[9].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+        descriptorWrites[9].descriptorCount = 1;
+        descriptorWrites[9].pImageInfo = &imageInfo;
 
 
         vkUpdateDescriptorSets(device, static_cast<uint32_t>(descriptorWrites.size()), descriptorWrites.data(), 0, nullptr);
@@ -983,7 +1142,7 @@ void VulkanApp::prepareCommandBufferForRtx()
     if (vkBeginCommandBuffer(rtxCommandBuffer, &beginInfo) != VK_SUCCESS) {
         throw std::runtime_error("failed to begin recording command buffer!");
     }
-    vkCmdFillBuffer(rtxCommandBuffer, this->rtx_intersections_bits_buffer, 0, (uint64_t)ray_intersections_info_bits_size * WIDTH * (uint64_t)HEIGHT / 8, 0);
+    //vkCmdFillBuffer(rtxCommandBuffer, this->rtx_intersections_bits_buffer, 0, (uint64_t)ray_intersections_info_bits_size * WIDTH * (uint64_t)HEIGHT / 8, 0);
     vkCmdBindPipeline(rtxCommandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, this->raytrace_pipeline);
     vkCmdBindDescriptorSets(rtxCommandBuffer, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, this->raytrace_pipeline_layout, 0, 1, &rtxDescriptorSets[0], 0, nullptr);
 
@@ -1019,7 +1178,7 @@ void VulkanApp::prepareCommandBufferForRtx()
         throw std::runtime_error("something bad in rtx shader");
     }
     vkResetCommandBuffer(rtxCommandBuffer, 0);        
-    if (vkBeginCommandBuffer(rtxCommandBuffer, &beginInfo) != VK_SUCCESS) {
+    /*if (vkBeginCommandBuffer(rtxCommandBuffer, &beginInfo) != VK_SUCCESS) {
         throw std::runtime_error("failed to begin recording command buffer!");
     }
     
@@ -1041,7 +1200,7 @@ void VulkanApp::prepareCommandBufferForRtx()
     if (vkWaitForFences(device, 1, &rtxFence, VK_TRUE, 1000000000000) == VK_ERROR_DEVICE_LOST)
     {
         throw std::runtime_error("something bad in rtx shader");
-    }
+    }*/
     vkResetCommandBuffer(rtxCommandBuffer, 0);
 }
 
@@ -1072,6 +1231,8 @@ void VulkanApp::createRaytracePipeline()
     VkShaderModule raygen_shader_module = createShaderModule(raygen_shader);
 
     VkShaderModule miss_shader_module = createShaderModule(readBinFile("miss.spv"));
+
+    VkShaderModule anyhit_shader_module = createShaderModule(readBinFile("anyhit.spv"));
     
     VkPipelineShaderStageCreateInfo raygen_shst_crinfo{};
     raygen_shst_crinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -1097,6 +1258,14 @@ void VulkanApp::createRaytracePipeline()
     miss_shst_create_info.pName = "main";
     miss_shst_create_info.flags = 0;
 
+    VkPipelineShaderStageCreateInfo anyhit_shst_create_info{};
+    anyhit_shst_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    anyhit_shst_create_info.pNext = nullptr;
+    anyhit_shst_create_info.stage = VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
+    anyhit_shst_create_info.module = anyhit_shader_module;
+    anyhit_shst_create_info.pName = "main";
+    anyhit_shst_create_info.flags = 0;
+
 
 
     VkRayTracingShaderGroupCreateInfoKHR raygen_gr_crinfo{};
@@ -1116,7 +1285,7 @@ void VulkanApp::createRaytracePipeline()
     rtsg_create_info.closestHitShader = VK_SHADER_UNUSED_KHR;
    // rtsg_create_info.intersectionShader = 0;
     rtsg_create_info.intersectionShader = 0;
-    rtsg_create_info.anyHitShader = VK_SHADER_UNUSED_KHR;
+    rtsg_create_info.anyHitShader = 3;
 
     VkRayTracingShaderGroupCreateInfoKHR miss_rtsg_create_info{};
     miss_rtsg_create_info.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
@@ -1130,7 +1299,7 @@ void VulkanApp::createRaytracePipeline()
 
     //VkPipelineShaderStageCreateInfo pssci[3] = { shst_create_info ,raygen_shst_crinfo, hit_shst_crinfo };
 
-    std::vector<VkPipelineShaderStageCreateInfo> pssci = {intersect_shst_create_info, raygen_shst_crinfo, miss_shst_create_info};
+    std::vector<VkPipelineShaderStageCreateInfo> pssci = {intersect_shst_create_info, raygen_shst_crinfo, miss_shst_create_info, anyhit_shst_create_info };
     std::vector<VkRayTracingShaderGroupCreateInfoKHR> rtsgci = { rtsg_create_info , raygen_gr_crinfo, miss_rtsg_create_info };
 
     //set layout
@@ -1145,32 +1314,36 @@ void VulkanApp::createRaytracePipeline()
     ssbo_binding.binding = 1;
     ssbo_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     ssbo_binding.descriptorCount = 1;
-    ssbo_binding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
+    ssbo_binding.stageFlags = VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
     ssbo_binding.pImmutableSamplers = nullptr;
 
     VkDescriptorSetLayoutBinding uniform_binding{};
-    uniform_binding.binding = 2;
+    uniform_binding.binding = 8;
     uniform_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     uniform_binding.descriptorCount = 1;
     uniform_binding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR | VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
     uniform_binding.pImmutableSamplers = nullptr;
 
-    VkDescriptorSetLayoutBinding ssbo2{};
-    ssbo2.binding = 3;
-    ssbo2.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    ssbo2.descriptorCount = 1;
-    ssbo2.stageFlags = VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
-    ssbo2.pImmutableSamplers = nullptr;
+    VkDescriptorSetLayoutBinding image_binding{};
+    image_binding.binding = 9;
+    image_binding.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    image_binding.descriptorCount = 1;
+    image_binding.stageFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+    image_binding.pImmutableSamplers = nullptr;
 
-    VkDescriptorSetLayoutBinding ssbo1{};
-    ssbo1.binding = 3;
-    ssbo1.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-    ssbo1.descriptorCount = 1;
-    ssbo1.stageFlags = VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
+    VkDescriptorSetLayoutBinding ssbo2, ssbo3, ssbo4, ssbo5, ssbo6, ssbo7, ssbo10;
+    ssbo10 = ssbo2 = ssbo3 = ssbo4 = ssbo5 = ssbo6 = ssbo7 = ssbo_binding;
+    ssbo2.binding = 2;
+    ssbo3.binding = 3;
+    ssbo4.binding = 4;
+    ssbo5.binding = 5;
+    ssbo6.binding = 6;
+    ssbo7.binding = 7;
+    ssbo10.binding = 10;
 
     
 
-    std::vector<VkDescriptorSetLayoutBinding> bindings = { accel_struct_binding, ssbo_binding, uniform_binding, ssbo2};
+    std::vector<VkDescriptorSetLayoutBinding> bindings = { accel_struct_binding, ssbo_binding, ssbo2, ssbo3, ssbo4, ssbo5, ssbo6, ssbo7, uniform_binding, image_binding, ssbo10};
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -1272,7 +1445,9 @@ void VulkanApp::dispatchCompute()
 
 void VulkanApp::createDescriptorPoolForCompute()
 {
-    std::array<VkDescriptorPoolSize, 9> poolSizes{};
+    std::array<VkDescriptorPoolSize, 10> poolSizes{};
+    poolSizes[9].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    poolSizes[9].descriptorCount = static_cast<uint32_t>(1);
     poolSizes[8].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     poolSizes[8].descriptorCount = static_cast<uint32_t>(1);
     poolSizes[7].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -1326,7 +1501,7 @@ void VulkanApp::createDescriptorSetsForCompute()
 
         
 
-        std::array<VkWriteDescriptorSet, 9> descriptorWrites{};
+        std::array<VkWriteDescriptorSet, 10> descriptorWrites{};
         VkDescriptorBufferInfo bufferInfo{};
         bufferInfo.buffer = uniformBuffers[i];
         bufferInfo.offset = 0;
@@ -1335,7 +1510,7 @@ void VulkanApp::createDescriptorSetsForCompute()
         VkDescriptorBufferInfo ssbo1{};
         ssbo1.buffer = compute_buffers[0];
         ssbo1.offset = 0;
-        ssbo1.range = scene.getPrimitivesCount() * sizeof(GLSL_Primitive);
+        ssbo1.range = VK_WHOLE_SIZE;
 
         VkDescriptorBufferInfo ssbo2{};
         ssbo2.buffer = compute_buffers[1];
@@ -1360,13 +1535,25 @@ void VulkanApp::createDescriptorSetsForCompute()
         VkDescriptorBufferInfo ssbo6{};
         ssbo6.buffer = compute_buffers[5];
         ssbo6.offset = 0;
-        ssbo6.range = scene.getComposedObjectNodesCount() * sizeof(GLSL_ComposedObject);
+        ssbo6.range = VK_WHOLE_SIZE;
 
         VkDescriptorBufferInfo ssbo7{};
         ssbo7.buffer = compute_buffers[6];
         ssbo7.offset = 0;
         ssbo7.range = VK_WHOLE_SIZE;
 
+        VkDescriptorBufferInfo ssbo9{};
+        ssbo9.buffer = compute_buffers[7];
+        ssbo9.offset = 0;
+        ssbo9.range = VK_WHOLE_SIZE;
+
+        descriptorWrites[9].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptorWrites[9].dstSet = computeDescriptorSets[i];
+        descriptorWrites[9].dstBinding = 9;
+        descriptorWrites[9].dstArrayElement = 0;
+        descriptorWrites[9].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+        descriptorWrites[9].descriptorCount = 1;
+        descriptorWrites[9].pBufferInfo = &ssbo9;
 
         descriptorWrites[8].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
         descriptorWrites[8].dstSet = computeDescriptorSets[i];
@@ -1474,6 +1661,8 @@ void VulkanApp::createDescriptorSetsLayoutForComputeShader()
     ssbo6.binding = 6;
     VkDescriptorSetLayoutBinding ssbo7 = ssboLayoutBinding1;
     ssbo7.binding = 7;
+    VkDescriptorSetLayoutBinding ssbo9 = ssboLayoutBinding1;
+    ssbo9.binding = 9;
 
     VkDescriptorSetLayoutBinding samplerLayoutBinding{};
     samplerLayoutBinding.binding = 0;
@@ -1483,7 +1672,7 @@ void VulkanApp::createDescriptorSetsLayoutForComputeShader()
     samplerLayoutBinding.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
 
-    std::vector<VkDescriptorSetLayoutBinding> bindings = {  samplerLayoutBinding, ssboLayoutBinding1, ssbo2, ssbo3, ssbo4, ssbo5, ssbo6, ssbo7, uboLayoutBinding };
+    std::vector<VkDescriptorSetLayoutBinding> bindings = {  samplerLayoutBinding, ssboLayoutBinding1, ssbo2, ssbo3, ssbo4, ssbo5, ssbo6, ssbo7, uboLayoutBinding, ssbo9 };
     VkDescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
     layoutInfo.bindingCount = static_cast<uint32_t>(bindings.size());
@@ -1499,6 +1688,7 @@ void VulkanApp::createDescriptorSetsLayoutForComputeShader()
 void VulkanApp::loadComputeShader()
 {
     auto computeShaderCode = readBinFile("raytrace.spv");
+    //auto computeShaderCode = readBinFile("GEN.spv");
 
     VkShaderModule computeShaderModule = createShaderModule(computeShaderCode);
 
@@ -1632,9 +1822,14 @@ void VulkanApp::createSsbos()
     this->compute_mapped.resize(BUFFERS_NUM);
     this->compute_memory.resize(BUFFERS_NUM);
 
-    int sizes[] = { scene.primitives_buffer.size() * sizeof(GLSL_Primitive), scene.vec2_buffer.size() * sizeof(Vector<2>),
-    scene.vec3_buffer.size() * sizeof(Vector<3>), scene.int_buffer.size() * sizeof(int),scene.mat3_buffer.size() * sizeof(GLSL_mat3),scene.composed_object_nodes_buffer.size() * sizeof(GLSL_ComposedObject),
-    scene.bb_buffer.size() * sizeof(GLSL_BoundingBoxData)};
+    size_t sizes[] = { scene.primitives_buffer.size() * sizeof(GLSL_Primitive),
+        scene.vec2_buffer.size() * sizeof(GLSL_vec2),
+    scene.vec3_buffer.size() * sizeof(GLSL_vec4),
+        scene.int_buffer.size() * sizeof(int),
+        scene.mat3_buffer.size() * sizeof(GLSL_mat3),
+        scene.composed_object_nodes_buffer.size() * sizeof(GLSL_ComposedObject),
+    scene.bb_buffer.size() * sizeof(GLSL_BoundingBoxData),
+    scene.hierarchy_buffer.size() * sizeof(GLSL_ComposedObject)};
     for (int i = 0; i < BUFFERS_NUM; ++i)
         if (sizes[i] == 0)
             sizes[i] = 1;
@@ -1646,14 +1841,24 @@ void VulkanApp::createSsbos()
     {
         createBuffer(sizes[i], VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, compute_buffers[i], compute_memory[i]);
         vkMapMemory(device, compute_memory[i], 0, sizes[i], 0, &compute_mapped[i]);
+
     }
-    memcpy(compute_mapped[0], scene.primitives_buffer.data(), scene.primitives_buffer.size() * sizeof(GLSL_Primitive));
-    memcpy(compute_mapped[1], scene.vec2_buffer.data(), scene.vec2_buffer.size() * sizeof(Vector<2>));
-    memcpy(compute_mapped[2], scene.vec3_buffer.data(), scene.vec3_buffer.size() * sizeof(Vector<3>));
-    memcpy(compute_mapped[3], scene.int_buffer.data(), scene.int_buffer.size() * sizeof(int));
-    memcpy(compute_mapped[4], scene.mat3_buffer.data(), scene.mat3_buffer.size() * sizeof(GLSL_mat3));
-    memcpy(compute_mapped[5], scene.composed_object_nodes_buffer.data(), scene.composed_object_nodes_buffer.size() * sizeof(GLSL_ComposedObject));
-    memcpy(compute_mapped[6], scene.bb_buffer.data(), scene.bb_buffer.size() * sizeof(GLSL_BoundingBoxData));
+    if (scene.primitives_buffer.size() > 0)
+        memcpy(compute_mapped[0], scene.primitives_buffer.data(), sizes[0]);
+    if (scene.vec2_buffer.size() > 0)
+        memcpy(compute_mapped[1], scene.vec2_buffer.data(), sizes[1]);
+    if (scene.vec3_buffer.size() > 0)
+        memcpy(compute_mapped[2], scene.vec3_buffer.data(), sizes[2]);
+    if (scene.int_buffer.size() > 0)
+        memcpy(compute_mapped[3], scene.int_buffer.data(), sizes[3]);
+    if (scene.mat3_buffer.size() > 0)
+        memcpy(compute_mapped[4], scene.mat3_buffer.data(), sizes[4]);
+    if (scene.composed_object_nodes_buffer.size() > 0)
+        memcpy(compute_mapped[5], scene.composed_object_nodes_buffer.data(), sizes[5]);
+    if (scene.bb_buffer.size() > 0)
+        memcpy(compute_mapped[6], scene.bb_buffer.data(), sizes[6]);
+    if (scene.hierarchy_buffer.size() > 0)
+        memcpy(compute_mapped[7], scene.hierarchy_buffer.data(), sizes[7]);
     //for (int i = 0; i < 6; ++i)
     //    vkUnmapMemory(device, compute_memory[i]);
     
@@ -1685,6 +1890,28 @@ void VulkanApp::createDescriptorSetLayout() {
 
 }
 
+void VulkanApp::cursorMoveCallback(GLFWwindow* window, double xpos, double ypos)
+{
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+        Vector<2> movement = Vector<2>{ xpos, ypos } - last_cursor_position;
+        if (length(movement) < 0.01)
+            return;
+        double angle = length(movement) / sqrt(this->WIDTH * WIDTH + HEIGHT * HEIGHT);
+        Vector<3> up_vec = cross(right_vec, camera_direction);
+        Vector<3> movement_direction = normalize(-1*right_vec * movement.x() + up_vec * movement.y());
+        Vector<3> rotation_dir = cross(camera_direction, movement_direction);
+        Quat rotation{ 1,0,0,0 };
+        rotation.rotate(-angle, rotation_dir);
+        auto rotation_mat = rotation.rotation();
+        right_vec = rotation_mat * Vector<4>(right_vec);
+        camera_direction = rotation_mat * Vector<4>(camera_direction);
+        up_vector = up_vec;
+        glfwSetCursorPos(window, last_cursor_position.x(), last_cursor_position.y());
+    }
+    else
+        last_cursor_position = Vector<2>{ xpos, ypos };
+}
+
 void VulkanApp::createTextureSampler()
 {
     VkSamplerCreateInfo samplerInfo{};
@@ -1711,30 +1938,48 @@ void VulkanApp::createTextureSampler()
     }
 }
 #include <chrono>
+#include <functional>
+std::function<void(GLFWwindow*, double, double)> call_callback_lambda;
+void cursor_position_callback(GLFWwindow* window, double xpos, double ypos) {
+    call_callback_lambda(window, xpos, ypos);
+}
 void VulkanApp::mainLoop() {
     auto start_time = std::chrono::high_resolution_clock::now();
     int frame_counter = 0;
     
-
-    
+    call_callback_lambda = [this](GLFWwindow* window, double xpos, double ypos) {
+        this->cursorMoveCallback(window, xpos, ypos);
+    };
+    glfwSetCursorPosCallback(window, cursor_position_callback);
     while (!glfwWindowShouldClose(window)) {
         
         drawFrame();
         glfwSwapBuffers(window);
         glfwPollEvents();
-        double cam_sp = 0.2;
+        //double cam_sp = 0.2*1000;
         if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-            camera.nums[0] += cam_sp;
+            camera += cam_speed * right_vec;
         if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-            camera.nums[0] -= cam_sp;
+            camera -= cam_speed * right_vec;
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-            camera.nums[2] += cam_sp;
+            camera += cam_speed * up_vector;
         if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-            camera.nums[2] -= cam_sp;
+            camera -= cam_speed * up_vector;
         if (glfwGetKey(window, GLFW_KEY_R) == GLFW_PRESS)
-            camera.nums[1] += cam_sp;
+            camera += cam_speed * camera_direction;
         if (glfwGetKey(window, GLFW_KEY_F) == GLFW_PRESS)
-            camera.nums[1] -= cam_sp;
+            camera -= cam_speed * camera_direction;
+        if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+        {
+            right_vec = rotationQuat(0.01, camera_direction).rotation() * Vector<4>(right_vec);
+            up_vector = cross(right_vec, camera_direction);
+        }
+        if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+        {
+            right_vec = rotationQuat(-0.01, camera_direction).rotation() * Vector<4>(right_vec);
+            up_vector = cross(right_vec, camera_direction);
+        }
+
         ++frame_counter;
         auto end_time = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
@@ -2304,10 +2549,15 @@ void VulkanApp::updateUniformBuffer(uint32_t currentImage)
         int data_count;
         int normals_count;
         int composed_object_nodes_count;
-        unsigned int ray_intersections_info_bits_size;
-        int batches_count;
+        float dump[2];
+        float camera_right[4];
+        float camera_dir[4];
+        float camera_up[4];
+
     } dat;
-    dat = { {(float)camera.x(), (float)camera.y(), (float)camera.z(), 0}, {(int)this->WIDTH, (int)this->HEIGHT}, scene.getPrimitivesCount(), scene.getDataCount(), scene.getNormalsCount(), scene.getComposedObjectNodesCount(), unsigned int(ray_intersections_info_bits_size), 1 };
+    dat = { {(float)camera.x(), (float)camera.y(), (float)camera.z(), 0}, {(int)this->WIDTH, (int)this->HEIGHT}, scene.getPrimitivesCount(), scene.getDataCount(), scene.getNormalsCount(), scene.getComposedObjectNodesCount(), {0,0},
+        {(float)right_vec.x(), (float)right_vec.y(), (float)right_vec.z(), 0}, {(float)camera_direction.x(), (float)camera_direction.y(), (float)camera_direction.z(), 0},
+        {(float)up_vector.x(), (float)up_vector.y(), (float)up_vector.z(), 0} };
     memcpy(uniformBuffersMapped[0], &dat, sizeof(dat));
 
 }
@@ -2896,3 +3146,4 @@ VKAPI_ATTR VkBool32 VKAPI_CALL VulkanApp::debugCallback(VkDebugUtilsMessageSever
 
     return VK_FALSE;
 }
+
