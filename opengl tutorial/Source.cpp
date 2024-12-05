@@ -473,7 +473,7 @@ GLFWwindow* createGlfwWindow(int window_width, int window_height, bool vulkan=fa
 
 #include <chrono>
 
-int openGlCode(const std::string& file)
+int openglRender(const std::unique_ptr<Object>& obj)
 {
 	int window_width = 1000;
 	int window_height = 1000;
@@ -530,9 +530,9 @@ int openGlCode(const std::string& file)
 	glUseProgram(prog);
 
 	glLinkProgram(ray_trace_programm);
-	printProgramLog(ray_trace_programm);
+	//printProgramLog(ray_trace_programm);
 	glValidateProgram(ray_trace_programm);
-	printProgramLog(ray_trace_programm);
+	//printProgramLog(ray_trace_programm);
 
 
 	int rotation_location = glGetUniformLocation(prog, "u_cr");
@@ -565,11 +565,11 @@ int openGlCode(const std::string& file)
 	Quat null_rotation = Quat(1, 0, 0, 0);
 	
 
-	auto obj = parse(readFile(file)).obj_scene;
+	
 
 	assert(obj != nullptr);
-	obj->moveOn({ 0,9,0 });
-	/**/obj->globalizeCoordinates();
+	/*obj->moveOn({ 0,9,0 });
+	obj->globalizeCoordinates();*/
 
 
 
@@ -578,12 +578,16 @@ int openGlCode(const std::string& file)
 	shader_scene.setSceneAsComposedObject(obj->copy());
 	//shader_scene.dropToFiles("shadered\\");
 	shader_scene.bind(ray_trace_programm, prog);
-
-	camera_pos.nums[1] = 2;
-
+	auto bb = boundingBox(obj);
+	//camera_pos.nums[1] = 2;
+	camera_pos = { ((bb.first + bb.second) / 2).x(),
+		bb.first.y() - std::max(bb.second.x() - bb.first.x(), bb.second.z() - bb.second.z()) / 2,
+		((bb.first + bb.second) / 2).z() };
 	
 	auto start_time = std::chrono::high_resolution_clock::now();
 	int frame_counter = 0;
+	double average = 0;
+	int cc = 0;
 	while (!glfwWindowShouldClose(window)) // Main-Loop
 	{
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear the screen with... red, green, blue.
@@ -641,12 +645,16 @@ int openGlCode(const std::string& file)
 			std::string title = "FPS: " + std::to_string(fps);
 			glfwSetWindowTitle(window, title.c_str());
 			start_time = std::chrono::high_resolution_clock::now();
+			average += fps;
 		}
+		++cc;
+		if (cc == 100)
+			break;
 		//while (glfwGetTime() - cstart < counter * (1.0 / 60.0))
 		//{
 		//}
 	}
-
+	std::cout << average / 10 << '\n';
 	glDeleteTextures(1, &texture_id);
 	/* glfwDestroyWindow(window) // Call this function to destroy a specific window */
 	glfwTerminate(); // Destroys all remaining windows and cursors, restores modified gamma ramps, and frees resources.
@@ -664,12 +672,13 @@ void makeCubesScene();
 
 
 int main(int argc, char * argv[]) {
-	std::string input_file_path = "G:/libIFC/h3.ifc";
+	
 	
 
 	
-	Renderer rend = COMPUTE;
-	std::string scene_file = "examples/thousand_cubes.txt";
+	Renderer rend = RAYTRACE;
+	std::string scene_file = "G:/libIFC/080908 CPE Core and Slab Model.ifc";
+	//std::string scene_file = "examples/thousand_cubes.txt";
 	for (int i = 0; i < argc; ++i)
 	{
 		if (strcmp(argv[i], "-r") == 0)
@@ -692,19 +701,28 @@ int main(int argc, char * argv[]) {
 			scene_file = argv[i];
 		}
 	}
-	if (rend == OPENGL)
-	{
-		openGlCode(scene_file);
-		return 0;
-	}
+	
 	VulkanApp app;
 	app.setRenderer(rend);
 
+	SceneStruct obj_str;
+	if (scene_file.substr(scene_file.size() - 4, 4) == ".ifc")
+		obj_str = ifc(scene_file);
+	else
+		obj_str = parse(readFile(scene_file));
 
-	//auto obj_str = ifc(input_file_path); 
+	if (rend == OPENGL)
+	{
+		if (obj_str.type == SceneStruct::Type::VECTOR)
+			openglRender(makeAnHierarchy(std::move(obj_str.vec_scene)));
+		else
+			openglRender(obj_str.obj_scene);
+		return 0;
+	}
+
 	// 
-	auto obj_str = parse(readFile(scene_file));
-	obj_str.obj_scene = makeAnHierarchy(dissolveHierarchy(turnToHierarchy(obj_str.obj_scene)));
+	//auto obj_str = parse(readFile(scene_file));
+	//obj_str.obj_scene = makeAnHierarchy(dissolveHierarchy(turnToHierarchy(obj_str.obj_scene)));
 	//std::ofstream file(input_file_path + ".txt");
 	//file << toStringScene(obj_str.vec_scene);
 	//file.close();
@@ -727,7 +745,9 @@ int main(int argc, char * argv[]) {
 
 
 	auto bb = boundingBox(obj_str);
-	app.setCameraPosition({ ((bb.first + bb.second) / 2).x(), bb.first.y() - (bb.second.y() - bb.first.y()) * 0.01, ((bb.first + bb.second) / 2).z() });
+	app.setCameraPosition({ ((bb.first + bb.second) / 2).x(),
+		bb.first.y() - std::max(bb.second.x() - bb.first.x(), bb.second.z() - bb.second.z())/2,
+		((bb.first + bb.second) / 2).z() });
 	app.setCameraSpeed(length(bb.second - bb.first) / 250);
 	//std::ofstream file("h3walls.txt");
 	//file << toStringScene(obj_str.vec_scene);

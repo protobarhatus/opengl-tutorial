@@ -1830,20 +1830,21 @@ void VulkanApp::createSsbos()
         scene.composed_object_nodes_buffer.size() * sizeof(GLSL_ComposedObject),
     scene.bb_buffer.size() * sizeof(GLSL_BoundingBoxData),
     scene.hierarchy_buffer.size() * sizeof(GLSL_ComposedObject)};
-    for (int i = 0; i < BUFFERS_NUM; ++i)
+    /*for (int i = 0; i < BUFFERS_NUM; ++i)
         if (sizes[i] == 0)
-            sizes[i] = 1;
+            sizes[i] = 1;*/
     for (int i = 0; i < BUFFERS_NUM; ++i)
         compute_mapped[i] = malloc(sizes[i]);
     
     
     for (int i = 0; i < BUFFERS_NUM; ++i)
     {
-        createBuffer(sizes[i], VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, compute_buffers[i], compute_memory[i]);
-        vkMapMemory(device, compute_memory[i], 0, sizes[i], 0, &compute_mapped[i]);
+        if (sizes[i] > 0)
+        createBuffer(sizes[i], VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, compute_buffers[i], compute_memory[i]);
+        //vkMapMemory(device, compute_memory[i], 0, sizes[i], 0, &compute_mapped[i]);
 
     }
-    if (scene.primitives_buffer.size() > 0)
+    /*if (scene.primitives_buffer.size() > 0)
         memcpy(compute_mapped[0], scene.primitives_buffer.data(), sizes[0]);
     if (scene.vec2_buffer.size() > 0)
         memcpy(compute_mapped[1], scene.vec2_buffer.data(), sizes[1]);
@@ -1858,9 +1859,18 @@ void VulkanApp::createSsbos()
     if (scene.bb_buffer.size() > 0)
         memcpy(compute_mapped[6], scene.bb_buffer.data(), sizes[6]);
     if (scene.hierarchy_buffer.size() > 0)
-        memcpy(compute_mapped[7], scene.hierarchy_buffer.data(), sizes[7]);
+        memcpy(compute_mapped[7], scene.hierarchy_buffer.data(), sizes[7]);*/
     //for (int i = 0; i < 6; ++i)
     //    vkUnmapMemory(device, compute_memory[i]);
+
+    copyDataToLocalBuffer(compute_buffers[0], scene.primitives_buffer.data(), sizes[0]);
+    copyDataToLocalBuffer(compute_buffers[1], scene.vec2_buffer.data(), sizes[1]);
+    copyDataToLocalBuffer(compute_buffers[2], scene.vec3_buffer.data(), sizes[2]);
+    copyDataToLocalBuffer(compute_buffers[3], scene.int_buffer.data(), sizes[3]);
+    copyDataToLocalBuffer(compute_buffers[4], scene.mat3_buffer.data(), sizes[4]);
+    copyDataToLocalBuffer(compute_buffers[5], scene.composed_object_nodes_buffer.data(), sizes[5]);
+    copyDataToLocalBuffer(compute_buffers[6], scene.bb_buffer.data(), sizes[6]);
+    copyDataToLocalBuffer(compute_buffers[7], scene.hierarchy_buffer.data(), sizes[7]);
     
 
 }
@@ -1951,6 +1961,8 @@ void VulkanApp::mainLoop() {
         this->cursorMoveCallback(window, xpos, ypos);
     };
     glfwSetCursorPosCallback(window, cursor_position_callback);
+    int cc = 0;
+    double average = 0;
     while (!glfwWindowShouldClose(window)) {
         
         drawFrame();
@@ -1990,8 +2002,13 @@ void VulkanApp::mainLoop() {
             std::string title = "FPS: " + std::to_string(fps);
             glfwSetWindowTitle(window, title.c_str());
             start_time = std::chrono::high_resolution_clock::now();
+            average += fps;
+            ++cc;
         }
+        if (cc == 10)
+            break;
     }
+    std::cout << average / 10;
 
     vkDeviceWaitIdle(device);
 }
@@ -2856,6 +2873,31 @@ void VulkanApp::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width
     );
 
     endSingleTimeCommands(commandBuffer);
+}
+
+void VulkanApp::copyDataToLocalBuffer(VkBuffer dstBuffer, void* data, VkDeviceSize size)
+{
+    if (data == nullptr)
+        return;
+    VkCommandBuffer buff = beginSingleTimeCommands();
+    VkBuffer stagingBuffer;
+    VkDeviceMemory stagingBufferMemory;
+    createBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+    void* mem = malloc(size);
+    vkMapMemory(device, stagingBufferMemory, 0, size, 0, &mem);
+    memcpy(mem, data, size);
+    vkUnmapMemory(device, stagingBufferMemory);
+    //free(mem);
+    VkBufferCopy copyRegion{};
+    copyRegion.srcOffset = 0;
+    copyRegion.dstOffset = 0;
+    copyRegion.size = size;
+    vkCmdCopyBuffer(buff, stagingBuffer, dstBuffer, 1, &copyRegion);
+
+    endSingleTimeCommands(buff);
+
+    vkDestroyBuffer(device, stagingBuffer, nullptr);
+    vkFreeMemory(device, stagingBufferMemory, nullptr);
 }
 
 void VulkanApp::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout) {

@@ -32,7 +32,7 @@ void parseIfc(IfcParse::IfcFile& file) {
 		it != elements->end(); ++it) {
 		Ifc2x3::IfcProduct* ifcProduct = *it;
 		// TODO: Do something with ifcProduct
-		std::cout << ifcProduct->Name().value() << "\n";
+		//std::cout << ifcProduct->Name().value() << "\n";
 	}
 }
 
@@ -65,6 +65,7 @@ void extractPropertySets(const typename Schema::IfcObject& obj,
 		});
 }
 void CheckGeometricRepresentation(Ifc4::IfcGeometricRepresentationItem* item) {
+	return;
 	if (!item) {
 		std::cout << "Invalid item or nullptr passed.\n";
 		return;
@@ -554,8 +555,8 @@ Vector<3> readColor(Ifc4::IfcBuildingElement* product)
 
 
 std::vector<std::unique_ptr<Object>> parseIfc4(IfcParse::IfcFile& file) {
-	//using itertype = Ifc4::IfcElement;
-	using itertype = Ifc4::IfcWall;
+	using itertype = Ifc4::IfcElement;
+	//using itertype = Ifc4::IfcWall;
 	const typename itertype::list::ptr elements = file.instances_by_type<typename itertype>();
 	/*Ifc4::IfcSweptAreaSolid;
 	auto walls = file.instances_by_type<typename Ifc4::IfcWall>();
@@ -574,7 +575,7 @@ std::vector<std::unique_ptr<Object>> parseIfc4(IfcParse::IfcFile& file) {
 		if (wall->GlobalId() == "32fzzHdg17e8sB7N2ML9G5")
 		{
 			//continue;
-			std::cout << wall->identity() << "\n";
+			//std::cout << wall->identity() << "\n";
 		}
 		if (wall->as<Ifc4::IfcOpeningElement>() || wall->as<Ifc4::IfcSpace>())
 			continue;
@@ -603,8 +604,8 @@ std::vector<std::unique_ptr<Object>> parseIfc4(IfcParse::IfcFile& file) {
 
 			if (openings.size() > 0)
 			{
-				if (solids_vec.size() == 3)
-					std::cout << "ASDAS\n";
+				//if (solids_vec.size() == 3)
+					//std::cout << "ASDAS\n";
 				solids_vec.push_back(objectsSubtraction(std::move(obj), makeAnHierarchy(std::move(openings)), { 0,0,0 }, { 1,0,0,0 }));
 				//solids_vec.push_back(objectsSubtraction(std::move(obj), std::move(openings[0]), { 0,0,0 }, { 1,0,0,0 }));
 				/*for (auto& it1 : openings)

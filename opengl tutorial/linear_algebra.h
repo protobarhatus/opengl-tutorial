@@ -241,7 +241,7 @@ public:
 
 
 	Matrix<4> rotation() const;
-
+	Matrix<3> rotation3() const;
 	
 
 };

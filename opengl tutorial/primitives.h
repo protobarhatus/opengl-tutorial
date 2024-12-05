@@ -108,6 +108,8 @@ public:
 	bool isItIdOfObjectOrItsParent(int id_to_check) const;
 
 	virtual void propagateId(int& idcounter);
+
+	Matrix<4> getTransformationMatrix() const;
 };
 
 

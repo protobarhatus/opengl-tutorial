@@ -36,6 +36,13 @@ struct GLSL_mat3
 	GLSL_mat3(const Matrix<3>& m);
 };
 
+struct GLSL_mat4
+{
+	GLSL_vec4 mat[4];
+	GLSL_mat4() {}
+	GLSL_mat4(const Matrix<4>& m);
+};
+
 struct GLSL_ComposedObject
 {
 	int operation;
@@ -100,6 +107,7 @@ struct GLSL_Quat
 {
 	float a0, a1, a2, a3;
 	GLSL_Quat(const Quat& q);
+	GLSL_Quat() {}
 };
 
 struct GLSL_Primitive
@@ -122,6 +130,9 @@ struct GLSL_Primitive
 
 	GLSL_vec4 color;
 
+	GLSL_mat4 transformation;
+	GLSL_mat3 rotation_mat;
+	GLSL_mat3 back_rotation;
 	
 };
 

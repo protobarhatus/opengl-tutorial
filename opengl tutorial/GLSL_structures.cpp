@@ -307,6 +307,8 @@ void GlslSceneMemory::bind(int programm, int current_program)
 		auto composed_buf = createSharedBufferObject(&this->composed_object_nodes_buffer[0], sizeof(GLSL_ComposedObject) * this->composed_object_nodes_buffer.size(), 6);
 	if (this->bb_buffer.size() > 0)
 		auto bb_buf = createSharedBufferObject(&this->bb_buffer[0], sizeof(GLSL_BoundingBoxData) * this->bb_buffer.size(), 7);
+	if (this->hierarchy_buffer.size() > 0)
+		auto hh_buf = createSharedBufferObject(&this->hierarchy_buffer[0], sizeof(GLSL_ComposedObject) * this->hierarchy_buffer.size(), 9);
 
 
 	int primitive_count_location = glGetUniformLocation(programm, "primitives_count");
@@ -348,26 +350,40 @@ int GlslSceneMemory::getComposedObjectNodesCount()
 
 GLSL_Primitive buildObject(const std::unique_ptr<Object>& obj, int data_index, int normals_index, int int_index)
 {
+	GLSL_Primitive res{};
 	switch (obj->getType())
 	{
 	case ObjectType::SPHERE:
-		return buildSphere(((Sphere*)obj.get())->getRadius(), obj->getPosition(), obj->getRotation(), obj->getColor());
+		res = buildSphere(((Sphere*)obj.get())->getRadius(), obj->getPosition(), obj->getRotation(), obj->getColor());
+		break;
 	case ObjectType::CYLINDER:
-		return buildCylinder(((Cylinder*)obj.get())->getHalfHeight() * 2, ((Cylinder*)obj.get())->getRadius(), obj->getPosition(), obj->getRotation(), obj->getColor());
+		res = buildCylinder(((Cylinder*)obj.get())->getHalfHeight() * 2, ((Cylinder*)obj.get())->getRadius(), obj->getPosition(), obj->getRotation(), obj->getColor());
+		break;
 	case ObjectType::PRIZM:
-		return buildPrizm(((Prizm*)obj.get())->getBase(), ((Prizm*)obj.get())->getNormals(), ((Prizm*)obj.get())->getHalfHeight(),
+		res =  buildPrizm(((Prizm*)obj.get())->getBase(), ((Prizm*)obj.get())->getNormals(), ((Prizm*)obj.get())->getHalfHeight(),
 			obj->getPosition(), obj->getRotation(), data_index, normals_index, obj->getColor());
+		break;
 	case ObjectType::CONE:
-		return buildCone(((Cone*)obj.get())->getHeight(), ((Cone*)obj.get())->getRadius(), ((Cone*)obj.get())->getRdivh(), obj->getPosition(), obj->getRotation(), obj->getColor());
+		res = buildCone(((Cone*)obj.get())->getHeight(), ((Cone*)obj.get())->getRadius(), ((Cone*)obj.get())->getRdivh(), obj->getPosition(), obj->getRotation(), obj->getColor());
+		break;
 	case ObjectType::PIRAMID:
-		return buildPiramid(getVec2Data(obj), getVec3Data(obj), ((Piramid*)obj.get())->getHeight(), obj->getPosition(), obj->getRotation(), data_index, normals_index, obj->getColor());
+		res = buildPiramid(getVec2Data(obj), getVec3Data(obj), ((Piramid*)obj.get())->getHeight(), obj->getPosition(), obj->getRotation(), data_index, normals_index, obj->getColor());
+		break;
 	case ObjectType::BOX:
-		return buildBox(((Box*)obj.get())->getHsize(), obj->getPosition(), obj->getRotation(), obj->getColor());
+		res = buildBox(((Box*)obj.get())->getHsize(), obj->getPosition(), obj->getRotation(), obj->getColor());
+		break;
 	case ObjectType::POLYHEDRON:
-		return buildPolyhedron(obj, data_index, normals_index, int_index, obj->getColor());
+		res = buildPolyhedron(obj, data_index, normals_index, int_index, obj->getColor());
+		break;
 	default://composed object тоже сюда не должен попадать
 		assert(false);
 	}
+	res.transformation = transpose( obj->getTransformationMatrix());
+	//Matrix<4> transposition = Matrix<4>(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -object.position.x, -object.position.y, -object.position.z, 1)
+	//res.transformation = 
+	res.rotation_mat = inverseRot(obj->getRotation()).rotation3();
+	res.back_rotation = obj->getRotation().rotation3();
+	return res;
 }
 
 GLSL_vec3::GLSL_vec3(const Vector<3>& v) : x(v.x()), y(v.y()), z(v.z())
@@ -816,4 +832,12 @@ std::string makeTraceFunction(const GlslSceneMemory& scene)
 	res += "    return trace_res;";
 	res += "}\n";
 	return res;
+}
+
+GLSL_mat4::GLSL_mat4(const Matrix<4>& m)
+{
+	for (int i = 0; i < 4; ++i)
+	{
+		this->mat[i] = Vector<4>{ m[i][0], m[i][1], m[i][2], m[i][3] };
+	}
 }

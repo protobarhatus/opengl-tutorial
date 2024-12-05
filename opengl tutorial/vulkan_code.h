@@ -73,7 +73,7 @@ class VulkanApp {
 #ifdef NDEBUG
     const bool enableValidationLayers = false;
 #else
-    const bool enableValidationLayers = true;
+    const bool enableValidationLayers = false;
 #endif
     void setScene(const GlslSceneMemory& scene);
 public:
@@ -243,6 +243,8 @@ private:
 
     VkCommandBuffer beginSingleTimeCommands();
     void endSingleTimeCommands(VkCommandBuffer commandBuffer);
+
+    void copyDataToLocalBuffer(VkBuffer dstBuffer, void* data, VkDeviceSize size);
 
     void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 

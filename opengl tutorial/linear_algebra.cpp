@@ -74,6 +74,14 @@ Matrix<4> Quat::rotation() const
 		);
 }
 
+Matrix<3> Quat::rotation3() const
+{
+	return Matrix<3>(Vector<3>(a1() * a1() + a0() * a0() - a2() * a2() - a3() * a3(), 2 * a2() * a1() - 2 * a3() * a0(), 2 * a3() * a1() + 2 * a2() * a0()),
+		Vector<3>(2 * a2() * a1() + 2 * a0() * a3(), a2() * a2() + a0() * a0() - a3() * a3() - a1() * a1(), 2 * a3() * a2() - 2 * a1() * a0()),
+		Vector<3>(2 * a3() * a1() - 2 * a0() * a2(), 2 * a3() * a2() + 2 * a1() * a0(), a3() * a3() + a0() * a0() - a2() * a2() - a1() * a1())
+		);
+}
+
 void Quat::rotate(double angle, const Vector<3>& n) {
 	*this = *this * Quat(cos(angle / 2), sin(angle / 2) * normalize(n));
 }

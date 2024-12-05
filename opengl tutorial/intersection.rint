@@ -20,7 +20,6 @@ struct Quat
 };
 struct Primitive
 {
-    //если type - composed_object, то data_index показывает на корень в composed_object. Другие числа - пустые.
     uint type;
     uint data_index;
     //сколько элементов в data_array она занимает. Кроме многогранника, для которого это количество вершин
@@ -42,6 +41,9 @@ struct Primitive
     uint int_data_index;
     //пока что цвет потом может заменится на текстурную координату или типо того
     vec4 color;
+    mat4 transformation;
+    mat3 rotation_mat;
+    mat3 back_rotation;
 };
 
 const int OBJECTS_ADD = -1;
@@ -1258,13 +1260,13 @@ int intersectPolyhedronWithLine(in Primitive obj, in int primitive_index, in vec
 int intersectWithRay(in Primitive object, in int primitive_index, in vec3 ray_start, in vec3 direction)
 {
     //Matrix<4> transposition(Vector<4>(1, 0, 0, -position.x()), Vector<4>(0, 1, 0, -position.y()), Vector<4>(0, 0, 1, -position.z()), Vector<4>(0, 0, 0, 1));
-    mat4 transposition = mat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -object.position.x, -object.position.y, -object.position.z, 1);
+    //mat4 transposition = mat4(1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -object.position.x, -object.position.y, -object.position.z, 1);
 
-    mat4 rot = rotation(inverseRot(object.rotation));
-    mat4 transformation = rot * transposition;
+    //mat4 rot = rotation(inverseRot(object.rotation));
+    //mat4 transformation = rot * transposition;
 
-    vec3 start = (transformation * vec4(ray_start, 1)).xyz;
-    vec3 dir = (rot * vec4(direction, 1)).xyz;
+    vec3 start = (object.transformation * vec4(ray_start, 1)).xyz;
+    vec3 dir = object.rotation_mat * direction;
 
     int inter_res;
 
@@ -1317,11 +1319,11 @@ int intersectWithRay(in Primitive object, in int primitive_index, in vec3 ray_st
 
     if (inter_res == -1)
         return -1;
-    mat3 back_rotation = rotation3(object.rotation);
+    //mat3 back_rotation = rotation3(object.rotation);
     int cur_pointer = inter_res;
     while (cur_pointer != -1)
     {
-        intersections_stack[cur_pointer].data.n = back_rotation * intersections_stack[cur_pointer].data.n;
+        intersections_stack[cur_pointer].data.n = object.back_rotation * intersections_stack[cur_pointer].data.n;
         cur_pointer = intersections_stack[cur_pointer].next_index;
     }
     return inter_res;

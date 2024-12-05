@@ -432,7 +432,10 @@ Vector<3> Object::getBoundingBox() const
 	return this->bounding_box;
 }
 
-
+Matrix<4> Object::getTransformationMatrix() const
+{
+	return this->transformation_mat;
+}
 std::pair<bool, ISR> Object::intersectWithRay(const Vector<3>& ray_start, const Vector<3>& direction) const
 {
 	
