@@ -49,8 +49,8 @@ enum Renderer
 
 class VulkanApp {
     
-    const uint32_t WIDTH = 1000;
-    const uint32_t HEIGHT = 1000;
+    const uint32_t WIDTH = 1920;
+    const uint32_t HEIGHT = 1080;
     const uint32_t INTERSECTION_STACK_SIZE = 100;
     //под нее надо так же множить отдельные буфера для компьют шейдера и отдельные параметры камеры и тп, нафиг
     const int MAX_FRAMES_IN_FLIGHT = 1;
