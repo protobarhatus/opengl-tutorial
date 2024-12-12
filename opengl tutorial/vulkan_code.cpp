@@ -2878,7 +2878,7 @@ void VulkanApp::copyDataToLocalBuffer(VkBuffer dstBuffer, void* data, VkDeviceSi
 {
     if (data == nullptr)
         return;
-    if (size == 0)
+    if (size == 1)
         return;
     VkCommandBuffer buff = beginSingleTimeCommands();
     VkBuffer stagingBuffer;
