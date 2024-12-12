@@ -1963,7 +1963,6 @@ void VulkanApp::mainLoop() {
     glfwSetCursorPosCallback(window, cursor_position_callback);
     int cc = 0;
     double average = 0;
-    return;
     while (!glfwWindowShouldClose(window)) {
         
         drawFrame();
