@@ -1830,17 +1830,17 @@ void VulkanApp::createSsbos()
         scene.composed_object_nodes_buffer.size() * sizeof(GLSL_ComposedObject),
     scene.bb_buffer.size() * sizeof(GLSL_BoundingBoxData),
     scene.hierarchy_buffer.size() * sizeof(GLSL_ComposedObject)};
-    /*for (int i = 0; i < BUFFERS_NUM; ++i)
+    for (int i = 0; i < BUFFERS_NUM; ++i)
         if (sizes[i] == 0)
-            sizes[i] = 1;*/
+            sizes[i] = 1;
     for (int i = 0; i < BUFFERS_NUM; ++i)
         compute_mapped[i] = malloc(sizes[i]);
     
     
     for (int i = 0; i < BUFFERS_NUM; ++i)
     {
-        if (sizes[i] > 0)
-            createBuffer(sizes[i], VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, compute_buffers[i], compute_memory[i]);
+        //if (sizes[i] > 0)
+        createBuffer(sizes[i], VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, compute_buffers[i], compute_memory[i]);
         //vkMapMemory(device, compute_memory[i], 0, sizes[i], 0, &compute_mapped[i]);
 
     }
@@ -1862,7 +1862,6 @@ void VulkanApp::createSsbos()
         memcpy(compute_mapped[7], scene.hierarchy_buffer.data(), sizes[7]);*/
     //for (int i = 0; i < 6; ++i)
     //    vkUnmapMemory(device, compute_memory[i]);
-
     copyDataToLocalBuffer(compute_buffers[0], scene.primitives_buffer.data(), sizes[0]);
     copyDataToLocalBuffer(compute_buffers[1], scene.vec2_buffer.data(), sizes[1]);
     copyDataToLocalBuffer(compute_buffers[2], scene.vec3_buffer.data(), sizes[2]);
@@ -2878,6 +2877,8 @@ void VulkanApp::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width
 void VulkanApp::copyDataToLocalBuffer(VkBuffer dstBuffer, void* data, VkDeviceSize size)
 {
     if (data == nullptr)
+        return;
+    if (size == 0)
         return;
     VkCommandBuffer buff = beginSingleTimeCommands();
     VkBuffer stagingBuffer;

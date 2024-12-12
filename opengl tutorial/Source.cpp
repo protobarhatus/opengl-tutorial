@@ -678,8 +678,8 @@ int main(int argc, char * argv[]) {
 
 	
 	Renderer rend = RAYTRACE;
-	std::string scene_file = "G:/libIFC/AC20-FZK-Haus.ifc";
-	//std::string scene_file = "examples/thousand_cubes.txt";
+	//std::string scene_file = "G:/libIFC/AC20-FZK-Haus.ifc";
+	std::string scene_file = "examples/thousand_cubes.txt";
 	for (int i = 0; i < argc; ++i)
 	{
 		if (strcmp(argv[i], "-r") == 0)

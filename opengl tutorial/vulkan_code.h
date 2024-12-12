@@ -73,7 +73,7 @@ class VulkanApp {
 #ifdef NDEBUG
     const bool enableValidationLayers = false;
 #else
-    const bool enableValidationLayers = false;
+    const bool enableValidationLayers = true;
 #endif
     void setScene(const GlslSceneMemory& scene);
 public:
