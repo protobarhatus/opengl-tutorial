@@ -588,6 +588,7 @@ int openglRender(const std::unique_ptr<Object>& obj)
 	int frame_counter = 0;
 	double average = 0;
 	int cc = 0;
+	return 0;
 	while (!glfwWindowShouldClose(window)) // Main-Loop
 	{
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); // Clear the screen with... red, green, blue.
@@ -648,8 +649,8 @@ int openglRender(const std::unique_ptr<Object>& obj)
 			average += fps;
 		}
 		++cc;
-		if (cc == 100)
-			break;
+		//if (cc == 100)
+		//	break;
 		//while (glfwGetTime() - cstart < counter * (1.0 / 60.0))
 		//{
 		//}
@@ -677,7 +678,7 @@ int main(int argc, char * argv[]) {
 
 	
 	Renderer rend = RAYTRACE;
-	std::string scene_file = "G:/libIFC/080908 CPE Core and Slab Model.ifc";
+	std::string scene_file = "G:/libIFC/AC20-FZK-Haus.ifc";
 	//std::string scene_file = "examples/thousand_cubes.txt";
 	for (int i = 0; i < argc; ++i)
 	{

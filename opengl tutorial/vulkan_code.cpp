@@ -133,7 +133,7 @@ void VulkanApp::createDescriptorSetsForComputeForRtx()
         VkDescriptorBufferInfo bufferInfo{};
         bufferInfo.buffer = uniformBuffers[i];
         bufferInfo.offset = 0;
-        bufferInfo.range = 50;
+        bufferInfo.range = VK_WHOLE_SIZE;
 
         VkDescriptorBufferInfo ssbo1{};
         ssbo1.buffer = compute_buffers[0];
@@ -616,7 +616,7 @@ VkAccelerationStructureKHR VulkanApp::createBottomLevelAccelerationStructure()
     VkDeviceMemory ACC_STR_BUFFER_MEMORY;
     this->createBuffer(required_size.accelerationStructureSize, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, ACC_STR_BUFFER, ACC_STR_BUFFER_MEMORY);
 
-
+    std::cout << required_size.accelerationStructureSize << '\n';
     
 
 
@@ -794,7 +794,7 @@ void VulkanApp::createAccelerationStructure()
     VkDeviceMemory ACC_STR_BUFFER_MEMORY;
     this->createBuffer(required_size.accelerationStructureSize, VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, ACC_STR_BUFFER, ACC_STR_BUFFER_MEMORY);
 
-
+    std::cout << required_size.accelerationStructureSize << '\n';
 
 
 
@@ -1840,7 +1840,7 @@ void VulkanApp::createSsbos()
     for (int i = 0; i < BUFFERS_NUM; ++i)
     {
         if (sizes[i] > 0)
-        createBuffer(sizes[i], VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, compute_buffers[i], compute_memory[i]);
+            createBuffer(sizes[i], VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, compute_buffers[i], compute_memory[i]);
         //vkMapMemory(device, compute_memory[i], 0, sizes[i], 0, &compute_mapped[i]);
 
     }
@@ -1963,6 +1963,7 @@ void VulkanApp::mainLoop() {
     glfwSetCursorPosCallback(window, cursor_position_callback);
     int cc = 0;
     double average = 0;
+    return;
     while (!glfwWindowShouldClose(window)) {
         
         drawFrame();
@@ -2005,8 +2006,8 @@ void VulkanApp::mainLoop() {
             average += fps;
             ++cc;
         }
-        if (cc == 10)
-            break;
+        //if (cc == 10)
+        //    break;
     }
     std::cout << average / 10;
 

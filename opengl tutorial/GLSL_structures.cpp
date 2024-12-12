@@ -144,7 +144,7 @@ void GlslSceneMemory::setHierarchyObject(const std::unique_ptr<Object>& obj, int
 		setComposedObject(obj, composed_object_nodes_buffer.size(), 0, nullptr, std::set<int>());
 	}
 }
-
+#include <iostream>
 //это - дл€ рейтресинга. ¬ нем в примитивы вставл€ем composed_object
 void GlslSceneMemory::setScene(const std::vector<std::unique_ptr<Object>>& objs)
 {
@@ -163,6 +163,9 @@ void GlslSceneMemory::setScene(const std::vector<std::unique_ptr<Object>>& objs)
 			addObject(it);
 		}
 	}
+	std::cout << this->primitives_buffer.size() * sizeof(GLSL_Primitive) + this->vec2_buffer.size() * sizeof(GLSL_vec2) + this->vec3_buffer.size() * sizeof(GLSL_vec3) +
+		this->bb_buffer.size() * sizeof(GLSL_BoundingBoxData) + this->blas_mapping_buffer.size() * sizeof(int) + this->composed_object_nodes_buffer.size() * sizeof(GLSL_ComposedObject) +
+		this->hierarchy_buffer.size() * sizeof(GLSL_ComposedObject) + this->int_buffer.size() * sizeof(int) + this->mat3_buffer.size() * sizeof(GLSL_mat3) << '\n';
 }
 
 
@@ -170,6 +173,9 @@ void GlslSceneMemory::setSceneAsComposedObject(const std::unique_ptr<Object>& ob
 {
 	//setComposedObject(obj, 0, 0, nullptr, std::set<int>());
 	setHierarchyObject(obj, 0);
+	std::cout << this->primitives_buffer.size() * sizeof(GLSL_Primitive) + this->vec2_buffer.size() * sizeof(GLSL_vec2) + this->vec3_buffer.size() * sizeof(GLSL_vec3) +
+		this->bb_buffer.size() * sizeof(GLSL_BoundingBoxData) + this->blas_mapping_buffer.size() * sizeof(int) + this->composed_object_nodes_buffer.size() * sizeof(GLSL_ComposedObject) +
+		this->hierarchy_buffer.size() * sizeof(GLSL_ComposedObject) + this->int_buffer.size() * sizeof(int) + this->mat3_buffer.size() * sizeof(GLSL_mat3) << '\n';
 }
 
 /*void GlslSceneMemory::setSceneAsComposedObject(const std::unique_ptr<Object>& obj, const std::set<int>& important_ids, std::map<int, int>& map_of_ids)
