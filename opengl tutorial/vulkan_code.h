@@ -47,8 +47,23 @@ enum Renderer
     OPENGL
 };
 
+
+
+
 class VulkanApp {
-    
+public:
+    struct Vertex
+    {
+        float position[3];
+        Vertex(float a, float b, float c) { position[0] = a; position[1] = b; position[2] = c; }
+    };
+    struct MashInfo
+    {
+        std::vector<Vertex> vertexes;
+        std::vector<uint32_t> indices;
+        VkVertexInputBindingDescription getVertexBindingDescription();
+        std::vector< VkVertexInputAttributeDescription> getAttributeDescriptions();
+    };
     const uint32_t WIDTH = 1000;
     const uint32_t HEIGHT = 1000;
     const uint32_t INTERSECTION_STACK_SIZE = 100;
@@ -87,13 +102,17 @@ public:
     void cursorMoveCallback(GLFWwindow* window, double xpos, double ypos);
     void setCameraSpeed(double speed);
     void setCameraPosition(const Vector<3>& pos);
+    void setMashScene(const MashInfo& scene);
 private:
+    double z_near = 0.1, z_far = 1000;
     double cam_speed = 0.2;
     Vector<3> camera = { 0, -5, 0 } ;
     //Vector<3> camera = {532189247., 178726908., 0.};
     Vector<3> camera_direction = { 0, 1, 0 };
     Vector<3> right_vec = { 1, 0, 0 };
     Vector<3> up_vector = { 0, 0, 1 };
+
+    MashInfo mash_scene;
 
     GLFWwindow* window;
 
@@ -118,6 +137,25 @@ private:
     VkRenderPass renderPass;
     VkPipelineLayout pipelineLayout;
     VkPipeline graphicsPipeline;
+
+    /*for triags pipeline*/
+    VkPipelineLayout triagsPipelineLayout;
+    VkPipeline triagsPipeline;
+    VkFramebuffer triag_frame_buffer;
+    VkRenderPass triags_render_pass;
+    VkBuffer vertex_buffer, indices_buffer;
+    VkDeviceMemory vertex_buffer_memory, indices_buffer_memory;
+    VkDescriptorSetLayout triag_ds_layout;
+    VkDescriptorPool triag_ds_pool;
+    VkDescriptorSet triag_ds_set;
+    void makeRenderPassForTriags();
+    void makeDescriptorSetLayoutForTriags();
+    void makePipelineForTriags();
+    void makeDescriptorSetAndPoolForTriags();
+    void makeBuffersForTriags();
+    void prepareTriagsPipeline();
+    void drawTriags();
+    /*----------------*/
 
     VkPipelineLayout computeLayout;
     VkPipeline computePipeline;

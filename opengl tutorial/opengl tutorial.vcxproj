@@ -130,7 +130,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(LIBIFC)\include;$(BOOST);$(VULKAN_SDK)\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(LIBIFC)\include;$(BOOST);$(LIBIFC)\Xerces\include;$(LIBIFC)\stb;$(LIBIFC)\SQLite3\include;$(LIBIFC)\PROJ\include;$(LIBIFC)\OCCT\inc;$(LIBIFC)\OCCT;$(LIBIFC)\external\nlohmann;$(LIBIFC)\external\LIBCITYGML\include;$(LIBIFC)\external\GDAL\include;$(LIBIFC)\external\ASSIMP\include;$(VULKAN_SDK)\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
@@ -152,7 +152,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(LIBIFC)\include;$(BOOST);$(VULKAN_SDK)\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(LIBIFC)\include;$(BOOST);$(LIBIFC)\Xerces\include;$(LIBIFC)\stb;$(LIBIFC)\SQLite3\include;$(LIBIFC)\PROJ\include;$(LIBIFC)\OCCT\inc;$(LIBIFC)\OCCT;$(LIBIFC)\external\nlohmann;$(LIBIFC)\external\LIBCITYGML\include;$(LIBIFC)\external\GDAL\include;$(LIBIFC)\external\ASSIMP\include;$(VULKAN_SDK)\Include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>

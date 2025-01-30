@@ -721,6 +721,16 @@ int main(int argc, char * argv[]) {
 		return 0;
 	}
 
+	app.setMashScene({ std::vector<VulkanApp::Vertex>{
+		VulkanApp::Vertex{-1.0f, 1.0f, 0.0f},
+		VulkanApp::Vertex{-1.f, -1.f, 0.f},
+		VulkanApp::Vertex{1.f, 1.f, 0.f},
+		VulkanApp::Vertex{1.f, -1.f, 0.f}
+	},
+		std::vector<uint32_t>{
+			0, 1, 2, 2, 1, 3
+		} });
+	
 	// 
 	//auto obj_str = parse(readFile(scene_file));
 	//obj_str.obj_scene = makeAnHierarchy(dissolveHierarchy(turnToHierarchy(obj_str.obj_scene)));
